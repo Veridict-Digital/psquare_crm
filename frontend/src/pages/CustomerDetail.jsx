@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallPopup } from '../context/CallPopupContext';
+import { User, CheckCircle, Hash, Phone, Mail, ShoppingBag, Edit, Trash2, Save, X, PenTool, Plus } from 'lucide-react';
+import { MapPin, DollarSign, UserCheck} from 'lucide-react';
 
 const CustomerDetail = () => {
   const { id } = useParams();
@@ -11,10 +13,14 @@ const CustomerDetail = () => {
   const { openPopup } = useCallPopup();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const [editingField, setEditingField] = useState(null);
+  const [tempValue, setTempValue] = useState('');
   const [callHistoryOpen, setCallHistoryOpen] = useState(false);
   const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
   const [callLogsPage, setCallLogsPage] = useState(1);
   const [ordersPage, setOrdersPage] = useState(1);
+  const [showAddPhone, setShowAddPhone] = useState(false);
+  const [newPhoneNumber, setNewPhoneNumber] = useState('');
   const itemsPerPage = 5;
 
   const { data: customerDetails, isLoading, error } = useQuery({
@@ -35,6 +41,19 @@ const CustomerDetail = () => {
     onSuccess: () => navigate('/customers'),
   });
 
+  const createCustomerMutation = useMutation({
+    mutationFn: (data) => axios.post('/api/customers/', data),
+    onSuccess: (response) => {
+      navigate(`/customers/${response.data.id}`);
+      setShowAddPhone(false);
+      setNewPhoneNumber('');
+    },
+    onError: (error) => {
+      console.error('Error creating customer:', error.response?.data);
+      alert('Error creating customer: ' + JSON.stringify(error.response?.data || error.message));
+    },
+  });
+
   useEffect(() => {
     if (customerDetails?.customer) setFormData(customerDetails.customer);
   }, [customerDetails]);
@@ -42,6 +61,24 @@ const CustomerDetail = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     updateMutation.mutate(formData);
+  };
+
+  const startEditing = (field, currentValue) => {
+    setEditingField(field);
+    setTempValue(currentValue || '');
+  };
+
+  const saveEdit = () => {
+    if (editingField) {
+      updateMutation.mutate({ [editingField]: tempValue });
+      setEditingField(null);
+      setTempValue('');
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setTempValue('');
   };
 
   if (isLoading) return (
@@ -62,57 +99,265 @@ const CustomerDetail = () => {
   const orders = customerDetails?.orders || [];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-full">
+    <>
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+      <div className="container mx-auto px-4 py-8 max-w-full min-h-screen overflow-y-auto">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">{customer?.name}</h1>
-          <p className="text-lg text-gray-600">Customer ID: #{customer?.id}</p>
+      <div className="mb-4">
+  <div className="flex justify-between items-center">
+    {/* Left side: Avatar + Name + Verified */}
+    <div className="flex items-center space-x-6">
+      {/* Avatar */}
+      <div className="relative">
+        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-4 border-white shadow-lg flex items-center justify-center">
+          <User className="h-10 w-10 text-blue-600" />
         </div>
-        <div className="flex space-x-4">
-          <button
-            onClick={() => openPopup(customer)}
-            className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium"
-          >
-            Call Now
-          </button>
-          <button
-            onClick={() => window.open(`/orders/new?customer=${customer.id}`, '_blank')}
-            className="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 transition-colors font-medium"
-          >
-            Place Order
-          </button>
-          <Link
-            to={`/customers/edit/${id}`}
-            className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium"
-          >
-            Edit Customer
-          </Link>
-          <button
-            onClick={() => deleteMutation.mutate()}
-            className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors font-medium"
-          >
-            Delete Customer
-          </button>
-        </div>
+        <div className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Calls</p>
-              <p className="text-2xl font-bold text-gray-900">{summary?.total_calls || 0}</p>
-            </div>
-          </div>
-        </div>
+      {/* Name + Verified */}
+      <div className="flex items-center space-x-4">
+        <h1 className="text-4xl font-bold text-gray-900">{customer?.name}</h1>
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
+          <CheckCircle className="h-3 w-3 mr-1.5" />
+          Verified
+        </span>
+      </div>
+    </div>
 
+    {/* Right side: Buttons aligned with name */}
+    <div className="flex space-x-3">
+      <button
+        onClick={() => openPopup(customer)}
+        className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
+      >
+        <Phone className="h-4 w-4 mr-2" />
+        Call Now
+      </button>
+      <button
+        onClick={() => window.open(`/orders/new?customer=${customer.id}`, '_blank')}
+        className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-purple-500 to-violet-600 text-white font-medium rounded-lg hover:from-purple-600 hover:to-violet-700 transition-all duration-200 shadow-lg shadow-purple-500/25"
+      >
+        <ShoppingBag className="h-4 w-4 mr-2" />
+        Place Order
+      </button>
+      <Link
+        to={`/customers/edit/${id}`}
+        className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25"
+      >
+        <Edit className="h-4 w-4 mr-2" />
+        Edit Profile
+      </Link>
+      <button
+        onClick={() => deleteMutation.mutate()}
+        className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-red-500 to-rose-600 text-white font-medium rounded-lg hover:from-red-600 hover:to-rose-700 transition-all duration-200 shadow-lg shadow-red-500/25"
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Delete
+      </button>
+    </div>
+  </div>
+
+  {/* Secondary info below */}
+              <div className="flex items-center space-x-6 mt-4 flex-wrap gap-2 ml-4">
+              <div className="flex items-center text-lg text-gray-600">
+                <span className="font-medium mr-2">ID:</span>
+                <span className="font-bold text-gray-900">#{customer?.id}</span>
+              </div>
+              <div className="flex items-center text-lg text-gray-600">
+                <User className="h-5 w-5 mr-2 text-gray-400" />
+                <span className="font-medium mr-2">Name:</span>
+                {editingField === 'name' ? (
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      autoFocus
+                    />
+                    <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
+                      <Save className="h-4 w-4" />
+                    </button>
+                    <button onClick={cancelEdit} className="text-red-600 hover:text-red-800">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold text-gray-900">{customer?.name}</span>
+                    <button onClick={() => startEditing('name', customer?.name)} className="text-gray-400 hover:text-gray-600">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {customer?.phone && (
+                <div className="flex items-center text-lg text-gray-600">
+                  <Phone className="h-5 w-5 mr-2 text-gray-400" />
+                  <span className="font-medium mr-2">Phone:</span>
+                  {editingField === 'phone' ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                        autoFocus
+                      />
+                      <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
+                        <Save className="h-4 w-4" />
+                      </button>
+                      <button onClick={cancelEdit} className="text-red-600 hover:text-red-800">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-gray-900">{customer?.phone}</span>
+                      <button onClick={() => startEditing('phone', customer?.phone)} className="text-gray-400 hover:text-gray-600">
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!showAddPhone ? (
+                <button onClick={() => setShowAddPhone(true)} className="inline-flex items-center px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Another Phone No
+                </button>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={newPhoneNumber}
+                    onChange={(e) => setNewPhoneNumber(e.target.value)}
+                    placeholder="Enter new phone number"
+                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                    autoFocus
+                  />
+                  <button onClick={() => createCustomerMutation.mutate({ name: customer.name, address: customer.address, email: customer.email, phone: newPhoneNumber, pincode: customer.pincode })} className="text-green-600 hover:text-green-800">
+                    <Save className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => { setShowAddPhone(false); setNewPhoneNumber(''); }} className="text-red-600 hover:text-red-800">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              {customer?.email && (
+                <div className="flex items-center text-lg text-gray-600">
+                  <Mail className="h-5 w-5 mr-2 text-gray-400" />
+                  <span className="font-medium mr-2">Email:</span>
+                  {editingField === 'email' ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="email"
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                        autoFocus
+                      />
+                      <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
+                        <Save className="h-4 w-4" />
+                      </button>
+                      <button onClick={cancelEdit} className="text-red-600 hover:text-red-800">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-gray-900">{customer?.email}</span>
+                      <button onClick={() => startEditing('email', customer?.email)} className="text-gray-400 hover:text-gray-600">
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {summary?.total_calls > 0 && (<div className="flex items-center text-lg text-gray-600">
+                <Phone className="h-5 w-5 mr-2 text-gray-400" />
+                <span className="font-medium mr-2">Total Calls:</span>
+                <span className="font-semibold text-gray-900">{summary?.total_calls}</span>
+              </div>)}
+              {summary?.unique_employees > 0 && (<div className="flex items-center text-lg text-gray-600">
+                <User className="h-5 w-5 mr-2 text-gray-400" />
+                <span className="font-medium mr-2">Unique Employees:</span>
+                <span className="font-semibold text-gray-900">{summary?.unique_employees}</span>
+              </div>)}
+              {customer?.pincode && (
+                <div className="flex items-center text-lg text-gray-600">
+                  <MapPin className="h-5 w-5 mr-2 text-gray-400" />
+                  <span className="font-medium mr-2">Pincode:</span>
+                  {editingField === 'pincode' ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                        autoFocus
+                      />
+                      <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
+                        <Save className="h-4 w-4" />
+                      </button>
+                      <button onClick={cancelEdit} className="text-red-600 hover:text-red-800">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-gray-900">{customer?.pincode}</span>
+                      <button onClick={() => startEditing('pincode', customer?.pincode)} className="text-gray-400 hover:text-gray-600">
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {customer?.address && (
+                <div className="flex items-center text-lg text-gray-600">
+                  <MapPin className="h-5 w-5 mr-2 text-gray-400" />
+                  <span className="font-medium mr-2">Address:</span>
+                  {editingField === 'address' ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                        autoFocus
+                      />
+                      <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
+                        <Save className="h-4 w-4" />
+                      </button>
+                      <button onClick={cancelEdit} className="text-red-600 hover:text-red-800">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-gray-900">{customer?.address}</span>
+                      <button onClick={() => startEditing('address', customer?.address)} className="text-gray-400 hover:text-gray-600">
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+</div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center">
             <div className="p-3 bg-green-100 rounded-lg">
@@ -149,97 +394,130 @@ const CustomerDetail = () => {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Unique Employees</p>
-              <p className="text-2xl font-bold text-gray-900">{summary?.unique_employees || 0}</p>
+              <p className="text-sm font-medium text-gray-600">Total Paid</p>
+              <p className="text-2xl font-bold text-gray-900">₹{summary?.total_paid?.toFixed(2) || '0.00'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Pending Amount</p>
+              <p className="text-2xl font-bold text-gray-900">₹{summary?.total_pending?.toFixed(2) || '0.00'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Assigned Agent</p>
+              <p className="text-2xl font-bold text-gray-900">{customer?.agent_name || 'Not assigned'}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Payment Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-green-600">Total Paid</p>
-                <p className="text-2xl font-bold text-green-900">₹{summary?.total_paid?.toFixed(2) || '0.00'}</p>
-              </div>
-            </div>
+      {/* Call Timeline */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-4 max-h-96 overflow-y-auto">
+        <div className="flex items-center">
+          <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
-
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-red-100 rounded-lg">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-red-600">Pending Amount</p>
-                <p className="text-2xl font-bold text-red-900">₹{summary?.total_pending?.toFixed(2) || '0.00'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-blue-600">Total Orders</p>
-                <p className="text-2xl font-bold text-blue-900">{summary?.total_orders || 0}</p>
-              </div>
-            </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Call Timeline</h2>
           </div>
         </div>
+
+        {callLogs.length === 0 ? (
+          <div className="text-center py-12">
+            <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-gray-500 text-lg">No call logs found for this customer.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {callLogs
+              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .map((call, index) => {
+                const callDate = new Date(call.date);
+                const formattedDate = callDate.toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                });
+                const formattedTime = callDate.toLocaleTimeString('en-GB', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                });
+
+                return (
+                  <div key={call.id} className="flex items-start space-x-4 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                    <div className="flex-shrink-0">
+                      <div className={`w-3 h-3 rounded-full mt-2 ${
+                        call.status === 'Completed' ? 'bg-green-500' :
+                        call.status === 'Follow-up' ? 'bg-yellow-500' :
+                        'bg-gray-500'
+                      }`}></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-1">
+                        <span className="font-medium text-gray-900">{formattedDate}</span>
+                        <span>|</span>
+                        <span className="font-medium text-gray-900">{formattedTime}</span>
+                        <span>|</span>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          call.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                          call.status === 'Follow-up' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {call.status}
+                        </span>
+                        {call.order_placed === 'Yes' && (
+                          <>
+                            <span>|</span>
+                            <span className="text-green-600 font-medium">Order Placed</span>
+                          </>
+                        )}
+                        {call.assumption_name && (
+                          <>
+                            <span>|</span>
+                            <span className="text-blue-600 font-medium">Assumption: {call.assumption_name}</span>
+                          </>
+                        )}
+
+                      <div className="text-gray-900 max-h-20 overflow-y-auto hide-scrollbar">
+                        <span className="font-medium text-gray-700">Notes: </span>
+                        <span className="text-gray-900">{call.note || 'No notes provided'}</span>
+                      </div>
+                      </div>
+                      <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
+                        <span>Call ID: {call.call_id}</span>
+                        <span>Duration: {call.duration_minutes} min</span>
+                        <span>Agent: {call.employee_name || 'Unknown'}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
-
-      {/* Customer Information */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8 mt-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Customer Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-2">Name</label>
-            <p className="text-lg font-semibold text-gray-900">{customer?.name}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-2">Email</label>
-            <p className="text-lg text-gray-900">{customer?.email || 'Not provided'}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-2">Phone</label>
-            <p className="text-lg text-gray-900">{customer?.phone}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-2">Pincode</label>
-            <p className="text-lg text-gray-900">{customer?.pincode}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-2">Agent</label>
-            <p className="text-lg text-gray-900">{customer?.agent_name || 'Not assigned'}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-2">Total Order Value</label>
-            <p className="text-lg font-semibold text-green-600">₹{customer?.total_order_value}</p>
-          </div>
-        </div>
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-500 mb-2">Address</label>
-          <p className="text-lg text-gray-900">{customer?.address}</p>
-        </div>
-      </div>
-
       {/* Call Logs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
         <button
           onClick={() => setCallHistoryOpen(!callHistoryOpen)}
           className="w-full flex justify-between items-center text-left"
@@ -265,6 +543,7 @@ const CustomerDetail = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Call ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
@@ -275,6 +554,9 @@ const CustomerDetail = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {callLogs.slice((callLogsPage - 1) * itemsPerPage, callLogsPage * itemsPerPage).map((call) => (
                         <tr key={call.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {call.call_id}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {new Date(call.date).toLocaleDateString()} {new Date(call.date).toLocaleTimeString()}
                           </td>
@@ -353,82 +635,59 @@ const CustomerDetail = () => {
               <p className="text-gray-500 text-center py-8">No orders found for this customer.</p>
             ) : (
               <>
-                <div className="space-y-6">
-                  {orders.slice((ordersPage - 1) * itemsPerPage, ordersPage * itemsPerPage).map((order) => (
-                    <div key={order.id} className="border border-gray-200 rounded-lg p-6">
-                      {/* Order Header */}
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">Order #{order.id}</h3>
-                          <p className="text-sm text-gray-600">
-                            {new Date(order.order_date).toLocaleDateString()} • Agent: {order.agent}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
-                            order.status === 'Dispatched' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {order.status}
-                          </span>
-                          <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            order.payment_status === 'Paid' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {order.payment_status}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Order Items */}
-                      <div className="mb-4">
-                        <h4 className="text-md font-medium text-gray-900 mb-3">Products Purchased:</h4>
-                        <div className="space-y-2">
-                          {order.items && order.items.length > 0 ? (
-                            order.items.map((item, index) => (
-                              <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
-                                <div className="flex-1">
-                                  <span className="font-medium text-gray-900">{item.product_title}</span>
-                                  <span className="text-sm text-gray-600 ml-2">(SKU: {item.product_sku})</span>
-                                </div>
-                                <div className="flex items-center space-x-4 text-sm">
-                                  <span className="text-gray-600">
-                                    Qty: {item.quantity} × ₹{item.unit_price}
-                                  </span>
-                                  <span className="text-gray-600">
-                                    GST: {item.gst_rate}%
-                                  </span>
-                                  <span className="font-medium text-gray-900">
-                                    ₹{item.total_price}
-                                  </span>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-gray-500 text-sm">No product details available</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Order Summary */}
-                      <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                        <div className="text-sm text-gray-600">
-                          Total Items: {order.items ? order.items.reduce((sum, item) => sum + item.quantity, 0) : 0}
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm text-gray-600">
-                            Paid: ₹{order.paid_amount} / Total: ₹{order.total_amount}
-                          </div>
-                          {order.payment_status === 'Credit' && (
-                            <div className="text-sm text-red-600 font-medium">
-                              Pending: ₹{(order.total_amount - order.paid_amount).toFixed(2)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {orders.slice((ordersPage - 1) * itemsPerPage, ordersPage * itemsPerPage).map((order) => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.order_id}
+                          </td> */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <Link to={`/orders/${order.id}`} className="text-blue-600 hover:text-blue-900 font-medium">
+                    {order.order_id || `ORD-${order.id}`}
+                  </Link>
+                </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(order.order_date).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.agent}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
+                              order.status === 'Dispatched' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              order.payment_status === 'Paid' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {order.payment_status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ₹{order.total_amount}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Pagination for Orders */}
@@ -459,9 +718,8 @@ const CustomerDetail = () => {
         )}
       </div>
 
-      {/* Payment Summary */}
-      
     </div>
+    </>
   );
 };
 

@@ -104,10 +104,10 @@ const ProductList = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
-    if (!amount) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
+    if (!amount) return '₹0.00';
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 2
     }).format(amount);
   };

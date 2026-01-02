@@ -20,10 +20,12 @@ const Navigation = () => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/customers', label: 'Customers', icon: '👥' },
+    { path: '/leads', label: 'Leads', icon: '📄' },
     { path: '/orders', label: 'Orders', icon: '📦' },
     { path: '/products', label: 'Products', icon: '🛍️' },
     { path: '/users', label: 'Users', icon: '👤' },
     { path: '/calllogs', label: 'Call Logs', icon: '📞' },
+    { path: '/profile', label: 'Profile', icon: '👨‍💼' },
   ];
 
   return (

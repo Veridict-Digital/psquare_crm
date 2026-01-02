@@ -1,17 +1,43 @@
 from rest_framework import serializers
-from .models import User, Customer, Product, Order, OrderItem, CallLog
+from django.db import models
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, Lead
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'pincode_territory']
+        fields = ['id', 'username', 'email', 'role', 'pincode_territory', 'password']
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
 
 class CustomerSerializer(serializers.ModelSerializer):
     agent_name = serializers.CharField(source='agent.username', read_only=True)
+    total_order_value = serializers.SerializerMethodField()
+
+    def get_total_order_value(self, obj):
+        # Calculate total order value from all orders for this customer
+        total = obj.order_set.aggregate(total=models.Sum('total_amount'))['total'] or 0
+        return total
 
     class Meta:
         model = Customer
         fields = '__all__'
+        extra_kwargs = {
+            'kyc_file': {'required': False},
+            'agent': {'required': False},
+            'created_at': {'read_only': True},
+        }
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,6 +79,16 @@ class OrderSerializer(serializers.ModelSerializer):
             'agent': {'required': False}
         }
 
+class CustomerAssumptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerAssumption
+        fields = '__all__'
+
+class LeadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lead
+        fields = '__all__'
+
 class CallLogSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source='customer.name', read_only=True)
     employee_name = serializers.CharField(source='employee.username', read_only=True)
@@ -60,6 +96,7 @@ class CallLogSerializer(serializers.ModelSerializer):
     order_placed = serializers.SerializerMethodField()
     order_id = serializers.SerializerMethodField()
     order_pk = serializers.SerializerMethodField()
+    assumption_name = serializers.CharField(source='assumption.name', read_only=True)
 
     def get_duration_minutes(self, obj):
         if obj.duration:
@@ -77,4 +114,4 @@ class CallLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CallLog
-        fields = ['id', 'call_id', 'customer', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk']
+        fields = ['id', 'call_id', 'customer', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_name']

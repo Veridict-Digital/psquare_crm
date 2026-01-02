@@ -23,6 +23,8 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import UserEdit from './pages/UserEdit';
 import OrderDetail from './pages/OrderDetail';
+import Profile from './pages/Profile';
+import LeadList from './pages/LeadList';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 const queryClient = new QueryClient();
@@ -56,10 +58,13 @@ const AppContent = () => {
           <Route path="/users/edit/:id" element={<UserEdit />} />
           <Route path="/calllogs" element={<CallLogList />} />
           <Route path="/calllogs/edit/:id" element={<CallLogEdit />} />
+          <Route path="/leads" element={<LeadList />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          
+          <Route path="/profile" element={<Profile />} />
+
+
         </Routes>
       </div>
     </>

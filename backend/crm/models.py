@@ -18,8 +18,8 @@ class Customer(models.Model):
     pincode = models.CharField(max_length=10)
     address = models.TextField()
     kyc_file = models.FileField(upload_to='kyc/', blank=True, null=True)
-    total_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         # Always try to assign the best agent based on pincode
@@ -59,7 +59,8 @@ class Order(models.Model):
         ('Delivered', 'Delivered'),
     ]
     PAYMENT_STATUS_CHOICES = [
-        ('Paid', 'Paid'),
+        ('Paid', 'Full Paid'),
+        ('Partial', 'Partial'),
         ('Credit', 'Credit'),
     ]
     order_id = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Order ID
@@ -101,6 +102,15 @@ class OrderItem(models.Model):
     def __str__(self):
         return f"{self.product.title} x{self.quantity} for Order #{self.order.id}"
 
+class CustomerAssumption(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
 class CallLog(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
@@ -116,16 +126,44 @@ class CallLog(models.Model):
     note = models.TextField()
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True, related_name='call_logs')
+    assumption = models.ForeignKey(CustomerAssumption, on_delete=models.SET_NULL, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.call_id:
             # Generate unique Call ID
             import uuid
             self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
+        else:
+            # If call_id is provided (from call tracker), use it but ensure uniqueness
+            # Check if this call_id already exists
+            if CallLog.objects.filter(call_id=self.call_id).exists():
+                # If it exists, generate a new one
+                import uuid
+                self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Call Log #{self.call_id} - {self.customer.name}"
+
+class Lead(models.Model):
+    STATUS_CHOICES = [
+        ('New', 'New'),
+        ('Contacted', 'Contacted'),
+        ('Qualified', 'Qualified'),
+        ('Converted', 'Converted'),
+        ('Lost', 'Lost'),
+    ]
+    name = models.CharField(max_length=100, blank=True, null=True)
+    phone = models.CharField(max_length=15, unique=True)
+    email = models.EmailField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='New')
+    notes = models.TextField(blank=True, null=True)
+    agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name or 'Unknown'} - {self.phone}"
 
 class OTP(models.Model):
     email = models.EmailField()

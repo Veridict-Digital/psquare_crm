@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Customer, Product, Order, CallLog
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -7,7 +7,7 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'phone', 'pincode', 'total_order_value', 'agent']
+    list_display = ['name', 'phone', 'pincode', 'agent']
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -20,3 +20,7 @@ class OrderAdmin(admin.ModelAdmin):
 @admin.register(CallLog)
 class CallLogAdmin(admin.ModelAdmin):
     list_display = ['customer', 'duration', 'status']
+
+@admin.register(CustomerAssumption)
+class CustomerAssumptionAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description', 'is_active', 'created_at']

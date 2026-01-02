@@ -1,0 +1,3 @@
+- [ ] Add "Leads" to the sidebar menu in Navigation.jsx
+- [ ] Remove the duplicate /leads route in App.jsx
+- [ ] Modify LeadViewSet in views.py to validate phone number uniqueness against Customer model
