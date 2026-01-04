@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../api/axios';
 import { useState } from 'react';
 import { useCallPopup } from '../context/CallPopupContext';
@@ -21,15 +21,21 @@ import {
   TrendingUp,
   Users,
   Building,
-  AlertCircle
+  AlertCircle,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 
 const CustomerList = () => {
   const [search, setSearch] = useState('');
   const [filterAgent, setFilterAgent] = useState('');
-  const [viewMode, setViewMode] = useState('card'); // 'table' or 'card'
+  const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [appointmentValue, setAppointmentValue] = useState('');
   const { openPopup } = useCallPopup();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['customers'],
@@ -71,6 +77,43 @@ const CustomerList = () => {
   const handleCall = (customer) => {
     setSelectedCustomer(customer);
     openPopup(customer);
+  };
+
+  // Mutation for updating appointment date
+  const updateAppointmentMutation = useMutation({
+    mutationFn: async ({ id, appointment_date }) => {
+      const response = await axios.patch(`/api/customers/${id}/`, { appointment_date });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['customers']);
+      setEditingAppointment(null);
+      setAppointmentValue('');
+    },
+    onError: (error) => {
+      console.error('Error updating appointment date:', error);
+      alert('Failed to update appointment date');
+    }
+  });
+
+  const handleEditAppointment = (customer) => {
+    setEditingAppointment(customer.id);
+    const date = customer.appointment_date || customer.created_at;
+    setAppointmentValue(date ? new Date(date).toISOString().split('T')[0] : '');
+  };
+
+  const handleSaveAppointment = () => {
+    if (editingAppointment) {
+      updateAppointmentMutation.mutate({
+        id: editingAppointment,
+        appointment_date: appointmentValue || null
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingAppointment(null);
+    setAppointmentValue('');
   };
 
   if (isLoading) return (
@@ -219,6 +262,7 @@ const CustomerList = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Contact</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Agent</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointment Date</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Order Value</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -269,6 +313,48 @@ const CustomerList = () => {
                           <User className="h-3 w-3 mr-1" />
                           {customer.agent_name || 'Unassigned'}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingAppointment === customer.id ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="date"
+                              value={appointmentValue}
+                              onChange={(e) => setAppointmentValue(e.target.value)}
+                              className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleSaveAppointment}
+                              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+                              title="Save"
+                              disabled={updateAppointmentMutation.isLoading}
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                              title="Cancel"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-sm text-gray-900">
+                              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                              {customer.appointment_date ? new Date(customer.appointment_date).toLocaleDateString() : new Date(customer.created_at).toLocaleDateString()}
+                            </div>
+                            <button
+                              onClick={() => handleEditAppointment(customer)}
+                              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded ml-2"
+                              title="Edit Appointment Date"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm font-semibold text-gray-900">
                         {formatCurrency(customer.total_order_value)}

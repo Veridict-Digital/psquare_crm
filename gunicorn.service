@@ -1,0 +1,14 @@
+[Unit]
+Description=gunicorn daemon for PSquare CRM
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/psquare_crm/backend
+Environment="PATH=/home/ubuntu/psquare_crm/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/ubuntu/psquare_crm/venv/bin/gunicorn --workers 3 --bind unix:/home/ubuntu/psquare_crm/backend/psquare_crm.sock backend.wsgi:application
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import models
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, Lead
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, LeadSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -355,8 +355,18 @@ class CustomerAssumptionViewSet(viewsets.ModelViewSet):
     serializer_class = CustomerAssumptionSerializer
     permission_classes = [IsAuthenticated]
 
+class CustomerAssumption2ViewSet(viewsets.ModelViewSet):
+    queryset = CustomerAssumption2.objects.filter(is_active=True)
+    serializer_class = CustomerAssumption2Serializer
+    permission_classes = [IsAuthenticated]
+
+class CustomerAssumption3ViewSet(viewsets.ModelViewSet):
+    queryset = CustomerAssumption3.objects.filter(is_active=True)
+    serializer_class = CustomerAssumption3Serializer
+    permission_classes = [IsAuthenticated]
+
 class CallLogViewSet(viewsets.ModelViewSet):
-    queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'assumption')
+    queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'lead', 'assumption')
     serializer_class = CallLogSerializer
     permission_classes = [IsAuthenticated]
 
@@ -382,6 +392,39 @@ class LeadViewSet(viewsets.ModelViewSet):
         if phone and Customer.objects.filter(phone=phone).exists():
             return Response({'error': 'Phone number already exists as a customer'}, status=status.HTTP_400_BAD_REQUEST)
         return super().create(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def convert_to_customer(self, request, pk=None):
+        lead = self.get_object()
+
+        # Check if phone already exists as customer
+        if Customer.objects.filter(phone=lead.phone).exists():
+            return Response({'error': 'Phone number already exists as a customer'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create customer from lead data
+        customer_data = {
+            'name': lead.name or 'Unknown',
+            'phone': lead.phone,
+            'email': lead.email,
+            'pincode': '000000',  # Default pincode, can be updated later
+            'address': 'Address to be updated',  # Default address
+            'agent': lead.agent
+        }
+
+        customer_serializer = CustomerSerializer(data=customer_data)
+        if customer_serializer.is_valid():
+            customer = customer_serializer.save()
+
+            # Update lead status to Converted
+            lead.status = 'Converted'
+            lead.save()
+
+            return Response({
+                'message': 'Lead converted to customer successfully',
+                'customer': customer_serializer.data
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response(customer_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny

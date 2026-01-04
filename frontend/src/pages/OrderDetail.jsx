@@ -148,15 +148,18 @@ const OrderDetail = () => {
       <div className="max-w-full mx-auto">
         {/* Header Section */}
         <div className="mb-8">
+          {/* Back Button */}
+          <div className="mb-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors duration-200"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </button>
+          </div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
-              <Link 
-                to="/orders" 
-                className="inline-flex items-center text-gray-600 hover:text-blue-600 transition duration-200 mb-4"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Orders
-              </Link>
               <div className="flex items-center gap-4">
                 <h1 className="text-3xl font-bold text-gray-900">Order Details</h1>
                 <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold border ${getStatusColor(order.status)}`}>

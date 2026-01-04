@@ -13,12 +13,14 @@ class User(AbstractUser):
 
 class Customer(models.Model):
     name = models.CharField(max_length=100)
+    company_name = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=15, unique=True)
     pincode = models.CharField(max_length=10)
     address = models.TextField()
     kyc_file = models.FileField(upload_to='kyc/', blank=True, null=True)
     agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    appointment_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -103,7 +105,25 @@ class OrderItem(models.Model):
         return f"{self.product.title} x{self.quantity} for Order #{self.order.id}"
 
 class CustomerAssumption(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+class CustomerAssumption2(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+class CustomerAssumption3(models.Model):
+    name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
@@ -119,7 +139,8 @@ class CallLog(models.Model):
     ]
 
     call_id = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Call ID
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
+    lead = models.ForeignKey('Lead', on_delete=models.CASCADE, null=True, blank=True)
     employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='call_logs', null=True, blank=True)  # Add this
     date = models.DateTimeField(auto_now_add=True)  # Add this
     duration = models.DurationField()
@@ -127,6 +148,8 @@ class CallLog(models.Model):
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True, related_name='call_logs')
     assumption = models.ForeignKey(CustomerAssumption, on_delete=models.SET_NULL, null=True, blank=True)
+    assumption2 = models.ForeignKey(CustomerAssumption2, on_delete=models.SET_NULL, null=True, blank=True)
+    assumption3 = models.ForeignKey(CustomerAssumption3, on_delete=models.SET_NULL, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.call_id:
@@ -143,7 +166,12 @@ class CallLog(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Call Log #{self.call_id} - {self.customer.name}"
+        if self.customer:
+            return f"Call Log #{self.call_id} - {self.customer.name}"
+        elif self.lead:
+            return f"Call Log #{self.call_id} - {self.lead.name or 'Unknown Lead'}"
+        else:
+            return f"Call Log #{self.call_id}"
 
 class Lead(models.Model):
     STATUS_CHOICES = [
@@ -159,6 +187,7 @@ class Lead(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='New')
     notes = models.TextField(blank=True, null=True)
     agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    appointment_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

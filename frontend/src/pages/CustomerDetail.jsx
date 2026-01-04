@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallPopup } from '../context/CallPopupContext';
-import { User, CheckCircle, Hash, Phone, Mail, ShoppingBag, Edit, Trash2, Save, X, PenTool, Plus } from 'lucide-react';
+import { User, CheckCircle, Hash, Phone, Mail, ShoppingBag, Edit, Trash2, Save, X, PenTool, Plus, ArrowLeft } from 'lucide-react';
 import { MapPin, DollarSign, UserCheck} from 'lucide-react';
 
 const CustomerDetail = () => {
@@ -110,6 +110,16 @@ const CustomerDetail = () => {
         }
       `}</style>
       <div className="container mx-auto px-4 py-8 max-w-full min-h-screen overflow-y-auto">
+        {/* Back Button */}
+        <div className="mb-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </button>
+        </div>
       {/* Header */}
       <div className="mb-4">
   <div className="flex justify-between items-center">
@@ -168,38 +178,6 @@ const CustomerDetail = () => {
 
   {/* Secondary info below */}
               <div className="flex items-center space-x-6 mt-4 flex-wrap gap-2 ml-4">
-              <div className="flex items-center text-lg text-gray-600">
-                <span className="font-medium mr-2">ID:</span>
-                <span className="font-bold text-gray-900">#{customer?.id}</span>
-              </div>
-              <div className="flex items-center text-lg text-gray-600">
-                <User className="h-5 w-5 mr-2 text-gray-400" />
-                <span className="font-medium mr-2">Name:</span>
-                {editingField === 'name' ? (
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={tempValue}
-                      onChange={(e) => setTempValue(e.target.value)}
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
-                      autoFocus
-                    />
-                    <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
-                      <Save className="h-4 w-4" />
-                    </button>
-                    <button onClick={cancelEdit} className="text-red-600 hover:text-red-800">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span className="font-semibold text-gray-900">{customer?.name}</span>
-                    <button onClick={() => startEditing('name', customer?.name)} className="text-gray-400 hover:text-gray-600">
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
               {customer?.phone && (
                 <div className="flex items-center text-lg text-gray-600">
                   <Phone className="h-5 w-5 mr-2 text-gray-400" />
@@ -251,36 +229,6 @@ const CustomerDetail = () => {
                   <button onClick={() => { setShowAddPhone(false); setNewPhoneNumber(''); }} className="text-red-600 hover:text-red-800">
                     <X className="h-4 w-4" />
                   </button>
-                </div>
-              )}
-              {customer?.email && (
-                <div className="flex items-center text-lg text-gray-600">
-                  <Mail className="h-5 w-5 mr-2 text-gray-400" />
-                  <span className="font-medium mr-2">Email:</span>
-                  {editingField === 'email' ? (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="email"
-                        value={tempValue}
-                        onChange={(e) => setTempValue(e.target.value)}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm"
-                        autoFocus
-                      />
-                      <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
-                        <Save className="h-4 w-4" />
-                      </button>
-                      <button onClick={cancelEdit} className="text-red-600 hover:text-red-800">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <span className="font-semibold text-gray-900">{customer?.email}</span>
-                      <button onClick={() => startEditing('email', customer?.email)} className="text-gray-400 hover:text-gray-600">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
               {summary?.total_calls > 0 && (<div className="flex items-center text-lg text-gray-600">
@@ -371,7 +319,6 @@ const CustomerDetail = () => {
             </div>
           </div>
         </div>
-
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center">
             <div className="p-3 bg-purple-100 rounded-lg">
@@ -496,6 +443,18 @@ const CustomerDetail = () => {
                           <>
                             <span>|</span>
                             <span className="text-blue-600 font-medium">Assumption: {call.assumption_name}</span>
+                          </>
+                        )}
+                        {call.assumption2_name && (
+                          <>
+                            <span>|</span>
+                            <span className="text-blue-600 font-medium">Assumption 2: {call.assumption2_name}</span>
+                          </>
+                        )}
+                        {call.assumption3_name && (
+                          <>
+                            <span>|</span>
+                            <span className="text-blue-600 font-medium">Assumption 3: {call.assumption3_name}</span>
                           </>
                         )}
 

@@ -20,16 +20,21 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 
 const LeadList = () => {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [viewMode, setViewMode] = useState('card'); // 'table' or 'card'
+  const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
   const [selectedLead, setSelectedLead] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLead, setNewLead] = useState({ phone: '', name: '', email: '' });
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [appointmentValue, setAppointmentValue] = useState('');
   const { openPopup } = useCallPopup();
   const queryClient = useQueryClient();
 
@@ -54,6 +59,38 @@ const LeadList = () => {
     onError: (error) => {
       const errorMessage = error.response?.data?.error || error.response?.data?.phone?.[0] || error.message;
       alert('Error creating lead: ' + errorMessage);
+    },
+  });
+
+  const convertToCustomerMutation = useMutation({
+    mutationFn: async (leadId) => {
+      const response = await axios.post(`api/leads/${leadId}/convert_to_customer/`);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['leads']);
+      queryClient.invalidateQueries(['customers']);
+      alert('Lead converted to customer successfully!');
+    },
+    onError: (error) => {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      alert('Error converting lead to customer: ' + errorMessage);
+    },
+  });
+
+  const updateAppointmentMutation = useMutation({
+    mutationFn: async ({ leadId, appointmentDate }) => {
+      const response = await axios.patch(`api/leads/${leadId}/`, { appointment_date: appointmentDate });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['leads']);
+      setEditingAppointment(null);
+      setAppointmentValue('');
+    },
+    onError: (error) => {
+      const errorMessage = error.response?.data?.error || error.response?.data?.appointment_date?.[0] || error.message;
+      alert('Error updating appointment date: ' + errorMessage);
     },
   });
 
@@ -88,6 +125,24 @@ const LeadList = () => {
       return;
     }
     createLeadMutation.mutate(newLead);
+  };
+
+  const handleEditAppointment = (leadId, currentDate) => {
+    setEditingAppointment(leadId);
+    setAppointmentValue(currentDate ? new Date(currentDate).toISOString().split('T')[0] : '');
+  };
+
+  const handleSaveAppointment = (leadId) => {
+    if (!appointmentValue.trim()) {
+      alert('Please select a valid date');
+      return;
+    }
+    updateAppointmentMutation.mutate({ leadId, appointmentDate: appointmentValue });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingAppointment(null);
+    setAppointmentValue('');
   };
 
   const getStatusIcon = (status) => {
@@ -329,13 +384,14 @@ const LeadList = () => {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Lead</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointment Date</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-gray-50 transition duration-150">
+                  <tr key={lead.id} className="hover:bg-gray-50 transition duration-150 group">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0">
@@ -372,6 +428,46 @@ const LeadList = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
+                      {editingAppointment === lead.id ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="date"
+                            value={appointmentValue}
+                            onChange={(e) => setAppointmentValue(e.target.value)}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <button
+                            onClick={() => handleSaveAppointment(lead.id)}
+                            disabled={updateAppointmentMutation.isLoading}
+                            className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
+                            title="Save"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="p-1 text-red-600 hover:text-red-800"
+                            title="Cancel"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span>
+                            {lead.appointment_date ? new Date(lead.appointment_date).toLocaleDateString() : new Date(lead.created_at).toLocaleDateString()}
+                          </span>
+                          <button
+                            onClick={() => handleEditAppointment(lead.id, lead.appointment_date)}
+                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Edit appointment date"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
                       {new Date(lead.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
@@ -382,6 +478,14 @@ const LeadList = () => {
                           title="Call Lead"
                         >
                           <Phone className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => convertToCustomerMutation.mutate(lead.id)}
+                          disabled={convertToCustomerMutation.isLoading}
+                          className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition duration-200 disabled:opacity-50"
+                          title="Convert to Customer"
+                        >
+                          <User className="h-4 w-4" />
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition duration-200"
@@ -470,13 +574,21 @@ const LeadList = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="mt-6">
+                <div className="mt-6 space-y-2">
                   <button
                     onClick={() => handleCall(lead)}
                     className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2 shadow-lg"
                   >
                     <Phone className="h-5 w-5" />
                     Call Now
+                  </button>
+                  <button
+                    onClick={() => convertToCustomerMutation.mutate(lead.id)}
+                    disabled={convertToCustomerMutation.isLoading}
+                    className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                  >
+                    <User className="h-5 w-5" />
+                    Convert to Customer
                   </button>
                 </div>
               </div>

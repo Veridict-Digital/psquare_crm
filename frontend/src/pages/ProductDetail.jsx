@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from '../api/axios';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -23,6 +23,7 @@ import {
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const { data: product, isLoading, error } = useQuery({
     queryKey: ['product', id],
@@ -79,24 +80,24 @@ const ProductDetail = () => {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <Link 
-                to="/products" 
+              <button
+                onClick={() => navigate(-1)}
                 className="inline-flex items-center text-gray-600 hover:text-blue-600 transition duration-200 mb-2"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Products
-              </Link>
+                Back
+              </button>
               <h1 className="text-3xl font-bold text-gray-900">Product Details</h1>
               <p className="text-gray-600 mt-2">Comprehensive view of product information and metrics</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link 
-                to="/products" 
+              <button
+                onClick={() => navigate(-1)}
                 className="inline-flex items-center px-5 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition duration-200 shadow-sm"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Products List
-              </Link>
+                Back
+              </button>
               <Link 
                 to={`/products/edit/${product?.id}`}
                 className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition duration-200 shadow-lg shadow-blue-500/25"

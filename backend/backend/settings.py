@@ -26,9 +26,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = '8j2k9m4n6p8q3r5t7v9w1x3y5z7a9b2c4d6e8f0g2h4i6j8k0l2m4n6o8p0q2r4s6t8u0v2w4x6y8z'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['your-domain.com', 'your-ec2-public-ip']  # Replace with your actual domain and EC2 IP
+ALLOWED_HOSTS = ['your-domain.com', '3.108.121.188', 'localhost']  # Replace with your actual domain and EC2 IP
 
 
 # Application definition
@@ -82,6 +82,20 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'psquare_crm',
+        'HOST': 'localhost',
+        'PORT': '',  # Empty for default instances
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+            'trusted_connection': 'yes',
+        },
+    }
+}
+
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.mysql',
@@ -96,19 +110,19 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 #     }
 # }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'neondb',
-        'USER': 'neondb_owner',
-        'PASSWORD': 'npg_APVE24TWiCQO',
-        'HOST': 'ep-proud-pine-a19mysb7-pooler.ap-southeast-1.aws.neon.tech',
-        'PORT': '5432',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'neondb',
+#         'USER': 'neondb_owner',
+#         'PASSWORD': 'npg_APVE24TWiCQO',
+#         'HOST': 'ep-proud-pine-a19mysb7-pooler.ap-southeast-1.aws.neon.tech',
+#         'PORT': '5432',
+#         'OPTIONS': {
+#             'sslmode': 'require',
+#         },
+#     }
+# }
 
 
 # Password validation
@@ -177,22 +191,21 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOWED_ORIGINS = [
-    'http://your-domain.com',
-    'https://your-domain.com',
-    'http://your-ec2-public-ip',
-    'https://your-ec2-public-ip',
+    'http://3.108.121.188',
+    'http://localhost:3000',
+    'http://localhost:5173'
 ]
 
 # Email settings for OTP
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development - prints emails to console
 # For production, use SMTP backend:
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'  # or your SMTP server
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'your-email@gmail.com'
-# EMAIL_HOST_PASSWORD = 'your-app-password'
-# DEFAULT_FROM_EMAIL = 'your-email@gmail.com'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # or your SMTP server
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'parasdeshmane123@gmail.com'
+EMAIL_HOST_PASSWORD = 'vunz wdfc itje pgql'
+DEFAULT_FROM_EMAIL = 'parasdeshmane123@gmail.com'
 
 
 from datetime import timedelta

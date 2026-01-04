@@ -9,6 +9,7 @@ const CustomerNew = () => {
 
   const [formData, setFormData] = useState({
     name: '',
+    company_name: '',
     email: '',
     pincode: '',
     phone: '',
@@ -48,6 +49,16 @@ const CustomerNew = () => {
             onChange={handleChange}
             className="mt-1 block w-full border border-gray-300 rounded-md p-2"
             required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Company Name</label>
+          <input
+            type="text"
+            name="company_name"
+            value={formData.company_name}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
           />
         </div>
         <div>

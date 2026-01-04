@@ -74,15 +74,18 @@ const CustomerEdit = () => {
     pincode: '',
     phone: '',
     address: '',
+    appointment_date: '',
   });
 
   useEffect(() => {
     if (customer) {
       setFormData({
         name: customer.name || '',
+        email: customer.email || '',
         pincode: customer.pincode || '',
         phone: customer.phone || '',
         address: customer.address || '',
+        appointment_date: customer.appointment_date || customer.created_at || '',
       });
     }
   }, [customer]);
@@ -200,6 +203,16 @@ const CustomerEdit = () => {
             className="mt-1 block w-full border border-gray-300 rounded-md p-2"
             rows="3"
             required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Appointment Date</label>
+          <input
+            type="date"
+            name="appointment_date"
+            value={formData.appointment_date ? new Date(formData.appointment_date).toISOString().split('T')[0] : ''}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
           />
         </div>
         <div className="flex space-x-4">

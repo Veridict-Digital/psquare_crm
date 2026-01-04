@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, Lead
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -84,19 +84,38 @@ class CustomerAssumptionSerializer(serializers.ModelSerializer):
         model = CustomerAssumption
         fields = '__all__'
 
+class CustomerAssumption2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerAssumption2
+        fields = '__all__'
+
+class CustomerAssumption3Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerAssumption3
+        fields = '__all__'
+
 class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = '__all__'
 
 class CallLogSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source='customer.name', read_only=True)
+    customer_name = serializers.SerializerMethodField()
     employee_name = serializers.CharField(source='employee.username', read_only=True)
     duration_minutes = serializers.SerializerMethodField()
     order_placed = serializers.SerializerMethodField()
     order_id = serializers.SerializerMethodField()
     order_pk = serializers.SerializerMethodField()
     assumption_name = serializers.CharField(source='assumption.name', read_only=True)
+    assumption2_name = serializers.CharField(source='assumption2.name', read_only=True)
+    assumption3_name = serializers.CharField(source='assumption3.name', read_only=True)
+
+    def get_customer_name(self, obj):
+        if obj.customer:
+            return obj.customer.name
+        elif obj.lead:
+            return obj.lead.name or 'Unknown Lead'
+        return 'Unknown'
 
     def get_duration_minutes(self, obj):
         if obj.duration:
@@ -114,4 +133,4 @@ class CallLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CallLog
-        fields = ['id', 'call_id', 'customer', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_name']
+        fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_name', 'assumption2', 'assumption2_name', 'assumption3', 'assumption3_name']
