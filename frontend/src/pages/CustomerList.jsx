@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../api/axios';
 import { useState } from 'react';
 import { useCallPopup } from '../context/CallPopupContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -34,8 +34,11 @@ const CustomerList = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [appointmentValue, setAppointmentValue] = useState('');
+  const [editingTime, setEditingTime] = useState(null);
+  const [timeValue, setTimeValue] = useState('');
   const { openPopup } = useCallPopup();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['customers'],
@@ -66,7 +69,12 @@ const CustomerList = () => {
     customer.id?.toString().includes(search)
   ).filter(customer =>
     !filterAgent || customer.agent_name === filterAgent
-  ) || [];
+  ).sort((a, b) => {
+    // Sort by appointment date in ascending order
+    const dateA = new Date(a.appointment_date || a.created_at);
+    const dateB = new Date(b.appointment_date || b.created_at);
+    return dateA - dateB;
+  }) || [];
 
   // Calculate stats
   const totalCustomers = filteredCustomers.length;
@@ -96,6 +104,23 @@ const CustomerList = () => {
     }
   });
 
+  // Mutation for updating appointment time
+  const updateTimeMutation = useMutation({
+    mutationFn: async ({ id, appointment_time }) => {
+      const response = await axios.patch(`/api/customers/${id}/`, { appointment_time });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['customers']);
+      setEditingTime(null);
+      setTimeValue('');
+    },
+    onError: (error) => {
+      console.error('Error updating appointment time:', error);
+      alert('Failed to update appointment time');
+    }
+  });
+
   const handleEditAppointment = (customer) => {
     setEditingAppointment(customer.id);
     const date = customer.appointment_date || customer.created_at;
@@ -114,6 +139,25 @@ const CustomerList = () => {
   const handleCancelEdit = () => {
     setEditingAppointment(null);
     setAppointmentValue('');
+  };
+
+  const handleEditTime = (customer) => {
+    setEditingTime(customer.id);
+    setTimeValue(customer.appointment_time || '');
+  };
+
+  const handleSaveTime = () => {
+    if (editingTime) {
+      updateTimeMutation.mutate({
+        id: editingTime,
+        appointment_time: timeValue || null
+      });
+    }
+  };
+
+  const handleCancelTimeEdit = () => {
+    setEditingTime(null);
+    setTimeValue('');
   };
 
   if (isLoading) return (
@@ -263,13 +307,18 @@ const CustomerList = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Agent</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointment Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Time</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Order Value</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {filteredCustomers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-gray-50 transition duration-150">
+                    <tr
+                      key={customer.id}
+                      className="hover:bg-gray-50 transition duration-150 cursor-pointer"
+                      onClick={() => navigate(`/customers/${customer.id}`)}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0">
@@ -283,6 +332,7 @@ const CustomerList = () => {
                             <Link
                               to={`/customers/${customer.id}`}
                               className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition duration-200"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               {customer.name}
                             </Link>
@@ -314,7 +364,7 @@ const CustomerList = () => {
                           {customer.agent_name || 'Unassigned'}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         {editingAppointment === customer.id ? (
                           <div className="flex items-center space-x-2">
                             <input
@@ -356,6 +406,48 @@ const CustomerList = () => {
                           </div>
                         )}
                       </td>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        {editingTime === customer.id ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={timeValue}
+                              onChange={(e) => setTimeValue(e.target.value)}
+                              placeholder="e.g., 2 to 4 pm"
+                              className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleSaveTime}
+                              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+                              title="Save"
+                              disabled={updateTimeMutation.isLoading}
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={handleCancelTimeEdit}
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                              title="Cancel"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-sm text-gray-900">
+                              {customer.appointment_time || 'No time set'}
+                            </div>
+                            <button
+                              onClick={() => handleEditTime(customer)}
+                              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded ml-2"
+                              title="Edit Appointment Time"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-sm font-semibold text-gray-900">
                         {formatCurrency(customer.total_order_value)}
                       </td>
@@ -365,6 +457,7 @@ const CustomerList = () => {
                             to={`/customers/${customer.id}`}
                             className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition duration-200"
                             title="View Details"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
@@ -372,11 +465,12 @@ const CustomerList = () => {
                             to={`/customers/edit/${customer.id}`}
                             className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition duration-200"
                             title="Edit Customer"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Edit className="h-4 w-4" />
                           </Link>
                           <button
-                            onClick={() => handleCall(customer)}
+                            onClick={(e) => { e.stopPropagation(); handleCall(customer); }}
                             className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition duration-200"
                             title="Call Customer"
                           >

@@ -412,10 +412,6 @@ const LeadList = () => {
                     <td className="px-6 py-4">
                       <div className="space-y-1">
                         <div className="flex items-center text-sm text-gray-900">
-                          <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                          {lead.email || 'No email'}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-900">
                           <Phone className="h-4 w-4 mr-2 text-gray-400" />
                           {lead.phone}
                         </div>
@@ -541,10 +537,6 @@ const LeadList = () => {
                 <div className="space-y-4">
                   {/* Contact Info */}
                   <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail className="h-4 w-4 mr-3 text-gray-400" />
-                      <span className="truncate">{lead.email || 'No email'}</span>
-                    </div>
                     <div className="flex items-center text-sm text-gray-600">
                       <Phone className="h-4 w-4 mr-3 text-gray-400" />
                       <span className="font-medium">{lead.phone}</span>

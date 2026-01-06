@@ -94,9 +94,23 @@ const CallLogList = () => {
   const pendingCalls = callLogs?.filter(call => call.status === 'Pending').length || 0;
   const ordersPlaced = callLogs?.filter(call => call.order_placed === 'Yes').length || 0;
   const conversionRate = totalCalls > 0 ? ((ordersPlaced / totalCalls) * 100).toFixed(1) : 0;
-  const avgDuration = callLogs?.length > 0
-    ? (callLogs.reduce((sum, call) => sum + (call.duration_minutes || 0), 0) / callLogs.length).toFixed(1)
+  // For average duration, show in min:sec format
+  const avgDurationSec = callLogs?.length > 0
+    ? callLogs.reduce((sum, call) => sum + ((call.duration_minutes || 0) * 60), 0) / callLogs.length
     : 0;
+  const avgDuration = avgDurationSec >= 60
+    ? `${Math.floor(avgDurationSec / 60)} min ${Math.round(avgDurationSec % 60)} sec`
+    : `${Math.round(avgDurationSec)} sec`;
+
+  // Helper to format duration
+  const formatDuration = (durationMinutes) => {
+    if (!durationMinutes && durationMinutes !== 0) return '-';
+    const totalSec = Math.round(durationMinutes * 60);
+    if (totalSec < 60) return `${totalSec} sec`;
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min} min${sec > 0 ? ` ${sec} sec` : ''}`;
+  };
 
   // Get unique employees for filter
   const uniqueEmployees = [...new Set(callLogs?.map(call => call.employee_name).filter(Boolean))];
@@ -173,7 +187,7 @@ const CallLogList = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg Duration</p>
-                <p className="text-3xl font-bold text-orange-600">{avgDuration} min</p>
+                <p className="text-3xl font-bold text-orange-600">{avgDuration}</p>
               </div>
               <div className="bg-orange-100 p-3 rounded-full">
                 <Clock className="w-6 h-6 text-orange-600" />
@@ -296,7 +310,7 @@ const CallLogList = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{callLog.employee_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {callLog.duration_minutes?.toFixed(1)} min
+                          {formatDuration(callLog.duration_minutes)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {new Date(callLog.date).toLocaleDateString()}
@@ -402,7 +416,7 @@ const CallLogList = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Duration:</span>
-                      <span className="text-sm font-medium text-gray-900">{callLog.duration_minutes?.toFixed(1)} min</span>
+                      <span className="text-sm font-medium text-gray-900">{formatDuration(callLog.duration_minutes)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Date:</span>

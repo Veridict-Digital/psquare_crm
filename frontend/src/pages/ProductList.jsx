@@ -343,7 +343,7 @@ const ProductList = () => {
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         <Tag className="h-3 w-3 mr-1" />
-                        {product.category || 'Uncategorized'}
+                        {product.category_display || 'Uncategorized'}
                       </span>
                     </td>
 

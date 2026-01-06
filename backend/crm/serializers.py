@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -40,6 +40,10 @@ class CustomerSerializer(serializers.ModelSerializer):
         }
 
 class ProductSerializer(serializers.ModelSerializer):
+    gst_rate_display = serializers.CharField(source='gst_rate.rate', read_only=True)
+    gst_rate_description = serializers.CharField(source='gst_rate.description', read_only=True)
+    category_display = serializers.CharField(source='category.name', read_only=True)
+
     class Meta:
         model = Product
         fields = '__all__'
@@ -47,14 +51,16 @@ class ProductSerializer(serializers.ModelSerializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
+    gst_rate_display = serializers.CharField(source='gst_rate.rate', read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ['product', 'quantity', 'unit_price', 'gst_rate', 'total_price', 'product_title', 'product_sku']
+        fields = ['product', 'quantity', 'unit_price', 'gst_rate', 'total_price', 'product_title', 'product_sku', 'gst_rate_display']
         extra_kwargs = {
             'total_price': {'read_only': True},
             'product_title': {'read_only': True},
-            'product_sku': {'read_only': True}
+            'product_sku': {'read_only': True},
+            'gst_rate_display': {'read_only': True}
         }
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -134,3 +140,13 @@ class CallLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = CallLog
         fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_name', 'assumption2', 'assumption2_name', 'assumption3', 'assumption3_name']
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
+
+class GSTRateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GSTRate
+        fields = '__all__'

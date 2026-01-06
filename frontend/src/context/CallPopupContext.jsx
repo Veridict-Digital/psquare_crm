@@ -129,6 +129,8 @@ export const CallPopupProvider = ({ children }) => {
 
         await axios.post('/api/calllogs/', callLogData);
         queryClient.invalidateQueries(['call-logs']);
+        // Auto refresh the page to ensure conversation history updates immediately
+        window.location.reload();
       } catch (error) {
         console.error('Error saving call log:', error.response?.data || error.message);
       }

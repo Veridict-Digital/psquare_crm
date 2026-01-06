@@ -2,11 +2,12 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import models
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -197,6 +198,12 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def employees(self, request):
+        employees = User.objects.filter(role='Employee')
+        serializer = self.get_serializer(employees, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get', 'put'])
     def me(self, request):
@@ -425,6 +432,16 @@ class LeadViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_201_CREATED)
         else:
             return Response(customer_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.filter(is_active=True)
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+class GSTRateViewSet(viewsets.ModelViewSet):
+    queryset = GSTRate.objects.filter(is_active=True)
+    serializer_class = GSTRateSerializer
+    permission_classes = [IsAuthenticated]
 
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny

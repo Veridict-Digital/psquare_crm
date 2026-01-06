@@ -14,6 +14,7 @@ class User(AbstractUser):
 class Customer(models.Model):
     name = models.CharField(max_length=100)
     company_name = models.CharField(max_length=100, blank=True, null=True)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=15, unique=True)
     pincode = models.CharField(max_length=10)
@@ -21,27 +22,46 @@ class Customer(models.Model):
     kyc_file = models.FileField(upload_to='kyc/', blank=True, null=True)
     agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     appointment_date = models.DateField(blank=True, null=True)
+    appointment_time = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        # Always try to assign the best agent based on pincode
-        agent = User.objects.filter(pincode_territory=self.pincode, role='Employee').first()
-        if agent:
-            self.agent = agent
+        # Only assign agent based on pincode if no agent is set (on creation or if agent is None)
+        if not self.agent:
+            agent = User.objects.filter(pincode_territory=self.pincode, role='Employee').first()
+            if agent:
+                self.agent = agent
         super().save(*args, **kwargs)
+
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+class GSTRate(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    rate = models.DecimalField(max_digits=5, decimal_places=2)  # GST rate in percentage, e.g., 18.00
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.rate}%"
 
 class Product(models.Model):
     pid = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Product ID
     sku = models.CharField(max_length=50, unique=True)
     title = models.CharField(max_length=100)
-    category = models.CharField(max_length=100, blank=True, null=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     stock_qty = models.IntegerField()
     mrp = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # MRP
     b2c_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # B2C Price
     b2b_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # B2B Price
     price = models.DecimalField(max_digits=10, decimal_places=2)
     cost = models.DecimalField(max_digits=10, decimal_places=2)
-    gst_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    gst_rate = models.ForeignKey(GSTRate, on_delete=models.SET_NULL, null=True, blank=True)
     gst_calculated_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # GST Calculated Amount
     use_case = models.TextField(blank=True, null=True)  # Use Case
     image = models.ImageField(upload_to='products/', blank=True, null=True)

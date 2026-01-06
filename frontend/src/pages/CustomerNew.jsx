@@ -10,6 +10,7 @@ const CustomerNew = () => {
   const [formData, setFormData] = useState({
     name: '',
     company_name: '',
+    gst_rate: '',
     email: '',
     pincode: '',
     phone: '',
@@ -40,6 +41,16 @@ const CustomerNew = () => {
     <div className="container mx-auto px-4 py-8 max-w-full">
       <h1 className="text-3xl font-bold mb-6">Add New Customer</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+          <label className="block text-sm font-medium">Phone</label>
+          <input
+            type="text"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium">Name</label>
           <input
@@ -62,6 +73,18 @@ const CustomerNew = () => {
           />
         </div>
         <div>
+          <label className="block text-sm font-medium">GST Rate (%)</label>
+          <input
+            type="number"
+            step="0.01"
+            name="gst_rate"
+            value={formData.gst_rate}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            placeholder="e.g., 18.00"
+          />
+        </div>
+        <div>
           <label className="block text-sm font-medium">Email</label>
           <input
             type="email"
@@ -80,16 +103,6 @@ const CustomerNew = () => {
             onChange={handleChange}
             className="mt-1 block w-full border border-gray-300 rounded-md p-2"
             required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Phone</label>
-          <input
-            type="text"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
           />
         </div>
         <div>

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallPopup } from '../context/CallPopupContext';
-import { User, CheckCircle, Hash, Phone, Mail, ShoppingBag, Edit, Trash2, Save, X, PenTool, Plus, ArrowLeft } from 'lucide-react';
+import { User, CheckCircle, Hash, Phone, Mail, ShoppingBag, Edit, Trash2, Save, X, PenTool, Plus, ArrowLeft, ChevronDown } from 'lucide-react';
 import { MapPin, DollarSign, UserCheck} from 'lucide-react';
 
 const CustomerDetail = () => {
@@ -21,11 +21,17 @@ const CustomerDetail = () => {
   const [ordersPage, setOrdersPage] = useState(1);
   const [showAddPhone, setShowAddPhone] = useState(false);
   const [newPhoneNumber, setNewPhoneNumber] = useState('');
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const itemsPerPage = 5;
 
   const { data: customerDetails, isLoading, error } = useQuery({
     queryKey: ['customer-details', id],
     queryFn: () => axios.get(`/api/customers/${id}/details/`).then(res => res.data),
+  });
+
+  const { data: employees } = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => axios.get('/api/users/').then(res => res.data),
   });
 
   const updateMutation = useMutation({
@@ -79,6 +85,22 @@ const CustomerDetail = () => {
   const cancelEdit = () => {
     setEditingField(null);
     setTempValue('');
+  };
+
+  const formatDuration = (durationMinutes) => {
+    const totalSeconds = Math.round(durationMinutes * 60);
+    if (totalSeconds < 60) {
+      return `${totalSeconds} sec`;
+    } else {
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return seconds > 0 ? `${minutes} min ${seconds} sec` : `${minutes} min`;
+    }
+  };
+
+  const handleAgentSelect = (agentId) => {
+    updateMutation.mutate({ agent: agentId });
+    setShowAgentDropdown(false);
   };
 
   if (isLoading) return (
@@ -359,18 +381,40 @@ const CustomerDetail = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative">
+          <div className="flex items-center cursor-pointer" onClick={() => setShowAgentDropdown(!showAgentDropdown)}>
             <div className="p-3 bg-orange-100 rounded-lg">
               <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <div className="ml-4">
+            <div className="ml-4 flex-1">
               <p className="text-sm font-medium text-gray-600">Assigned Agent</p>
               <p className="text-2xl font-bold text-gray-900">{customer?.agent_name || 'Not assigned'}</p>
             </div>
+            <ChevronDown className={`w-5 h-5 text-gray-400 transform transition-transform ${showAgentDropdown ? 'rotate-180' : ''}`} />
           </div>
+          {showAgentDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+              <div className="p-2">
+                <button
+                  onClick={() => handleAgentSelect(null)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
+                >
+                  Not assigned
+                </button>
+                {employees?.map((employee) => (
+                  <button
+                    key={employee.id}
+                    onClick={() => handleAgentSelect(employee.id)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
+                  >
+                    {employee.username}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -383,7 +427,7 @@ const CustomerDetail = () => {
             </svg>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Call Timeline</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Conversation History</h2>
           </div>
         </div>
 
@@ -433,6 +477,12 @@ const CustomerDetail = () => {
                         }`}>
                           {call.status}
                         </span>
+                        {call.employee_name && (
+                          <>
+                            <span>|</span>
+                            <span className="text-blue-600 font-medium">Agent: {call.employee_name}</span>
+                          </>
+                        )}
                         {call.order_placed === 'Yes' && (
                           <>
                             <span>|</span>
@@ -457,16 +507,13 @@ const CustomerDetail = () => {
                             <span className="text-blue-600 font-medium">Assumption 3: {call.assumption3_name}</span>
                           </>
                         )}
-
                       <div className="text-gray-900 max-h-20 overflow-y-auto hide-scrollbar">
                         <span className="font-medium text-gray-700">Notes: </span>
                         <span className="text-gray-900">{call.note || 'No notes provided'}</span>
                       </div>
                       </div>
                       <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
-                        <span>Call ID: {call.call_id}</span>
-                        <span>Duration: {call.duration_minutes} min</span>
-                        <span>Agent: {call.employee_name || 'Unknown'}</span>
+                        <span>Duration: {formatDuration(call.duration_minutes)}</span>
                       </div>
                     </div>
                   </div>
@@ -523,7 +570,7 @@ const CustomerDetail = () => {
                             {call.employee_name || 'Unknown'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {call.duration_minutes} min
+                            {formatDuration(call.duration_minutes)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
