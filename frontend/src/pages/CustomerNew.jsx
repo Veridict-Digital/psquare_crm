@@ -25,7 +25,7 @@ const CustomerNew = () => {
   const [formData, setFormData] = useState({
     name: '',
     company_name: '',
-    gst_rate: '',
+    gstin_no: '',
     email: '',
     pincode: '',
     phone: '',
@@ -154,21 +154,17 @@ const CustomerNew = () => {
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <Percent className="w-4 h-4 text-gray-500" />
-                      GST Rate (%)
+                      GSTIN NO
                     </label>
                     <div className="relative">
                       <input
-                        type="number"
-                        step="0.01"
-                        name="gst_rate"
-                        value={formData.gst_rate}
+                        type="text"
+                        name="gstin_no"
+                        value={formData.gstin_no}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all pr-12"
-                        placeholder="18.00"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        placeholder="22AAAAA0000A1Z5"
                       />
-                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                        %
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -311,9 +307,9 @@ const CustomerNew = () => {
                 {/* Details Summary */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="text-gray-600">GST Rate:</span>
+                    <span className="text-gray-600">GSTIN NO:</span>
                     <span className="font-semibold text-indigo-600">
-                      {formData.gst_rate ? `${formData.gst_rate}%` : 'Not set'}
+                      {formData.gstin_no || 'Not set'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
@@ -348,7 +344,7 @@ const CustomerNew = () => {
                     <div className="flex items-start gap-2">
                       <div className="w-2 h-2 bg-gray-400 rounded-full mt-2"></div>
                       <p className="text-sm text-gray-600">
-                        GST rate will be applied to all invoices for this customer
+                        GSTIN number is required for tax compliance and invoicing
                       </p>
                     </div>
                   </div>
