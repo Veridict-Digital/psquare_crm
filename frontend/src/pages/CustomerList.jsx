@@ -24,12 +24,15 @@ import {
   AlertCircle,
   Pencil,
   Check,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 
 const CustomerList = () => {
   const [search, setSearch] = useState('');
   const [filterAgent, setFilterAgent] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
@@ -41,9 +44,12 @@ const CustomerList = () => {
   const navigate = useNavigate();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['customers'],
+    queryKey: ['customers', dateFrom, dateTo],
     queryFn: async () => {
-      const response = await axios.get('api/customers/');
+      const params = new URLSearchParams();
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+      const response = await axios.get(`api/customers/?${params.toString()}`);
       return response.data;
     },
   });
@@ -81,6 +87,11 @@ const CustomerList = () => {
   const totalOrderValue = filteredCustomers.reduce((sum, customer) => sum + (customer.total_order_value || 0), 0);
   const activeAgents = new Set(filteredCustomers.map(customer => customer.agent_name).filter(Boolean)).size;
   const avgOrderValue = totalCustomers > 0 ? totalOrderValue / totalCustomers : 0;
+
+  // Calculate customers with outstanding payments
+  const customersWithOutstanding = filteredCustomers.filter(customer =>
+    customer.outstanding_amount && customer.outstanding_amount > 0
+  ).length;
 
   const handleCall = (customer) => {
     setSelectedCustomer(customer);
@@ -224,6 +235,30 @@ const CustomerList = () => {
             </select>
           </div>
 
+          {/* Date From Filter */}
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+              placeholder="From Date"
+            />
+          </div>
+
+          {/* Date To Filter */}
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+              placeholder="To Date"
+            />
+          </div>
+
           {/* View Toggle */}
           <div className="flex gap-2">
             <button
@@ -252,7 +287,7 @@ const CustomerList = () => {
         </div>
 
         {/* Stats */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -290,6 +325,16 @@ const CustomerList = () => {
                 <p className="text-xl font-bold text-gray-900">{formatCurrency(avgOrderValue)}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-orange-500" />
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Outstanding Payments</p>
+                <p className="text-2xl font-bold text-gray-900">{customersWithOutstanding}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
           </div>
         </div>
@@ -342,10 +387,6 @@ const CustomerList = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                          <div className="flex items-center text-sm text-gray-900">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            {customer.email || 'No email'}
-                          </div>
                           <div className="flex items-center text-sm text-gray-900">
                             <Phone className="h-4 w-4 mr-2 text-gray-400" />
                             {customer.phone}

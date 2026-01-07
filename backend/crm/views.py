@@ -236,11 +236,21 @@ class CustomerViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        queryset = Customer.objects.annotate(
+            total_order_value=models.Sum('order__total_amount')
+        ).distinct()
+
         if self.action == 'list':
-            return Customer.objects.annotate(
-                total_order_value=models.Sum('order__total_amount')
-            ).distinct()
-        return Customer.objects.all()
+            # Get date filters from query parameters
+            date_from = self.request.query_params.get('date_from')
+            date_to = self.request.query_params.get('date_to')
+
+            if date_from:
+                queryset = queryset.filter(created_at__date__gte=date_from)
+            if date_to:
+                queryset = queryset.filter(created_at__date__lte=date_to)
+
+        return queryset
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)

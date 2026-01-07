@@ -24,11 +24,21 @@ class UserSerializer(serializers.ModelSerializer):
 class CustomerSerializer(serializers.ModelSerializer):
     agent_name = serializers.CharField(source='agent.username', read_only=True)
     total_order_value = serializers.SerializerMethodField()
+    outstanding_amount = serializers.SerializerMethodField()
 
     def get_total_order_value(self, obj):
         # Calculate total order value from all orders for this customer
         total = obj.order_set.aggregate(total=models.Sum('total_amount'))['total'] or 0
         return total
+
+    def get_outstanding_amount(self, obj):
+        # Calculate outstanding amount from orders with partial or credit payment status
+        outstanding = obj.order_set.filter(
+            models.Q(payment_status='Partial') | models.Q(payment_status='Credit')
+        ).aggregate(
+            outstanding=models.Sum(models.F('total_amount') - models.F('paid_amount'))
+        )['outstanding'] or 0
+        return outstanding
 
     class Meta:
         model = Customer
@@ -38,6 +48,7 @@ class CustomerSerializer(serializers.ModelSerializer):
             'agent': {'required': False},
             'created_at': {'read_only': True},
         }
+        read_only_fields = ['outstanding_amount']
 
 class ProductSerializer(serializers.ModelSerializer):
     gst_rate_display = serializers.CharField(source='gst_rate.rate', read_only=True)

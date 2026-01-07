@@ -82,9 +82,17 @@ const CustomerEdit = () => {
       setFormData({
         name: customer.name || '',
         email: customer.email || '',
-        pincode: customer.pincode || '',
         phone: customer.phone || '',
-        address: customer.address || '',
+        house_flat_no: customer.house_flat_no || '',
+        wing_lane: customer.wing_lane || '',
+        society_colony: customer.society_colony || '',
+        landmark: customer.landmark || '',
+        area: customer.area || '',
+        pincode: customer.pincode || '',
+        state: customer.state || '',
+        district: customer.district || '',
+        tahsil: customer.tahsil || '',
+        city: customer.city || '',
         appointment_date: customer.appointment_date || customer.created_at || '',
       });
     }
@@ -195,14 +203,93 @@ const CustomerEdit = () => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Address</label>
-          <textarea
-            name="address"
-            value={formData.address}
+          <label className="block text-sm font-medium">House/Flat No</label>
+          <input
+            type="text"
+            name="house_flat_no"
+            value={formData.house_flat_no}
             onChange={handleChange}
             className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-            rows="3"
-            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Wing/Lane</label>
+          <input
+            type="text"
+            name="wing_lane"
+            value={formData.wing_lane}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Society/Colony</label>
+          <input
+            type="text"
+            name="society_colony"
+            value={formData.society_colony}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Landmark</label>
+          <input
+            type="text"
+            name="landmark"
+            value={formData.landmark}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Area</label>
+          <input
+            type="text"
+            name="area"
+            value={formData.area}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">City</label>
+          <input
+            type="text"
+            name="city"
+            value={formData.city}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">District</label>
+          <input
+            type="text"
+            name="district"
+            value={formData.district}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Tahsil</label>
+          <input
+            type="text"
+            name="tahsil"
+            value={formData.tahsil}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">State</label>
+          <input
+            type="text"
+            name="state"
+            value={formData.state}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
           />
         </div>
         <div>
