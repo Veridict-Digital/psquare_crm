@@ -12,11 +12,16 @@ class User(AbstractUser):
     pincode_territory = models.CharField(max_length=10, blank=True, null=True)
 
 class Customer(models.Model):
+    CONTACT_TYPES = [
+        ('Customer', 'Customer'),
+        ('Lead', 'Lead'),
+    ]
     name = models.CharField(max_length=100)
     company_name = models.CharField(max_length=100, blank=True, null=True)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=15, unique=True)
+    contact_type = models.CharField(max_length=20, choices=CONTACT_TYPES, default='Customer')
     # Structured Address Fields
     house_flat_no = models.CharField(max_length=50, blank=True, null=True)
     wing_lane = models.CharField(max_length=100, blank=True, null=True)
@@ -37,6 +42,20 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
+        # Determine contact type based on provided information
+        if not self.pk:  # Only on creation
+            # If only phone is provided (minimal info), it's a Lead
+            has_full_info = (
+                self.name and self.name.strip() and
+                self.pincode and self.pincode != '000000' and
+                (self.house_flat_no or self.area or self.city)
+            )
+            self.contact_type = 'Customer' if has_full_info else 'Lead'
+
+        # Convert Lead to Customer when appointment_date is set
+        if self.contact_type == 'Lead' and self.appointment_date:
+            self.contact_type = 'Customer'
+
         # Only assign agent based on pincode if no agent is set (on creation or if agent is None)
         if not self.agent:
             agent = User.objects.filter(pincode_territory=self.pincode, role='Employee').first()
@@ -175,12 +194,12 @@ class CallLog(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='call_logs', null=True, blank=True)  # Add this
     date = models.DateTimeField(auto_now_add=True)  # Add this
     duration = models.DurationField()
-    note = models.TextField()
+    note = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True, related_name='call_logs')
-    assumption = models.ForeignKey(CustomerAssumption, on_delete=models.SET_NULL, null=True, blank=True)
-    assumption2 = models.ForeignKey(CustomerAssumption2, on_delete=models.SET_NULL, null=True, blank=True)
-    assumption3 = models.ForeignKey(CustomerAssumption3, on_delete=models.SET_NULL, null=True, blank=True)
+    assumption = models.ManyToManyField(CustomerAssumption, blank=True)
+    assumption2 = models.ManyToManyField(CustomerAssumption2, blank=True)
+    assumption3 = models.ManyToManyField(CustomerAssumption3, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.call_id:

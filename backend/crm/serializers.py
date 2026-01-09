@@ -123,9 +123,9 @@ class CallLogSerializer(serializers.ModelSerializer):
     order_placed = serializers.SerializerMethodField()
     order_id = serializers.SerializerMethodField()
     order_pk = serializers.SerializerMethodField()
-    assumption_name = serializers.CharField(source='assumption.name', read_only=True)
-    assumption2_name = serializers.CharField(source='assumption2.name', read_only=True)
-    assumption3_name = serializers.CharField(source='assumption3.name', read_only=True)
+    assumption_names = serializers.SerializerMethodField()
+    assumption2_names = serializers.SerializerMethodField()
+    assumption3_names = serializers.SerializerMethodField()
 
     def get_customer_name(self, obj):
         if obj.customer:
@@ -148,9 +148,18 @@ class CallLogSerializer(serializers.ModelSerializer):
     def get_order_pk(self, obj):
         return obj.order.id if obj.order else None
 
+    def get_assumption_names(self, obj):
+        return [assumption.name for assumption in obj.assumption.all()]
+
+    def get_assumption2_names(self, obj):
+        return [assumption.name for assumption in obj.assumption2.all()]
+
+    def get_assumption3_names(self, obj):
+        return [assumption.name for assumption in obj.assumption3.all()]
+
     class Meta:
         model = CallLog
-        fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_name', 'assumption2', 'assumption2_name', 'assumption3', 'assumption3_name']
+        fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_names', 'assumption2', 'assumption2_names', 'assumption3', 'assumption3_names']
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:

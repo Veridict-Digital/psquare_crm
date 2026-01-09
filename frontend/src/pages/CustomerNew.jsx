@@ -40,6 +40,22 @@ const CustomerNew = () => {
     city: '',
   });
 
+  const [errors, setErrors] = useState({});
+
+  const validatePhone = (phone) => {
+    if (!phone) return '';
+    if (!/^\d+$/.test(phone)) return 'Phone number must contain only numbers';
+    if (phone.length !== 10) return 'Phone number must be exactly 10 digits';
+    return '';
+  };
+
+  const validatePincode = (pincode) => {
+    if (!pincode) return '';
+    if (!/^\d+$/.test(pincode)) return 'Pincode must contain only numbers';
+    if (pincode.length !== 6) return 'Pincode must be exactly 6 digits';
+    return '';
+  };
+
   const mutation = useMutation({
     mutationFn: async (data) => {
       const response = await axios.post('/api/customers/', data);
@@ -57,11 +73,46 @@ const CustomerNew = () => {
   });
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    let sanitizedValue = value;
+    if (name === 'phone' || name === 'pincode') {
+      sanitizedValue = value.replace(/\D/g, ''); // Allow only digits
+    }
+
+    setFormData({ ...formData, [name]: sanitizedValue });
+
+    let error = '';
+    if (name === 'phone') {
+      error = validatePhone(sanitizedValue);
+    } else if (name === 'pincode') {
+      error = validatePincode(sanitizedValue);
+    }
+    setErrors({ ...errors, [name]: error });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Validate all fields
+    const phoneError = validatePhone(formData.phone);
+    const pincodeError = validatePincode(formData.pincode);
+
+    const newErrors = {
+      phone: phoneError,
+      pincode: pincodeError,
+    };
+
+    setErrors(newErrors);
+
+    // Check if there are any errors
+    const hasErrors = Object.values(newErrors).some(error => error !== '');
+
+    if (hasErrors) {
+      toast.error('Please fix the validation errors before submitting.');
+      return;
+    }
+
     mutation.mutate(formData);
   };
 
@@ -139,6 +190,8 @@ const CustomerNew = () => {
                         placeholder="+91 98765 43210"
                       />
                     </div>
+                    <p className="text-gray-500 text-xs">Only numbers are allowed</p>
+                    {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
                   </div>
                 </div>
 
@@ -147,7 +200,7 @@ const CustomerNew = () => {
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <Building className="w-4 h-4 text-gray-500" />
-                      Company Name
+                      Organization Name
                     </label>
                     <input
                       type="text"
@@ -296,6 +349,8 @@ const CustomerNew = () => {
                         placeholder="560001"
                         required
                       />
+                      <p className="text-gray-500 text-xs">Only numbers are allowed</p>
+                      {errors.pincode && <p className="text-red-500 text-sm">{errors.pincode}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -381,128 +436,6 @@ const CustomerNew = () => {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-
-          {/* Sidebar Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-8">
-              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-                <Briefcase className="w-6 h-6 text-indigo-500" />
-                <h3 className="text-lg font-bold text-gray-800">Quick Preview</h3>
-              </div>
-
-              <div className="space-y-4">
-                {/* Customer Preview Card */}
-                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-900 truncate">
-                        {formData.name || 'Customer Name'}
-                      </p>
-                      <p className="text-sm text-gray-600 truncate">
-                        {formData.company_name || 'Company name'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    {formData.phone && (
-                      <div className="flex items-center gap-2 text-gray-700">
-                        <Phone className="w-4 h-4" />
-                        <span>{formData.phone}</span>
-                      </div>
-                    )}
-                    {formData.email && (
-                      <div className="flex items-center gap-2 text-gray-700">
-                        <Mail className="w-4 h-4" />
-                        <span className="truncate">{formData.email}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Details Summary */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="text-gray-600">GSTIN NO:</span>
-                    <span className="font-semibold text-indigo-600">
-                      {formData.gstin_no || 'Not set'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="text-gray-600">Pincode:</span>
-                    <span className="font-semibold">
-                      {formData.pincode || 'Not set'}
-                    </span>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                  <span className="text-gray-600 block mb-2">Address Preview:</span>
-                  <div className="text-sm text-gray-700">
-                    {[
-                      formData.house_flat_no,
-                      formData.wing_lane && `Wing ${formData.wing_lane}`,
-                      formData.society_colony,
-                      formData.landmark && `(Near ${formData.landmark})`,
-                      formData.area,
-                      formData.city,
-                      formData.district,
-                      formData.state,
-                      formData.pincode
-                    ]
-                      .filter(Boolean)
-                      .length > 0 ? (
-                      <div className="flex items-start">
-                        <MapPin className="h-3 w-3 text-gray-500 mt-0.5 mr-1 flex-shrink-0" />
-                        <span>
-                          {[
-                            formData.house_flat_no,
-                            formData.wing_lane && `Wing ${formData.wing_lane}`,
-                            formData.society_colony,
-                            formData.landmark && `(Near ${formData.landmark})`,
-                            formData.area,
-                            formData.city,
-                            formData.district,
-                            formData.state,
-                            formData.pincode
-                          ]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="text-gray-500 italic">Address will appear here</div>
-                    )}
-                  </div>
-                </div>
-                </div>
-
-                {/* Information Tips */}
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2"></div>
-                      <p className="text-sm text-gray-600">
-                        Fields marked with <span className="text-red-500">*</span> are required
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full mt-2"></div>
-                      <p className="text-sm text-gray-600">
-                        Complete all details for accurate billing and shipping
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full mt-2"></div>
-                      <p className="text-sm text-gray-600">
-                        GSTIN number is required for tax compliance and invoicing
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

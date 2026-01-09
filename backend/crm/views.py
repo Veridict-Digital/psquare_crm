@@ -244,13 +244,40 @@ class CustomerViewSet(viewsets.ModelViewSet):
             # Get date filters from query parameters
             date_from = self.request.query_params.get('date_from')
             date_to = self.request.query_params.get('date_to')
+            contact_type = self.request.query_params.get('contact_type')
 
             if date_from:
                 queryset = queryset.filter(created_at__date__gte=date_from)
             if date_to:
                 queryset = queryset.filter(created_at__date__lte=date_to)
+            if contact_type:
+                queryset = queryset.filter(contact_type=contact_type)
 
         return queryset
+
+    def create(self, request, *args, **kwargs):
+        # Handle contact creation with automatic type determination
+        data = request.data.copy()
+
+        # Ensure phone is provided
+        if not data.get('phone'):
+            return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if phone already exists
+        if Customer.objects.filter(phone=data['phone']).exists():
+            return Response({'error': 'Phone number already exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Set default values for leads
+        if not data.get('name'):
+            data['name'] = 'Unknown Contact'
+        if not data.get('pincode'):
+            data['pincode'] = '000000'
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -383,7 +410,7 @@ class CustomerAssumption3ViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 class CallLogViewSet(viewsets.ModelViewSet):
-    queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'lead', 'assumption')
+    queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'lead')
     serializer_class = CallLogSerializer
     permission_classes = [IsAuthenticated]
 

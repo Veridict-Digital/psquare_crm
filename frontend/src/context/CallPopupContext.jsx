@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
+import CallPopup from '../components/CallPopup';
 
 const CallPopupContext = createContext();
 
@@ -18,9 +19,9 @@ export const CallPopupProvider = ({ children }) => {
   const [notes, setNotes] = useState('');
   const [callId, setCallId] = useState(null);
   const [orderId, setOrderId] = useState('');
-  const [selectedAssumption, setSelectedAssumption] = useState('');
-  const [selectedAssumption2, setSelectedAssumption2] = useState('');
-  const [selectedAssumption3, setSelectedAssumption3] = useState('');
+  const [selectedAssumption, setSelectedAssumption] = useState([]);
+  const [selectedAssumption2, setSelectedAssumption2] = useState([]);
+  const [selectedAssumption3, setSelectedAssumption3] = useState([]);
   const [showCreateAssumptionModal, setShowCreateAssumptionModal] = useState(false);
   const [newAssumptionName, setNewAssumptionName] = useState('');
   const [showManageAssumptionsModal, setShowManageAssumptionsModal] = useState(false);
@@ -33,6 +34,7 @@ export const CallPopupProvider = ({ children }) => {
     queryKey: ['assumptions'],
     queryFn: async () => {
       const response = await axios.get('/api/assumptions/');
+      console.log('Assumptions data:', response.data);
       return response.data;
     },
   });
@@ -40,6 +42,7 @@ export const CallPopupProvider = ({ children }) => {
     queryKey: ['assumptions2'],
     queryFn: async () => {
       const response = await axios.get('/api/assumptions2/');
+      console.log('Assumptions2 data:', response.data);
       return response.data;
     },
   });
@@ -47,6 +50,7 @@ export const CallPopupProvider = ({ children }) => {
     queryKey: ['assumptions3'],
     queryFn: async () => {
       const response = await axios.get('/api/assumptions3/');
+      console.log('Assumptions3 data:', response.data);
       return response.data;
     },
   });
@@ -72,9 +76,9 @@ export const CallPopupProvider = ({ children }) => {
       setTimer(0);
       setNotes('');
       setCallId(null);
-      setSelectedAssumption('');
-      setSelectedAssumption2('');
-      setSelectedAssumption3('');
+      setSelectedAssumption([]);
+      setSelectedAssumption2([]);
+      setSelectedAssumption3([]);
     }
   };
 
@@ -96,9 +100,9 @@ export const CallPopupProvider = ({ children }) => {
       setTimer(0);
       setNotes('');
       setCallId(null);
-      setSelectedAssumption('');
-      setSelectedAssumption2('');
-      setSelectedAssumption3('');
+      setSelectedAssumption([]);
+      setSelectedAssumption2([]);
+      setSelectedAssumption3([]);
     }
   };
 
@@ -182,15 +186,15 @@ export const CallPopupProvider = ({ children }) => {
       if (currentDropdown === 'assumption2') {
         response = await axios.post('/api/assumptions2/', { name: newAssumptionName.trim(), is_active: true });
         refetchAssumptions2();
-        setSelectedAssumption2(response.data.id);
+        setSelectedAssumption2([...selectedAssumption2, response.data.id]);
       } else if (currentDropdown === 'assumption3') {
         response = await axios.post('/api/assumptions3/', { name: newAssumptionName.trim(), is_active: true });
         refetchAssumptions3();
-        setSelectedAssumption3(response.data.id);
+        setSelectedAssumption3([...selectedAssumption3, response.data.id]);
       } else {
         response = await axios.post('/api/assumptions/', { name: newAssumptionName.trim(), is_active: true });
         refetchAssumptions();
-        setSelectedAssumption(response.data.id);
+        setSelectedAssumption([...selectedAssumption, response.data.id]);
       }
       setShowCreateAssumptionModal(false);
       setNewAssumptionName('');
@@ -286,225 +290,9 @@ export const CallPopupProvider = ({ children }) => {
   }, [isRunning]);
 
   return (
-    <CallPopupContext.Provider value={{ isVisible, isEmbedded, customer, lead, timer, isRunning, notes, setNotes, orderId, setOrderId, selectedAssumption, setSelectedAssumption, selectedAssumption2, setSelectedAssumption2, selectedAssumption3, setSelectedAssumption3, assumptions, openPopup, hidePopup, startEmbeddedCall, startTimer, stopTimer, endCall, placeOrder, convertToCustomer, showCreateAssumptionModal, setShowCreateAssumptionModal, newAssumptionName, setNewAssumptionName, createNewAssumption, showManageAssumptionsModal, setShowManageAssumptionsModal, editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, editingAssumption, editAssumptionName, setEditAssumptionName, callId, currentDropdown, setCurrentDropdown }}>
+    <CallPopupContext.Provider value={{ isVisible, isEmbedded, customer, lead, timer, isRunning, notes, setNotes, orderId, setOrderId, selectedAssumption, setSelectedAssumption, selectedAssumption2, setSelectedAssumption2, selectedAssumption3, setSelectedAssumption3, assumptions, assumptions2, assumptions3, openPopup, hidePopup, startEmbeddedCall, startTimer, stopTimer, endCall, placeOrder, convertToCustomer, showCreateAssumptionModal, setShowCreateAssumptionModal, newAssumptionName, setNewAssumptionName, createNewAssumption, showManageAssumptionsModal, setShowManageAssumptionsModal, editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, editingAssumption, editAssumptionName, setEditAssumptionName, callId, currentDropdown, setCurrentDropdown }}>
       {children}
-      {(isVisible || isEmbedded) && (
-        <div className={isVisible ? "fixed top-60 right-2 z-50 bg-white p-4 rounded-lg shadow-xl max-w-lg w-sm border border-gray-200" : "bg-white p-4 rounded-lg shadow-xl max-w-sm w-full relative border border-gray-200 mb-2"}>
-          <button onClick={hidePopup} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
-          <h2 className="text-2xl font-bold mb-2 text-gray-800 border-b pb-2">Call Tracker</h2>
-          {callId && <p className="text-sm text-gray-600 mb-2">Call ID: {callId}</p>}
-          <div className="">
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">{customer ? 'Customer:' : 'Lead:'}</span>
-              <span className="text-gray-900">{customer?.name || lead?.name}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">Phone:</span>
-              <span className="text-gray-900">{customer?.phone || lead?.phone}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">Timer:</span>
-              <span className="text-2xl font-mono text-blue-600">{Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
-            </div>
-          </div>
-          <div className="mb-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Predefined Conversation</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedAssumption}
-                onChange={(e) => {
-                  if (e.target.value === 'create-new') {
-                    setCurrentDropdown('assumption');
-                    setShowCreateAssumptionModal(true);
-                  } else {
-                    setSelectedAssumption(e.target.value);
-                  }
-                }}
-                className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select an ...</option>
-                {assumptions?.map(assumption => (
-                  <option key={assumption.id} value={assumption.id}>
-                    {assumption.name}
-                  </option>
-                ))}
-                <option value="create-new" className="text-blue-600 font-medium">+ Create new Conversation</option>
-              </select>
-              <button
-                onClick={() => {
-                  if (selectedAssumption) {
-                    const assumption = assumptions.find(a => a.id == selectedAssumption);
-                    if (assumption) {
-                      startEditingAssumption(assumption, 'assumption');
-                      setShowManageAssumptionsModal(true);
-                    }
-                  }
-                }}
-                disabled={!selectedAssumption}
-                className="p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
-                title="Edit assumption"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={() => {
-                  if (selectedAssumption) {
-                    setCurrentDropdown('assumption');
-                    deleteAssumption(selectedAssumption);
-                  }
-                }}
-                disabled={!selectedAssumption}
-                className="p-3 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
-                title="Delete assumption"
-              >
-                🗑️
-              </button>
-            </div>
-          </div>
-          {/* ...existing code for the rest of the popup content (copy from previous implementation)... */}
-          <div className="mb-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Call Status</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedAssumption2}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === 'create-new') {
-                    setCurrentDropdown('assumption2');
-                    setShowCreateAssumptionModal(true);
-                  } else {
-                    setSelectedAssumption2(value);
-                  }
-                }}
-                className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select a call status...</option>
-                {assumptions2?.map(assumption => (
-                  <option key={assumption.id} value={assumption.id}>
-                    {assumption.name}
-                  </option>
-                ))}
-                <option value="create-new" className="text-blue-600 font-medium">+ Create new Call Status</option>
-              </select>
-              <button
-                onClick={() => {
-                  if (selectedAssumption2) {
-                    const assumption = assumptions2.find(a => a.id == selectedAssumption2);
-                    if (assumption) {
-                      startEditingAssumption(assumption, 'assumption2');
-                      setShowManageAssumptionsModal(true);
-                    }
-                  }
-                }}
-                disabled={!selectedAssumption2}
-                className="p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
-                title="Edit assumption"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={() => {
-                  if (selectedAssumption2) {
-                    setCurrentDropdown('assumption2');
-                    deleteAssumption(selectedAssumption2);
-                  }
-                }}
-                disabled={!selectedAssumption2}
-                className="p-3 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
-                title="Delete assumption"
-              >
-                🗑️
-              </button>
-            </div>
-          </div>
-          <div className="mb-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedAssumption3}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === 'create-new') {
-                    setCurrentDropdown('assumption3');
-                    setShowCreateAssumptionModal(true);
-                  } else {
-                    setSelectedAssumption3(value);
-                  }
-                }}
-                className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select a payment status...</option>
-                {assumptions3?.map(assumption => (
-                  <option key={assumption.id} value={assumption.id}>
-                    {assumption.name}
-                  </option>
-                ))}
-                <option value="create-new" className="text-blue-600 font-medium">+ Create new payment status</option>
-              </select>
-              <button
-                onClick={() => {
-                  if (selectedAssumption3) {
-                    const assumption = assumptions3.find(a => a.id == selectedAssumption3);
-                    if (assumption) {
-                      startEditingAssumption(assumption, 'assumption3');
-                      setShowManageAssumptionsModal(true);
-                    }
-                  }
-                }}
-                disabled={!selectedAssumption3}
-                className="p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
-                title="Edit assumption"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={() => {
-                  if (selectedAssumption3) {
-                    setCurrentDropdown('assumption3');
-                    deleteAssumption(selectedAssumption3);
-                  }
-                }}
-                disabled={!selectedAssumption3}
-                className="p-3 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
-                title="Delete assumption"
-              >
-                🗑️
-              </button>
-            </div>
-          </div>
-          <div className="mb-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              rows="1"
-              placeholder="Add notes about the call..."
-            />
-          </div>
-          <div className="mb-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Order ID (if placing order)</label>
-            <input
-              type="text"
-              value={orderId}
-              onChange={(e) => setOrderId(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter order ID..."
-            />
-          </div>
-          <div className="flex flex-wrap gap-3 mb-2">
-            {!isRunning ? (
-              <button onClick={startTimer} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Start Call</button>
-            ) : (
-              <button onClick={stopTimer} className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Pause Call</button>
-            )}
-            <button onClick={endCall} className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">End Call</button>
-            {customer && <button onClick={placeOrder} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Place Order</button>}
-            {lead && <button onClick={convertToCustomer} className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Convert to Customer</button>}
-          </div>
-          {/* Removed Manage Assumptions button */}
-        </div>
-      )}
+      <CallPopup />
 
       {/* Create New Assumption Modal */}
       {showCreateAssumptionModal && (

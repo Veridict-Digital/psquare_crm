@@ -31,28 +31,53 @@ import {
 const CustomerList = () => {
   const [search, setSearch] = useState('');
   const [filterAgent, setFilterAgent] = useState('');
+  const [contactType, setContactType] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
+  const [viewType, setViewType] = useState('customers'); // 'customers' or 'leads'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [appointmentValue, setAppointmentValue] = useState('');
   const [editingTime, setEditingTime] = useState(null);
   const [timeValue, setTimeValue] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newContact, setNewContact] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    pincode: '',
+    house_flat_no: '',
+    wing_lane: '',
+    society_colony: '',
+    landmark: '',
+    area: '',
+    state: '',
+    district: '',
+    tahsil: '',
+    city: ''
+  });
   const { openPopup } = useCallPopup();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['customers', dateFrom, dateTo],
+  const { data: customersData, isLoading: customersLoading, error: customersError } = useQuery({
+    queryKey: ['customers', dateFrom, dateTo, contactType],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.append('date_from', dateFrom);
       if (dateTo) params.append('date_to', dateTo);
+      if (contactType) params.append('contact_type', contactType);
       const response = await axios.get(`api/customers/?${params.toString()}`);
       return response.data;
     },
   });
+
+  const data = customersData;
+  const isLoading = customersLoading;
+  const error = customersError;
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -75,12 +100,18 @@ const CustomerList = () => {
     customer.id?.toString().includes(search)
   ).filter(customer =>
     !filterAgent || customer.agent_name === filterAgent
+  ).filter(customer =>
+    viewType === 'customers' ? customer.contact_type === 'Customer' : customer.contact_type === 'Lead'
   ).sort((a, b) => {
     // Sort by appointment date in ascending order
     const dateA = new Date(a.appointment_date || a.created_at);
     const dateB = new Date(b.appointment_date || b.created_at);
     return dateA - dateB;
   }) || [];
+
+  // Pagination
+  const totalPages = Math.ceil(filteredCustomers.length / pageSize);
+  const paginatedCustomers = filteredCustomers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Calculate stats
   const totalCustomers = filteredCustomers.length;
@@ -171,6 +202,39 @@ const CustomerList = () => {
     setTimeValue('');
   };
 
+  // Mutation for adding new customer
+  const addCustomerMutation = useMutation({
+    mutationFn: async (customerData) => {
+      const response = await axios.post('/api/customers/', customerData);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['customers']);
+      setShowAddForm(false);
+      setNewContact({
+        name: '',
+        phone: '',
+        email: '',
+        pincode: '',
+        house_flat_no: '',
+        area: '',
+        city: ''
+      });
+    },
+    onError: (error) => {
+      console.error('Error adding customer:', error);
+      alert('Failed to add customer');
+    }
+  });
+
+  const handleAddCustomer = () => {
+    if (!newContact.phone) {
+      alert('Phone is required');
+      return;
+    }
+    addCustomerMutation.mutate(newContact);
+  };
+
   if (isLoading) return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
       <div className="text-center">
@@ -200,9 +264,18 @@ const CustomerList = () => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Customers</h1>
-        <Link to="/customers/new" className="bg-green-500 text-white px-4 py-2 rounded">
-          Add New Customer
-        </Link>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Contact
+          </button>
+          {/* <Link to="/customers/new" className="bg-green-500 text-white px-4 py-2 rounded">
+            Add New Customer
+          </Link> */}
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -235,6 +308,21 @@ const CustomerList = () => {
             </select>
           </div>
 
+          {/* Contact Type Filter */}
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <select
+              value={contactType}
+              onChange={(e) => setContactType(e.target.value)}
+              className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 appearance-none bg-white"
+            >
+              <option value="">All Contact Types</option>
+              <option value="primary">Primary</option>
+              <option value="secondary">Secondary</option>
+              <option value="emergency">Emergency</option>
+            </select>
+          </div>
+
           {/* Date From Filter */}
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -261,6 +349,28 @@ const CustomerList = () => {
 
           {/* View Toggle */}
           <div className="flex gap-2">
+            <button
+              onClick={() => setViewType('customers')}
+              className={`px-4 py-2 rounded-lg transition duration-200 ${
+                viewType === 'customers'
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="View Customers"
+            >
+              Customers
+            </button>
+            <button
+              onClick={() => setViewType('leads')}
+              className={`px-4 py-2 rounded-lg transition duration-200 ${
+                viewType === 'leads'
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="View Leads"
+            >
+              Leads
+            </button>
             <button
               onClick={() => setViewMode('table')}
               className={`p-3 rounded-lg transition duration-200 ${
@@ -340,6 +450,175 @@ const CustomerList = () => {
         </div>
       </div>
 
+      {/* Quick Add Form */}
+      {showAddForm && (
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">Quick Add Customer</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input
+                type="text"
+                value={newContact.name}
+                onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Customer name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+              <input
+                type="text"
+                value={newContact.phone}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value && !/^\d*$/.test(value)) {
+                    alert('Only numbers are allowed in phone field');
+                    return;
+                  }
+                  if (value.length > 10) {
+                    alert('Phone number must be exactly 10 digits');
+                    return;
+                  }
+                  setNewContact({ ...newContact, phone: value });
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Phone number"
+                maxLength="10"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={newContact.email}
+                onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Email address"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pincode</label>
+              <input
+                type="text"
+                value={newContact.pincode}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value && !/^\d*$/.test(value)) {
+                    alert('Only numbers are allowed in pincode field');
+                    return;
+                  }
+                  if (value.length > 6) {
+                    alert('Pincode must be exactly 6 digits');
+                    return;
+                  }
+                  setNewContact({ ...newContact, pincode: value });
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Pincode"
+                maxLength="6"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">House/Flat No</label>
+              <input
+                type="text"
+                value={newContact.house_flat_no}
+                onChange={(e) => setNewContact({ ...newContact, house_flat_no: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="House/Flat number"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Wing/Lane</label>
+              <input
+                type="text"
+                value={newContact.wing_lane}
+                onChange={(e) => setNewContact({ ...newContact, wing_lane: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Wing/Lane"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Society/Colony</label>
+              <input
+                type="text"
+                value={newContact.society_colony}
+                onChange={(e) => setNewContact({ ...newContact, society_colony: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Society/Colony"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Landmark</label>
+              <input
+                type="text"
+                value={newContact.landmark}
+                onChange={(e) => setNewContact({ ...newContact, landmark: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Landmark"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
+              <input
+                type="text"
+                value={newContact.area}
+                onChange={(e) => setNewContact({ ...newContact, area: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Area"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+              <input
+                type="text"
+                value={newContact.state}
+                onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="State"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
+              <input
+                type="text"
+                value={newContact.district}
+                onChange={(e) => setNewContact({ ...newContact, district: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="District"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+              <input
+                type="text"
+                value={newContact.city}
+                onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="City"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <button
+                onClick={handleAddCustomer}
+                disabled={addCustomerMutation.isLoading}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                {addCustomerMutation.isLoading ? 'Adding...' : 'Add Customer'}
+              </button>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
         {/* Content Section */}
         {viewMode === 'table' ? (
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
@@ -358,7 +637,7 @@ const CustomerList = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {filteredCustomers.map((customer) => (
+                  {paginatedCustomers.map((customer) => (
                     <tr
                       key={customer.id}
                       className="hover:bg-gray-50 transition duration-150 cursor-pointer"
@@ -381,7 +660,11 @@ const CustomerList = () => {
                             >
                               {customer.name}
                             </Link>
-                            <div className="text-xs text-gray-500">ID: {customer.id}</div>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              customer.contact_type === 'Customer' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {customer.contact_type}
+                            </span>
                           </div>
                         </div>
                       </td>
@@ -525,6 +808,74 @@ const CustomerList = () => {
               </table>
             </div>
 
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div className="flex-1 flex justify-between sm:hidden">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                      <span className="font-medium">{Math.min(currentPage * pageSize, filteredCustomers.length)}</span> of{' '}
+                      <span className="font-medium">{filteredCustomers.length}</span> results
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                      <button
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Previous</span>
+                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            page === currentPage
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Next</span>
+                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Empty State */}
             {filteredCustomers.length === 0 && (
               <div className="py-16 text-center">
@@ -556,6 +907,11 @@ const CustomerList = () => {
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-gray-900">{customer.name}</h3>
                       <p className="text-gray-600 text-sm">ID: {customer.id}</p>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        customer.contact_type === 'Customer' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {customer.contact_type}
+                      </span>
                     </div>
                   </div>
                 </div>

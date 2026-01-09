@@ -176,12 +176,85 @@ const CustomerDetail = () => {
                 <h1 className="text-2xl font-bold text-gray-900">
                   {customer?.name}
                 </h1>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
-                  <CheckCircle className="h-3 w-3 mr-1.5" />
-                  Verified
-                </span>
               </div>
             </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">
+                  Total Orders
+                </p>
+                <p className="text-base font-bold text-gray-900 mt-1">
+                  {summary?.total_orders || 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Total Paid</p>
+                <p className="text-base font-bold text-gray-900 mt-1">
+                  ₹{summary?.total_paid?.toFixed(2) || "0.00"}
+                </p>
+              </div>
+            </div>
+          
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">
+                  Pending Amount
+                </p>
+                <p className="text-base font-bold text-gray-900 mt-1">
+                  ₹{summary?.total_pending?.toFixed(2) || "0.00"}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1 hover:shadow-md transition-shadow relative">
+            <div
+              className="flex items-center justify-between cursor-pointer"
+              onClick={() => setShowAgentDropdown(!showAgentDropdown)}
+            >
+              <div>
+                <p className="text-xs font-medium text-gray-600">
+                  Telecaller
+                </p>
+                <p className="text-base font-bold text-gray-900 mt-1 truncate">
+                  {customer?.agent_name || "Not assigned"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <ChevronDown
+                  className={`w-3 h-3 text-gray-400 transform transition-transform ${
+                    showAgentDropdown ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+            </div>
+            {showAgentDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                <div className="p-2">
+                  <button
+                    onClick={() => handleAgentSelect(null)}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
+                  >
+                    Not assigned
+                  </button>
+                  {employees?.map((employee) => (
+                    <button
+                      key={employee.id}
+                      onClick={() => handleAgentSelect(employee.id)}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
+                    >
+                      {employee.username}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
 
             {/* Right side: Buttons aligned with name */}
             <div className="flex space-x-2">
@@ -191,7 +264,7 @@ const CustomerDetail = () => {
                   className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  Add Another Phone No
+                  Add Phone
                 </button>
               ) : (
                 <div className="flex items-center space-x-2">
@@ -266,7 +339,6 @@ const CustomerDetail = () => {
             {customer?.phone && (
               <div className="flex items-center text-lg text-gray-600">
                 <Phone className="h-5 w-5 mr-2 text-gray-400" />
-                <span className="font-medium mr-2">Phone:</span>
                 {editingField === "phone" ? (
                   <div className="flex items-center space-x-2">
                     <input
@@ -313,7 +385,7 @@ const CustomerDetail = () => {
                 </span>
               </div>
             )}
-            {summary?.unique_employees > 0 && (
+            {/* {summary?.unique_employees > 0 && (
               <div className="flex items-center text-lg text-gray-600">
                 <User className="h-5 w-5 mr-2 text-gray-400" />
                 <span className="font-medium mr-2">Unique Employees:</span>
@@ -321,7 +393,7 @@ const CustomerDetail = () => {
                   {summary?.unique_employees}
                 </span>
               </div>
-            )}
+            )} */}
             {customer?.pincode && (
               <div className="flex items-center text-lg text-gray-600">
                 <MapPin className="h-5 w-5 mr-2 text-gray-400" />
@@ -391,7 +463,7 @@ const CustomerDetail = () => {
               ) : (
                 <div className="flex items-center space-x-2">
                   <span className="font-semibold text-gray-900">
-                    {customer?.appointment_date ? new Date(customer.appointment_date).toLocaleDateString() : "Not set"}
+                    {customer?.appointment_date ? new Date(customer.appointment_date).toLocaleDateString() : new Date(customer.created_at).toLocaleDateString()}
                   </span>
                   <button
                     onClick={() => startEditing("appointment_date", customer?.appointment_date || "")}
@@ -427,177 +499,7 @@ const CustomerDetail = () => {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-2">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600">
-                  Total Orders
-                </p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  {summary?.total_orders || 0}
-                </p>
-              </div>
-              <div className="p-2 bg-green-50 rounded-lg">
-                <svg
-                  className="w-4 h-4 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600">Total Value</p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  ₹{summary?.total_order_value?.toFixed(2) || "0.00"}
-                </p>
-              </div>
-              <div className="p-2 bg-purple-50 rounded-lg">
-                <svg
-                  className="w-4 h-4 text-purple-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600">Total Paid</p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  ₹{summary?.total_paid?.toFixed(2) || "0.00"}
-                </p>
-              </div>
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <svg
-                  className="w-4 h-4 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600">
-                  Pending Amount
-                </p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  ₹{summary?.total_pending?.toFixed(2) || "0.00"}
-                </p>
-              </div>
-              <div className="p-2 bg-red-50 rounded-lg">
-                <svg
-                  className="w-4 h-4 text-red-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow relative">
-            <div
-              className="flex items-center justify-between cursor-pointer"
-              onClick={() => setShowAgentDropdown(!showAgentDropdown)}
-            >
-              <div>
-                <p className="text-xs font-medium text-gray-600">
-                  Assigned Agent
-                </p>
-                <p className="text-base font-bold text-gray-900 mt-1 truncate">
-                  {customer?.agent_name || "Not assigned"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-indigo-50 rounded-lg">
-                  <svg
-                    className="w-4 h-4 text-indigo-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                </div>
-                <ChevronDown
-                  className={`w-3 h-3 text-gray-400 transform transition-transform ${
-                    showAgentDropdown ? "rotate-180" : ""
-                  }`}
-                />
-              </div>
-            </div>
-            {showAgentDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
-                <div className="p-2">
-                  <button
-                    onClick={() => handleAgentSelect(null)}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
-                  >
-                    Not assigned
-                  </button>
-                  {employees?.map((employee) => (
-                    <button
-                      key={employee.id}
-                      onClick={() => handleAgentSelect(employee.id)}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
-                    >
-                      {employee.username}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Call Timeline */}
+        {/* Conversation history*/}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-4 h-96 overflow-y-auto">
           <div className="flex items-center">
             <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
@@ -660,35 +562,35 @@ const CustomerDetail = () => {
 
                   const elements = [];
                   elements.push(
-                    <span key="date" className="text-gray-900 font-semibold">
+                    <span key="date" className="text-gray-900 font-semibold text-lg">
                       {formattedDate}
                     </span>
                   );
                   elements.push(
-                    <span key="sep1" className="text-gray-400">
+                    <span key="sep1" className="text-gray-400 text-lg">
                       {" "}
                       |{" "}
                     </span>
                   );
                   elements.push(
-                    <span key="time" className="text-gray-900 font-semibold">
+                    <span key="time" className="text-gray-900 font-semibold text-lg">
                       {formattedTime}
                     </span>
                   );
                   elements.push(
-                    <span key="sep2" className="text-gray-400">
+                    <span key="sep2" className="text-gray-400 text-lg">
                       {" "}
                       |{" "}
                     </span>
                   );
                   elements.push(
-                    <span key="duration" className="text-blue-600 font-medium">
+                    <span key="duration" className="text-blue-600 font-medium text-lg">
                       {formatDuration(call.duration_minutes)}
                     </span>
                   );
                   if (call.employee_name) {
                     elements.push(
-                      <span key="sep4" className="text-gray-400">
+                      <span key="sep4" className="text-gray-400 text-lg">
                         {" "}
                         |{" "}
                       </span>
@@ -696,7 +598,7 @@ const CustomerDetail = () => {
                     elements.push(
                       <span
                         key="employee"
-                        className="text-indigo-600 font-medium"
+                        className="text-indigo-600 font-medium text-lg"
                       >
                         {call.employee_name}
                       </span>
@@ -704,7 +606,7 @@ const CustomerDetail = () => {
                   }
                   if (call.order_placed === "Yes") {
                     elements.push(
-                      <span key="sep5" className="text-gray-400">
+                      <span key="sep5" className="text-gray-400 text-lg">
                         {" "}
                         |{" "}
                       </span>
@@ -712,73 +614,100 @@ const CustomerDetail = () => {
                     elements.push(
                       <span
                         key="order"
-                        className="text-emerald-600 font-medium"
+                        className="text-emerald-600 font-medium text-lg"
                       >
                         Order Placed
                       </span>
                     );
                   }
-                  if (call.assumption_name) {
+                  if (call.assumption_names && call.assumption_names.length > 0) {
                     elements.push(
-                      <span key="sep6" className="text-gray-400">
+                      <span key="sep6" className="text-gray-400 text-lg">
                         {" "}
                         |{" "}
                       </span>
                     );
-                    elements.push(
-                      <span
-                        key="assumption"
-                        className="text-red-600 font-medium"
-                      >
-                        {call.assumption_name}
-                      </span>
-                    );
+                    call.assumption_names.forEach((name, index) => {
+                      if (index > 0) {
+                        elements.push(
+                          <span key={`assumption-sep-${index}`} className="text-gray-400 text-lg">
+                            ,{" "}
+                          </span>
+                        );
+                      }
+                      elements.push(
+                        <span
+                          key={`assumption-${index}`}
+                          className="text-red-600 font-medium text-lg"
+                        >
+                          {name}
+                        </span>
+                      );
+                    });
                   }
-                  if (call.assumption2_name) {
+                  if (call.assumption2_names && call.assumption2_names.length > 0) {
                     elements.push(
-                      <span key="sep7" className="text-gray-400">
+                      <span key="sep7" className="text-gray-400 text-lg">
                         {" "}
                         |{" "}
                       </span>
                     );
-                    elements.push(
-                      <span
-                        key="assumption2"
-                        className="text-purple-600 font-medium"
-                      >
-                        {call.assumption2_name}
-                      </span>
-                    );
+                    call.assumption2_names.forEach((name, index) => {
+                      if (index > 0) {
+                        elements.push(
+                          <span key={`assumption2-sep-${index}`} className="text-gray-400 text-lg">
+                            ,{" "}
+                          </span>
+                        );
+                      }
+                      elements.push(
+                        <span
+                          key={`assumption2-${index}`}
+                          className="text-purple-600 font-medium text-lg"
+                        >
+                          {name}
+                        </span>
+                      );
+                    });
                   }
-                  if (call.assumption3_name) {
+                  if (call.assumption3_names && call.assumption3_names.length > 0) {
                     elements.push(
-                      <span key="sep8" className="text-gray-400">
+                      <span key="sep8" className="text-gray-400 text-lg">
                         {" "}
                         |{" "}
                       </span>
                     );
-                    elements.push(
-                      <span
-                        key="assumption3"
-                        className="text-green-600 font-medium"
-                      >
-                        {call.assumption3_name}
-                      </span>
-                    );
+                    call.assumption3_names.forEach((name, index) => {
+                      if (index > 0) {
+                        elements.push(
+                          <span key={`assumption3-sep-${index}`} className="text-gray-400 text-lg">
+                            ,{" "}
+                          </span>
+                        );
+                      }
+                      elements.push(
+                        <span
+                          key={`assumption3-${index}`}
+                          className="text-green-600 font-medium text-lg"
+                        >
+                          {name}
+                        </span>
+                      );
+                    });
                   }
                   elements.push(
-                    <span key="sep9" className="text-gray-400">
+                    <span key="sep9" className="text-gray-400 text-lg">
                       {" "}
                       |{" "}
                     </span>
                   );
                   elements.push(
-                    <span key="notes" className="text-gray-700">
+                    <span key="notes" className="text-gray-700 text-lg">
                       {call.note || "No notes provided"}
                     </span>
                   );
                   elements.push(
-                    <span key="sep9" className="text-gray-400">
+                    <span key="sep9" className="text-gray-400 text-lg">
                       {" "}
                       |{" "}
                     </span>
@@ -790,7 +719,7 @@ const CustomerDetail = () => {
                   if (index === 0) return [curr];
                   return [
                     ...acc,
-                    <span key={`space-${index}`} className="text-gray-300">
+                    <span key={`space-${index}`} className="text-gray-300 text-lg">
                       {" "}
                     </span>,
                     ...curr,
