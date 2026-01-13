@@ -40,6 +40,8 @@ const CustomerDetail = () => {
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [tempAddress, setTempAddress] = useState({});
+  const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
   const itemsPerPage = 5;
 
   const {
@@ -70,17 +72,31 @@ const CustomerDetail = () => {
     onSuccess: () => navigate("/customers"),
   });
 
-  const createCustomerMutation = useMutation({
-    mutationFn: (data) => axios.post("/api/customers/", data),
-    onSuccess: (response) => {
-      navigate(`/customers/${response.data.id}`);
+  const addPhoneMutation = useMutation({
+    mutationFn: (phoneData) => axios.post(`/api/customers/${id}/add_phone/`, phoneData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["customer-details", id]);
       setShowAddPhone(false);
       setNewPhoneNumber("");
     },
     onError: (error) => {
-      console.error("Error creating customer:", error.response?.data);
+      console.error("Error adding phone:", error.response?.data);
       alert(
-        "Error creating customer: " +
+        "Error adding phone: " +
+          JSON.stringify(error.response?.data || error.message)
+      );
+    },
+  });
+
+  const setPrimaryPhoneMutation = useMutation({
+    mutationFn: (phoneId) => axios.post(`/api/customers/${id}/set_primary_phone/`, { phone_id: phoneId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["customer-details", id]);
+    },
+    onError: (error) => {
+      console.error("Error setting primary phone:", error.response?.data);
+      alert(
+        "Error setting primary phone: " +
           JSON.stringify(error.response?.data || error.message)
       );
     },
@@ -210,49 +226,69 @@ const CustomerDetail = () => {
               {customer?.all_phones && customer.all_phones.length > 0 && (
                     <div className="flex flex-col">
                       {customer.all_phones.map((phoneObj, index) => (
-                        <div key={index} className="flex items-center text-md text-gray-600">
-                          <Phone className="h-4 w-4 mr-1 text-gray-400" />
-                          {phoneObj.phone === customer.phone && editingField === "phone" ? (
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="text"
-                                value={tempValue}
-                                onChange={(e) => setTempValue(e.target.value)}
-                                className="px-2 py-1 border border-gray-300 rounded text-sm"
-                                autoFocus
-                              />
-                              <button
-                                onClick={saveEdit}
-                                className="text-green-600 hover:text-green-800"
-                              >
-                                <Save className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-2">
-                              <Link
-                                to={`/customers/${phoneObj.id}`}
-                                className={`hover:text-blue-800 transition-colors ${
-                                  phoneObj.phone === customer.phone ? "font-semibold text-blue-600" : "text-gray-600"
-                                }`}
-                              >
-                                {phoneObj.phone}
-                                {phoneObj.phone === customer.phone && " (Current)"}
-                              </Link>
-                              {phoneObj.phone === customer.phone && (
+                        <div key={phoneObj.id || index} className="flex flex-col text-md text-gray-600">
+                          <div className="flex items-center">
+                            <Phone className="h-4 w-2 mr-1 text-gray-400" />
+                            {phoneObj.phone === customer.phone && editingField === "phone" ? (
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="text"
+                                  value={tempValue}
+                                  onChange={(e) => setTempValue(e.target.value)}
+                                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                  autoFocus
+                                />
                                 <button
-                                  onClick={() => startEditing("phone", customer?.phone)}
-                                  className="text-gray-400 hover:text-gray-600"
+                                  onClick={saveEdit}
+                                  className="text-green-600 hover:text-green-800"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Save className="h-4 w-4" />
                                 </button>
-                              )}
+                                <button
+                                  onClick={cancelEdit}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2">
+                                <span
+                                  className={`${
+                                    phoneObj.is_primary ? "font-semibold text-blue-600" : "text-gray-600"
+                                  }`}
+                                >
+                                  {phoneObj.phone}
+                                  {phoneObj.is_primary && " (Primary)"}
+                                </span>
+                                {phoneObj.is_primary && (
+                                  <button
+                                    onClick={() => setShowPrimaryDropdown(!showPrimaryDropdown)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                  >
+                                    <ChevronDown className={`h-4 w-4 transform transition-transform ${showPrimaryDropdown ? "rotate-180" : ""}`} />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {phoneObj.is_primary && showPrimaryDropdown && (
+                            <div className="ml-2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-30 overflow-y-auto">
+                              <div className="p-2">
+                                {customer.all_phones.filter((p) => !p.is_primary).map((p) => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => {
+                                      setPrimaryPhoneMutation.mutate(p.id);
+                                      setShowPrimaryDropdown(false);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded"
+                                    disabled={setPrimaryPhoneMutation.isPending}
+                                  >
+                                    {p.phone}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -325,7 +361,7 @@ const CustomerDetail = () => {
               </div>
             </div>
             {showAgentDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto w-auto min-w-32">
                 <div className="p-2">
                   <button
                     onClick={() => handleAgentSelect(null)}
@@ -352,64 +388,71 @@ const CustomerDetail = () => {
             {/* Right side: Buttons aligned with name */}
             <div className="flex space-x-2">
               {!showAddPhone ? (
-                <button
-                  onClick={() => setShowAddPhone(true)}
-                  className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Phone
-                </button>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={newPhoneNumber}
-                    onChange={(e) => setNewPhoneNumber(e.target.value)}
-                    placeholder="Enter new phone number"
-                    className="px-2 py-1 border border-gray-300 rounded text-sm"
-                    autoFocus
-                  />
-                  <button
-                    onClick={() =>
-                      createCustomerMutation.mutate({
-                        name: customer.name,
-                        surname: customer.surname,
-                        company_name: customer.company_name,
-                        company_type: customer.company_type,
-                        gst_rate: customer.gst_rate,
-                        email: customer.email,
-                        phone: newPhoneNumber,
-                        house_flat_no: customer.house_flat_no,
-                        wing_lane: customer.wing_lane,
-                        society_colony: customer.society_colony,
-                        landmark: customer.landmark,
-                        area: customer.area,
-                        pincode: customer.pincode,
-                        state: customer.state,
-                        district: customer.district,
-                        tahsil: customer.tahsil,
-                        city: customer.city,
-                        address: customer.address, // legacy field
-                        agent: customer.agent,
-                        appointment_date: customer.appointment_date,
-                        appointment_time: customer.appointment_time,
-                      })
-                    }
-                    className="text-green-600 hover:text-green-800"
-                  >
-                    <Save className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddPhone(false);
-                      setNewPhoneNumber("");
-                    }}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+  <button
+    onClick={() => setShowAddPhone(true)}
+    className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
+  >
+    <Plus className="h-4 w-4 mr-1" />
+    Add Phone
+  </button>
+) : (
+  <div className="flex flex-col">
+    <div className="flex items-center space-x-2">
+      <input
+        type="text"
+        value={newPhoneNumber}
+        onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+          if (value.length <= 10) {
+            setNewPhoneNumber(value);
+            if (value.length === 10) {
+              setPhoneError("");
+            } else if (value.length > 0) {
+              setPhoneError("Phone number must be exactly 10 digits.");
+            } else {
+              setPhoneError("");
+            }
+          }
+        }}
+        placeholder="Enter new phone number"
+        className="px-2 py-1 border border-gray-300 rounded text-sm"
+        autoFocus
+      />
+      <button
+        onClick={() => {
+          if (newPhoneNumber.length < 10) {
+            alert("Phone number must be at least 10 digits long.");
+            return;
+          }
+          if (newPhoneNumber.length > 10) {
+            alert("Phone number cannot be more than 10 digits long.");
+            return;
+          }
+          addPhoneMutation.mutate({
+            phone: newPhoneNumber,
+          });
+        }}
+        className="text-green-600 hover:text-green-800"
+      >
+        <Save className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => {
+          setShowAddPhone(false);
+          setNewPhoneNumber("");
+        }}
+        className="text-red-600 hover:text-red-800"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+    {phoneError && (
+      <p className="text-red-500 text-xs mt-1 ml-1">
+        {phoneError}
+      </p>
+    )}
+  </div>
+)}
               <button
                 onClick={() => openPopup(customer)}
                 className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
@@ -444,7 +487,7 @@ const CustomerDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
             <div className="flex items-center text-lg text-gray-600">
               <User className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Organization Name:</span>
+              <span className="font-medium mr-2">Org Name:</span>
               {editingField === "company_name" ? (
                 <div className="flex items-center space-x-2">
                   <input
@@ -483,7 +526,7 @@ const CustomerDetail = () => {
             </div>
             <div className="flex items-center text-lg text-gray-600">
               <User className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Organization Type:</span>
+              <span className="font-medium mr-2">Org Type:</span>
               {editingField === "company_type" ? (
                 <div className="flex items-center space-x-2">
                   <input
@@ -502,7 +545,7 @@ const CustomerDetail = () => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-gray-900">{customer?.company_type || "Not set"}</span>
+                  <span className="font-semibold text-gray-900">{customer?.company_type_display || "Not set"}</span>
                   <button
                     onClick={() => startEditing("company_type", customer?.company_type)}
                     aria-label="Edit organization type"
@@ -552,13 +595,15 @@ const CustomerDetail = () => {
                 </div>
               )}
             </div>
-            {(customer?.house_flat_no || customer?.wing_lane || customer?.society_colony || customer?.landmark || customer?.area || customer?.city || customer?.district || customer?.state || customer?.pincode) && (
+          
+          </div>
+          {(customer?.house_flat_no || customer?.wing_lane || customer?.society_colony || customer?.landmark || customer?.area || customer?.city || customer?.district || customer?.state || customer?.pincode) && (
               <div className="flex items-start font-semibold text-gray-700">
                 <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   {editingAddress ? (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-9 gap-2">
                         <input
                           type="text"
                           placeholder="House/Flat No"
@@ -639,35 +684,88 @@ const CustomerDetail = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center space-x-2">
-                      <div className="text-gray-900">
-                        {[
-                          customer?.house_flat_no,
-                          customer?.wing_lane && `Wing ${customer.wing_lane}`,
-                          customer?.society_colony,
-                          customer?.landmark && `(Near ${customer.landmark})`,
-                          customer?.area,
-                          customer?.city,
-                          customer?.district,
-                          customer?.state,
-                          customer?.pincode
-                        ]
-                          .filter(Boolean)
-                          .join(', ')}
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-9 gap-1">
+                        <input
+                          type="text"
+                          placeholder="House/Flat No"
+                          value={customer?.house_flat_no || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Wing/Lane"
+                          value={customer?.wing_lane || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Society/Colony"
+                          value={customer?.society_colony || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Landmark"
+                          value={customer?.landmark || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Area"
+                          value={customer?.area || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="City"
+                          value={customer?.city || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="District"
+                          value={customer?.district || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="State"
+                          value={customer?.state || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Pincode"
+                          value={customer?.pincode || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50"
+                        />
                       </div>
-                      <button
-                        onClick={startEditingAddress}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
+                      
+                      <div className="flex justify-end">
+                        <button
+                          onClick={startEditingAddress}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             )}
-          </div>
         </div>
+        
 
         {/* Conversation history*/}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-4 h-96 overflow-y-auto">
@@ -877,7 +975,7 @@ const CustomerDetail = () => {
                     </span>
                   );
                   elements.push(
-                    <span key="sep9" className="text-gray-400 text-lg">
+                    <span key="sep10" className="text-gray-400 text-lg">
                       {" "}
                       |{" "}
                     </span>

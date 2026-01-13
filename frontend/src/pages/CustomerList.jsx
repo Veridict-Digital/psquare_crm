@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../api/axios';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCallPopup } from '../context/CallPopupContext';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -37,7 +37,7 @@ const CustomerList = () => {
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
   const [viewType, setViewType] = useState('customers'); // 'customers' or 'leads'
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
+  const [pageSize] = useState(50);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [appointmentValue, setAppointmentValue] = useState('');
@@ -51,6 +51,7 @@ const CustomerList = () => {
     email: '',
     company_name: '',
     company_type: '',
+    customer_type: '',
     pincode: '',
     house_flat_no: '',
     wing_lane: '',
@@ -62,6 +63,9 @@ const CustomerList = () => {
     tahsil: '',
     city: ''
   });
+  const [phoneError, setPhoneError] = useState('');
+  const [showNewOrgTypeInput, setShowNewOrgTypeInput] = useState(false);
+  const [newOrgType, setNewOrgType] = useState('');
   const { openPopup } = useCallPopup();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -70,17 +74,39 @@ const CustomerList = () => {
     queryKey: ['customers', dateFrom, dateTo, contactType],
     queryFn: async () => {
       const params = new URLSearchParams();
+      params.append('contact_type', 'Customer');
       if (dateFrom) params.append('date_from', dateFrom);
       if (dateTo) params.append('date_to', dateTo);
       if (contactType) params.append('contact_type', contactType);
+
       const response = await axios.get(`api/customers/?${params.toString()}`);
       return response.data;
     },
   });
 
-  const data = customersData;
-  const isLoading = customersLoading;
-  const error = customersError;
+  const { data: leadsData, isLoading: leadsLoading, error: leadsError } = useQuery({
+    queryKey: ['leads', dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('contact_type', 'Lead');
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+
+      const response = await axios.get(`api/leads/?${params.toString()}`);
+      const data = response.data;
+      // Add contact_type to leads data for consistency
+      return data.map(lead => ({ ...lead, contact_type: 'Lead' }));
+    },
+  });
+
+  const { data: organizationTypes } = useQuery({
+    queryKey: ['organizationTypes'],
+    queryFn: () => axios.get('/api/organizationtypes/').then((res) => res.data),
+  });
+
+  const data = viewType === 'leads' ? leadsData : customersData;
+  const isLoading = customersLoading || leadsLoading;
+  const error = customersError || leadsError;
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -95,8 +121,16 @@ const CustomerList = () => {
   // Extract unique agents for filter
   const agents = [...new Set(data?.map(customer => customer.agent_name).filter(Boolean))];
 
+  // Reset to first page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterAgent, contactType, dateFrom, dateTo, viewType]);
+
+  // Combine data for search or use viewType specific data
+  const combinedData = search ? [...(customersData || []), ...(leadsData || [])] : data;
+
   // Filter and search customers
-  const filteredCustomers = data?.filter(customer =>
+  const filteredCustomers = combinedData?.filter(customer =>
     customer.name?.toLowerCase().includes(search.toLowerCase()) ||
     customer.email?.toLowerCase().includes(search.toLowerCase()) ||
     customer.phone?.includes(search) ||
@@ -104,7 +138,7 @@ const CustomerList = () => {
   ).filter(customer =>
     !filterAgent || customer.agent_name === filterAgent
   ).filter(customer =>
-    viewType === 'customers' ? customer.contact_type === 'Customer' : customer.contact_type === 'Lead'
+    search || (viewType === 'customers' ? customer.contact_type === 'Customer' : true)
   ).sort((a, b) => {
     // Sort by appointment date in ascending order
     const dateA = new Date(a.appointment_date || a.created_at);
@@ -122,9 +156,9 @@ const CustomerList = () => {
   const activeAgents = new Set(filteredCustomers.map(customer => customer.agent_name).filter(Boolean)).size;
   const avgOrderValue = totalCustomers > 0 ? totalOrderValue / totalCustomers : 0;
 
-  // Calculate customers with outstanding payments
+  // Calculate customers with outstanding payments (only for customers, not leads)
   const customersWithOutstanding = filteredCustomers.filter(customer =>
-    customer.outstanding_amount && customer.outstanding_amount > 0
+    customer.contact_type === 'Customer' && customer.outstanding_amount && customer.outstanding_amount > 0
   ).length;
 
   const handleCall = (customer) => {
@@ -205,6 +239,25 @@ const CustomerList = () => {
     setTimeValue('');
   };
 
+  // Mutation for adding new organization type
+  const addOrgTypeMutation = useMutation({
+    mutationFn: async (orgTypeData) => {
+      const response = await axios.post('/api/organizationtypes/', orgTypeData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['organizationTypes']);
+      setNewContact({ ...newContact, company_type: data.name });
+      setNewOrgType('');
+      setShowNewOrgTypeInput(false);
+      alert('Organization type added successfully!');
+    },
+    onError: (error) => {
+      console.error('Error adding organization type:', error);
+      alert('Failed to add organization type');
+    }
+  });
+
   // Mutation for adding new customer
   const addCustomerMutation = useMutation({
     mutationFn: async (customerData) => {
@@ -232,10 +285,12 @@ const CustomerList = () => {
         tahsil: '',
         city: ''
       });
+      setShowNewOrgTypeInput(false);
+      setNewOrgType('');
     },
     onError: (error) => {
       console.error('Error adding customer:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.phone?.[0] || 'Failed to add customer';
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.response?.data?.phone?.[0] || 'Failed to add customer';
       alert(errorMessage);
     }
   });
@@ -488,11 +543,20 @@ const CustomerList = () => {
                     return;
                   }
                   setNewContact({ ...newContact, phone: value });
+                  // Set error if phone is less than 10 digits
+                  if (value.length > 0 && value.length < 10) {
+                    setPhoneError('Phone number must be at least 10 digits');
+                  } else {
+                    setPhoneError('');
+                  }
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Phone number"
                 maxLength="10"
               />
+              {phoneError && (
+                <p className="mt-1 text-sm text-red-600">{phoneError}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Personal Name</label>
@@ -536,13 +600,74 @@ const CustomerList = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Organization Type</label>
-              <input
-                type="text"
-                value={newContact.company_type}
-                onChange={(e) => setNewContact({ ...newContact, company_type: e.target.value })}
+              <select
+                value={showNewOrgTypeInput ? 'add_new' : newContact.company_type}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'add_new') {
+                    setShowNewOrgTypeInput(true);
+                    setNewContact({ ...newContact, company_type: '' });
+                  } else {
+                    setNewContact({ ...newContact, company_type: value });
+                    setShowNewOrgTypeInput(false);
+                  }
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Organization type"
-              />
+              >
+                <option value="">Select Organization Type</option>
+                {organizationTypes?.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+                <option value="add_new">Add New</option>
+              </select>
+              {showNewOrgTypeInput && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newOrgType}
+                    onChange={(e) => setNewOrgType(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="New organization type"
+                  />
+                  <button
+                    onClick={() => {
+                      if (newOrgType.trim()) {
+                        addOrgTypeMutation.mutate({ name: newOrgType.trim() });
+                      }
+                    }}
+                    disabled={addOrgTypeMutation.isLoading || !newOrgType.trim()}
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg disabled:opacity-50"
+                  >
+                    {addOrgTypeMutation.isLoading ? 'Adding...' : 'Add'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNewOrgTypeInput(false);
+                      setNewOrgType('');
+                    }}
+                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
+              <select
+                value={newContact.customer_type}
+                onChange={(e) => setNewContact({ ...newContact, customer_type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select Customer Type</option>
+                <option value="Superstockist">Superstockist</option>
+                <option value="Wholesaler">Wholesaler</option>
+                <option value="End User">End User</option>
+                <option value="Consumer">Consumer</option>
+                <option value="Distributor">Distributor</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Pincode</label>
@@ -617,13 +742,13 @@ const CustomerList = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
               <input
                 type="text"
-                value={newContact.state}
-                onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
+                value={newContact.city}
+                onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="State"
+                placeholder="City"
               />
             </div>
             <div>
@@ -637,13 +762,13 @@ const CustomerList = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
               <input
                 type="text"
-                value={newContact.city}
-                onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                value={newContact.state}
+                onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="City"
+                placeholder="State"
               />
             </div>
             <div className="flex items-end gap-2">

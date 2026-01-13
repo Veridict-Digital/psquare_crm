@@ -6,8 +6,8 @@ from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import models
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -297,8 +297,13 @@ class CustomerViewSet(viewsets.ModelViewSet):
     def details(self, request, pk=None):
         customer = self.get_object()
 
-        # Get all phone numbers for customers with the same name
-        all_phones = Customer.objects.filter(name=customer.name).values('phone', 'id').distinct()
+        # Get all phone numbers from Phone model (includes primary and additional phones)
+        from collections import OrderedDict
+        all_phones_dict = OrderedDict()
+        for phone_obj in customer.phones.all():
+            if phone_obj.phone not in all_phones_dict:
+                all_phones_dict[phone_obj.phone] = {'phone': phone_obj.phone, 'id': phone_obj.id, 'is_primary': phone_obj.is_primary}
+        all_phones = list(all_phones_dict.values())
 
         # Get call logs for this customer
         call_logs = CallLog.objects.filter(customer=customer).select_related('employee').order_by('-date')
@@ -316,7 +321,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         # Serialize data
         customer_data = CustomerSerializer(customer).data
-        customer_data['all_phones'] = list(all_phones)  # Add all phone numbers
+        customer_data['all_phones'] = all_phones  # Add all phone numbers
         call_logs_data = CallLogSerializer(call_logs, many=True).data
 
         # Add agent name and items to orders
@@ -359,6 +364,48 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'call_logs': call_logs_data,
             'orders': orders_data,
         })
+
+    @action(detail=True, methods=['post'])
+    def add_phone(self, request, pk=None):
+        customer = self.get_object()
+        phone_number = request.data.get('phone')
+
+        if not phone_number:
+            return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if phone already exists
+        if Phone.objects.filter(phone=phone_number).exists():
+            return Response({'error': 'Phone number already exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create new phone for the customer
+        phone = Phone.objects.create(customer=customer, phone=phone_number, is_primary=False)
+
+        serializer = PhoneSerializer(phone)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def set_primary_phone(self, request, pk=None):
+        customer = self.get_object()
+        phone_id = request.data.get('phone_id')
+
+        if not phone_id:
+            return Response({'error': 'Phone ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            phone = Phone.objects.get(id=phone_id, customer=customer)
+        except Phone.DoesNotExist:
+            return Response({'error': 'Phone not found for this customer'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Set this phone as primary (this will automatically unset others due to model save method)
+        phone.is_primary = True
+        phone.save()
+
+        # Update customer's primary phone field
+        customer.phone = phone.phone
+        customer.save()
+
+        serializer = PhoneSerializer(phone)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -477,6 +524,11 @@ class LeadViewSet(viewsets.ModelViewSet):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.filter(is_active=True)
     serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+class OrganizationTypeViewSet(viewsets.ModelViewSet):
+    queryset = OrganizationType.objects.filter(is_active=True)
+    serializer_class = OrganizationTypeSerializer
     permission_classes = [IsAuthenticated]
 
 class GSTRateViewSet(viewsets.ModelViewSet):

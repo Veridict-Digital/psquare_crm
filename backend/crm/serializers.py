@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -21,10 +21,18 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+class PhoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Phone
+        fields = '__all__'
+
 class CustomerSerializer(serializers.ModelSerializer):
     agent_name = serializers.CharField(source='agent.username', read_only=True)
     total_order_value = serializers.SerializerMethodField()
     outstanding_amount = serializers.SerializerMethodField()
+    phones = PhoneSerializer(many=True, read_only=True)
+    company_type_display = serializers.CharField(source='company_type.name', read_only=True)
+    customer_type_display = serializers.CharField(source='get_customer_type_display', read_only=True)
 
     def get_total_order_value(self, obj):
         # Calculate total order value from all orders for this customer
@@ -47,6 +55,8 @@ class CustomerSerializer(serializers.ModelSerializer):
             'kyc_file': {'required': False},
             'agent': {'required': False},
             'created_at': {'read_only': True},
+            'name': {'required': False},
+            'pincode': {'required': False},
         }
         read_only_fields = ['outstanding_amount']
 
@@ -121,6 +131,8 @@ class CustomerAssumption3Serializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class LeadSerializer(serializers.ModelSerializer):
+    agent_name = serializers.CharField(source='agent.username', read_only=True)
+
     class Meta:
         model = Lead
         fields = '__all__'
@@ -175,6 +187,11 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = '__all__'
 
+class OrganizationTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganizationType
+        fields = '__all__'
+
 class GSTRateSerializer(serializers.ModelSerializer):
     class Meta:
         model = GSTRate
@@ -185,7 +202,7 @@ class CombinationItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CombinationItem
-        fields = ['id', 'product', 'product_title', 'quantity_required']
+        fields = ['id', 'product', 'product_title', 'quantity_required', 'offer_price']
 
 class CombinationRewardSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)
@@ -194,9 +211,17 @@ class CombinationRewardSerializer(serializers.ModelSerializer):
         model = CombinationReward
         fields = ['id', 'product', 'product_title', 'quantity_free']
 
+class CombinationGiftSerializer(serializers.ModelSerializer):
+    product_title = serializers.CharField(source='product.title', read_only=True)
+
+    class Meta:
+        model = CombinationGift
+        fields = ['id', 'product', 'product_title']
+
 class ProductCombinationSerializer(serializers.ModelSerializer):
     items = CombinationItemSerializer(many=True, read_only=True)
     rewards = CombinationRewardSerializer(many=True, read_only=True)
+    gifts = CombinationGiftSerializer(many=True, read_only=True)
     items_data = serializers.ListField(
         child=serializers.DictField(),
         write_only=True,
@@ -209,14 +234,21 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
         required=False,
         allow_empty=True
     )
+    gifts_data = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True,
+        required=False,
+        allow_empty=True
+    )
 
     class Meta:
         model = ProductCombination
-        fields = ['id', 'name', 'description', 'is_active', 'created_at', 'items', 'rewards', 'items_data', 'rewards_data']
+        fields = ['id', 'name', 'description', 'is_active', 'created_at', 'items', 'rewards', 'gifts', 'items_data', 'rewards_data', 'gifts_data']
 
     def create(self, validated_data):
         items_data = validated_data.pop('items_data', [])
         rewards_data = validated_data.pop('rewards_data', [])
+        gifts_data = validated_data.pop('gifts_data', [])
 
         combination = ProductCombination.objects.create(**validated_data)
 
@@ -224,11 +256,13 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
         for item_data in items_data:
             product_id = item_data.get('product')
             quantity_required = item_data.get('quantity_required')
+            offer_price = item_data.get('offer_price')
             if product_id and quantity_required:
                 CombinationItem.objects.create(
                     combination=combination,
                     product_id=int(product_id),
-                    quantity_required=quantity_required
+                    quantity_required=quantity_required,
+                    offer_price=offer_price
                 )
 
         # Create combination rewards
@@ -242,30 +276,43 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
                     quantity_free=quantity_free
                 )
 
+        # Create combination gifts
+        for gift_data in gifts_data:
+            product_id = gift_data.get('product')
+            if product_id:
+                CombinationGift.objects.create(
+                    combination=combination,
+                    product_id=int(product_id)
+                )
+
         return combination
 
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items_data', [])
         rewards_data = validated_data.pop('rewards_data', [])
+        gifts_data = validated_data.pop('gifts_data', [])
 
         # Update combination fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # Delete existing items and rewards
+        # Delete existing items, rewards, and gifts
         instance.items.all().delete()
         instance.rewards.all().delete()
+        instance.gifts.all().delete()
 
-        # Create new items and rewards
+        # Create new items, rewards, and gifts
         for item_data in items_data:
             product_id = item_data.get('product')
             quantity_required = item_data.get('quantity_required')
+            offer_price = item_data.get('offer_price')
             if product_id and quantity_required:
                 CombinationItem.objects.create(
                     combination=instance,
                     product_id=product_id,
-                    quantity_required=quantity_required
+                    quantity_required=quantity_required,
+                    offer_price=offer_price
                 )
 
         for reward_data in rewards_data:
@@ -276,6 +323,14 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
                     combination=instance,
                     product_id=product_id,
                     quantity_free=quantity_free
+                )
+
+        for gift_data in gifts_data:
+            product_id = gift_data.get('product')
+            if product_id:
+                CombinationGift.objects.create(
+                    combination=instance,
+                    product_id=product_id
                 )
 
         return instance

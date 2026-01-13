@@ -12,7 +12,8 @@ const ProductCombinations = () => {
     description: '',
     is_active: true,
     items: [],
-    rewards: []
+    rewards: [],
+    gifts: []
   });
 
   useEffect(() => {
@@ -46,7 +47,8 @@ const ProductCombinations = () => {
       const dataToSend = {
         ...formData,
         items_data: formData.items,
-        rewards_data: formData.rewards
+        rewards_data: formData.rewards,
+        gifts_data: formData.gifts
       };
 
       if (editingCombination) {
@@ -67,7 +69,8 @@ const ProductCombinations = () => {
       description: '',
       is_active: true,
       items: [],
-      rewards: []
+      rewards: [],
+      gifts: []
     });
     setEditingCombination(null);
     setShowForm(false);
@@ -79,7 +82,8 @@ const ProductCombinations = () => {
       description: combination.description || '',
       is_active: combination.is_active,
       items: combination.items || [],
-      rewards: combination.rewards || []
+      rewards: combination.rewards || [],
+      gifts: combination.gifts || []
     });
     setEditingCombination(combination);
     setShowForm(true);
@@ -99,7 +103,7 @@ const ProductCombinations = () => {
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { product: '', quantity_required: 1 }]
+      items: [...formData.items, { product: '', quantity_required: 1, offer_price: 0 }]
     });
   };
 
@@ -130,6 +134,24 @@ const ProductCombinations = () => {
     const newRewards = [...formData.rewards];
     newRewards[index][field] = value;
     setFormData({ ...formData, rewards: newRewards });
+  };
+
+  const addGift = () => {
+    setFormData({
+      ...formData,
+      gifts: [...formData.gifts, { product: '' }]
+    });
+  };
+
+  const removeGift = (index) => {
+    const newGifts = formData.gifts.filter((_, i) => i !== index);
+    setFormData({ ...formData, gifts: newGifts });
+  };
+
+  const updateGift = (index, field, value) => {
+    const newGifts = [...formData.gifts];
+    newGifts[index][field] = value;
+    setFormData({ ...formData, gifts: newGifts });
   };
 
   if (loading) {
@@ -226,6 +248,15 @@ const ProductCombinations = () => {
                     className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={item.offer_price}
+                    onChange={(e) => updateItem(index, 'offer_price', parseFloat(e.target.value))}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Offer Price"
+                  />
                   <button
                     type="button"
                     onClick={() => removeItem(index)}
@@ -283,6 +314,44 @@ const ProductCombinations = () => {
               ))}
             </div>
 
+            {/* Gifts */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-medium">Gifts</h3>
+                <button
+                  type="button"
+                  onClick={addGift}
+                  className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                >
+                  Add Gift
+                </button>
+              </div>
+              {formData.gifts.map((gift, index) => (
+                <div key={index} className="flex items-center space-x-2 mb-2">
+                  <select
+                    value={gift.product}
+                    onChange={(e) => updateGift(index, 'product', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Product</option>
+                    {products.map(product => (
+                      <option key={product.id} value={product.id}>
+                        {product.title}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeGift(index)}
+                    className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
             <div className="flex space-x-2">
               <button
                 type="submit"
@@ -319,6 +388,9 @@ const ProductCombinations = () => {
                 Free Rewards
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Gifts
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -345,6 +417,12 @@ const ProductCombinations = () => {
                   {combination.rewards?.map(reward => {
                     const product = products.find(p => p.id === reward.product);
                     return `${product?.title || 'Unknown'} x${reward.quantity_free}`;
+                  }).join(', ') || '-'}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-500">
+                  {combination.gifts?.map(gift => {
+                    const product = products.find(p => p.id === gift.product);
+                    return `${product?.title || 'Unknown'}`;
                   }).join(', ') || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

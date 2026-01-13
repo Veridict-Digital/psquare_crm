@@ -156,8 +156,7 @@ export const CallPopupProvider = ({ children }) => {
 
         await axios.post('/api/calllogs/', callLogData);
         queryClient.invalidateQueries(['call-logs']);
-        // Auto refresh the page to ensure conversation history updates immediately
-        window.location.reload();
+        queryClient.invalidateQueries(['customer-details']);
       } catch (error) {
         console.error('Error saving call log:', error.response?.data || error.message);
       }
@@ -261,7 +260,7 @@ export const CallPopupProvider = ({ children }) => {
   };
 
   const placeOrder = () => {
-    window.open('/orders/new?customer=' + customer.id, '_blank');
+    navigate('/orders/new?customer=' + customer.id);
   };
 
   const convertToCustomer = async () => {

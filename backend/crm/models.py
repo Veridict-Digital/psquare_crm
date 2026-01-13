@@ -11,18 +11,35 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='Employee')
     pincode_territory = models.CharField(max_length=10, blank=True, null=True)
 
+class OrganizationType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
 class Customer(models.Model):
     CONTACT_TYPES = [
         ('Customer', 'Customer'),
         ('Lead', 'Lead'),
     ]
+    CUSTOMER_TYPES = [
+        ('Superstockist', 'Superstockist'),
+        ('Wholesaler', 'Wholesaler'),
+        ('End User', 'End User'),
+        ('Consumer', 'Consumer'),
+        ('Distributor', 'Distributor'),
+    ]
     name = models.CharField(max_length=100)
     surname = models.CharField(max_length=100, blank=True, null=True)
     company_name = models.CharField(max_length=100, blank=True, null=True)
-    company_type = models.CharField(max_length=100, blank=True, null=True)
+    company_type = models.ForeignKey(OrganizationType, on_delete=models.SET_NULL, null=True, blank=True)
+    customer_type = models.CharField(max_length=20, choices=CUSTOMER_TYPES, blank=True, null=True)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=15, unique=True)
+    phone = models.CharField(max_length=15)
     contact_type = models.CharField(max_length=20, choices=CONTACT_TYPES, default='Customer')
     # Structured Address Fields
     house_flat_no = models.CharField(max_length=50, blank=True, null=True)
@@ -63,7 +80,27 @@ class Customer(models.Model):
             agent = User.objects.filter(pincode_territory=self.pincode, role='Employee').first()
             if agent:
                 self.agent = agent
+
         super().save(*args, **kwargs)
+
+        # Create Phone instance if phone is provided and no Phone exists for this customer
+        if self.phone and not Phone.objects.filter(customer=self, phone=self.phone).exists():
+            Phone.objects.create(customer=self, phone=self.phone, is_primary=True)
+
+class Phone(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='phones')
+    phone = models.CharField(max_length=15, unique=True)
+    is_primary = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        # Ensure only one primary phone per customer
+        if self.is_primary:
+            Phone.objects.filter(customer=self.customer, is_primary=True).update(is_primary=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.customer.name} - {self.phone}"
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -274,6 +311,7 @@ class CombinationItem(models.Model):
     combination = models.ForeignKey(ProductCombination, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity_required = models.IntegerField()
+    offer_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Offer price for this combo
 
     def __str__(self):
         return f"{self.combination.name} - {self.product.title} x{self.quantity_required}"
@@ -285,3 +323,10 @@ class CombinationReward(models.Model):
 
     def __str__(self):
         return f"{self.combination.name} - Free {self.product.title} x{self.quantity_free}"
+
+class CombinationGift(models.Model):
+    combination = models.ForeignKey(ProductCombination, on_delete=models.CASCADE, related_name='gifts')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.combination.name} - Gift {self.product.title}"
