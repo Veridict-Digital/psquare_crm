@@ -46,8 +46,11 @@ const CustomerList = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newContact, setNewContact] = useState({
     name: '',
+    surname: '',
     phone: '',
     email: '',
+    company_name: '',
+    company_type: '',
     pincode: '',
     house_flat_no: '',
     wing_lane: '',
@@ -210,26 +213,40 @@ const CustomerList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['customers']);
-      setShowAddForm(false);
+      alert('Customer added successfully!');
       setNewContact({
         name: '',
+        surname: '',
         phone: '',
         email: '',
+        company_name: '',
+        company_type: '',
         pincode: '',
         house_flat_no: '',
+        wing_lane: '',
+        society_colony: '',
+        landmark: '',
         area: '',
+        state: '',
+        district: '',
+        tahsil: '',
         city: ''
       });
     },
     onError: (error) => {
       console.error('Error adding customer:', error);
-      alert('Failed to add customer');
+      const errorMessage = error.response?.data?.message || error.response?.data?.phone?.[0] || 'Failed to add customer';
+      alert(errorMessage);
     }
   });
 
   const handleAddCustomer = () => {
     if (!newContact.phone) {
       alert('Phone is required');
+      return;
+    }
+    if (newContact.phone.length < 10) {
+      alert('Phone number must be at least 10 digits');
       return;
     }
     addCustomerMutation.mutate(newContact);
@@ -301,7 +318,7 @@ const CustomerList = () => {
               onChange={(e) => setFilterAgent(e.target.value)}
               className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 appearance-none bg-white"
             >
-              <option value="">All Agents</option>
+              <option value="">All Telecallers</option>
               {agents.map(agent => (
                 <option key={agent} value={agent}>{agent}</option>
               ))}
@@ -421,7 +438,7 @@ const CustomerList = () => {
           <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Active Agents</p>
+                <p className="text-gray-600 text-sm">Active Telecallers</p>
                 <p className="text-2xl font-bold text-gray-900">{activeAgents}</p>
               </div>
               <User className="h-8 w-8 text-purple-500" />
@@ -453,18 +470,8 @@ const CustomerList = () => {
       {/* Quick Add Form */}
       {showAddForm && (
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4">Quick Add Customer</h3>
+          <h3 className="text-lg font-semibold mb-4">Add Customer</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input
-                type="text"
-                value={newContact.name}
-                onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Customer name"
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
               <input
@@ -488,6 +495,26 @@ const CustomerList = () => {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Personal Name</label>
+              <input
+                type="text"
+                value={newContact.name}
+                onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Customer name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Surname</label>
+              <input
+                type="text"
+                value={newContact.surname}
+                onChange={(e) => setNewContact({ ...newContact, surname: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Customer surname"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
                 type="email"
@@ -495,6 +522,26 @@ const CustomerList = () => {
                 onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Email address"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
+              <input
+                type="text"
+                value={newContact.company_name}
+                onChange={(e) => setNewContact({ ...newContact, company_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Organization name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Organization Type</label>
+              <input
+                type="text"
+                value={newContact.company_type}
+                onChange={(e) => setNewContact({ ...newContact, company_type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Organization type"
               />
             </div>
             <div>
@@ -629,7 +676,7 @@ const CustomerList = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Customer</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Contact</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Location</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Agent</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Telecaller</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointment Date</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Time</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Order Value</th>
@@ -658,7 +705,7 @@ const CustomerList = () => {
                               className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition duration-200"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {customer.name}
+                              {customer.name?.charAt(0)?.toUpperCase() + customer.name?.slice(1) || 'Unknown'}
                             </Link>
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               customer.contact_type === 'Customer' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
@@ -670,10 +717,28 @@ const CustomerList = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                          <div className="flex items-center text-sm text-gray-900">
-                            <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                            {customer.phone}
-                          </div>
+                          {customer.all_phones && customer.all_phones.length > 0 ? (
+                            customer.all_phones.map((phoneObj, index) => (
+                              <div key={index} className="flex items-center text-sm text-gray-900">
+                                <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                                <Link
+                                  to={`/customers/${phoneObj.id}`}
+                                  className={`hover:text-blue-800 transition-colors ${
+                                    phoneObj.phone === customer.phone ? "font-semibold text-blue-600" : "text-gray-900"
+                                  }`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {phoneObj.phone}
+                                  {phoneObj.phone === customer.phone && " (Primary)"}
+                                </Link>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex items-center text-sm text-gray-900">
+                              <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                              {customer.phone}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -905,7 +970,7 @@ const CustomerList = () => {
                       </span>
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900">{customer.name}</h3>
+                      <h3 className="text-lg font-bold text-gray-900">{customer.name?.charAt(0)?.toUpperCase() + customer.name?.slice(1) || 'Unknown'}</h3>
                       <p className="text-gray-600 text-sm">ID: {customer.id}</p>
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         customer.contact_type === 'Customer' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'

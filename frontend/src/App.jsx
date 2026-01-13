@@ -25,6 +25,7 @@ import UserEdit from './pages/UserEdit';
 import OrderDetail from './pages/OrderDetail';
 import Profile from './pages/Profile';
 import LeadList from './pages/LeadList';
+import ProductCombinations from './pages/ProductCombinations';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const AppContent = () => {
           <Route path="/products/new" element={<ProductNew />} />
           <Route path="/products/edit/:id" element={<ProductEdit />} />
           <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/product-combinations" element={<ProductCombinations />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="/users/new" element={<UserEdit />} />
           <Route path="/users/edit/:id" element={<UserEdit />} />

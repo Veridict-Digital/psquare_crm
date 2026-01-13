@@ -17,7 +17,9 @@ class Customer(models.Model):
         ('Lead', 'Lead'),
     ]
     name = models.CharField(max_length=100)
+    surname = models.CharField(max_length=100, blank=True, null=True)
     company_name = models.CharField(max_length=100, blank=True, null=True)
+    company_type = models.CharField(max_length=100, blank=True, null=True)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=15, unique=True)
@@ -123,6 +125,7 @@ class Order(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Placed')
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='Paid')
     followup_date = models.DateField(blank=True, null=True)
+    delivery_address = models.TextField(blank=True, null=True)
     order_date = models.DateField(auto_now_add=True)
 
     def clean(self):
@@ -257,3 +260,28 @@ class OTP(models.Model):
 
     def __str__(self):
         return f"OTP for {self.email} - {self.purpose}"
+
+class ProductCombination(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+class CombinationItem(models.Model):
+    combination = models.ForeignKey(ProductCombination, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity_required = models.IntegerField()
+
+    def __str__(self):
+        return f"{self.combination.name} - {self.product.title} x{self.quantity_required}"
+
+class CombinationReward(models.Model):
+    combination = models.ForeignKey(ProductCombination, on_delete=models.CASCADE, related_name='rewards')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity_free = models.IntegerField()
+
+    def __str__(self):
+        return f"{self.combination.name} - Free {self.product.title} x{self.quantity_free}"

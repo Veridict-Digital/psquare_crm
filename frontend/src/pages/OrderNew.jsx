@@ -35,6 +35,8 @@ const OrderNew = () => {
     payment_status: "Paid",
     followup_date: "",
     partial_amount: 0,
+    delivery_address: "",
+    delivery_option: "primary", // "primary" or "custom"
   });
 
   const [orderItems, setOrderItems] = useState([]);
@@ -46,7 +48,7 @@ const OrderNew = () => {
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
 
-  // Fetch customers and products
+  // Fetch customers, products, and combinations
   const { data: customers } = useQuery({
     queryKey: ["customers"],
     queryFn: () => axios.get("/api/customers/").then((res) => res.data),
@@ -55,6 +57,11 @@ const OrderNew = () => {
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: () => axios.get("/api/products/").then((res) => res.data),
+  });
+
+  const { data: combinations } = useQuery({
+    queryKey: ["combinations"],
+    queryFn: () => axios.get("/api/productcombinations/").then((res) => res.data),
   });
 
   // Filtered customers and products based on search
@@ -85,13 +92,62 @@ const OrderNew = () => {
     },
   });
 
-  // Calculate totals
+  // Calculate totals with combination logic
   const calculateTotals = () => {
-    const subtotal = orderItems.reduce(
+    let itemsWithCombinations = [...orderItems];
+
+    // Apply combinations if available
+    if (combinations && combinations.length > 0) {
+      combinations.forEach((combination) => {
+        if (!combination.is_active) return;
+
+        // Check if all required items are in the order with sufficient quantities
+        const requiredItems = combination.combination_items || [];
+        let canApplyCombination = true;
+
+        requiredItems.forEach((reqItem) => {
+          const orderItem = itemsWithCombinations.find(
+            (item) => item.product === reqItem.product
+          );
+          if (!orderItem || orderItem.quantity < reqItem.quantity) {
+            canApplyCombination = false;
+          }
+        });
+
+        if (canApplyCombination) {
+          // Add free items from combination rewards
+          const rewards = combination.combination_rewards || [];
+          rewards.forEach((reward) => {
+            const existingFreeItem = itemsWithCombinations.find(
+              (item) => item.product === reward.product && item.is_free
+            );
+
+            if (existingFreeItem) {
+              existingFreeItem.quantity += reward.quantity;
+            } else {
+              const product = products?.find((p) => p.id === reward.product);
+              if (product) {
+                itemsWithCombinations.push({
+                  product: product.id,
+                  product_title: `${product.title} (FREE)`,
+                  product_sku: product.sku,
+                  quantity: reward.quantity,
+                  unit_price: 0, // Free items have 0 price
+                  gst_rate: product.gst_rate,
+                  is_free: true,
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+
+    const subtotal = itemsWithCombinations.reduce(
       (sum, item) => sum + item.unit_price * item.quantity,
       0
     );
-    const gstTotal = orderItems.reduce(
+    const gstTotal = itemsWithCombinations.reduce(
       (sum, item) =>
         sum + (item.unit_price * item.quantity * item.gst_rate) / 100,
       0
@@ -100,6 +156,7 @@ const OrderNew = () => {
       subtotal: subtotal,
       gstTotal: gstTotal,
       total: subtotal + gstTotal,
+      itemsWithCombinations: itemsWithCombinations,
     };
   };
 
@@ -182,6 +239,30 @@ const OrderNew = () => {
     } else if (name === "payment_status" && value === "Partial") {
       setFormData((prev) => ({ ...prev, followup_date: "" }));
     }
+
+    // Handle delivery option change
+    if (name === "delivery_option") {
+      if (value === "primary" && formData.customer) {
+        const customer = customers?.find(
+          (c) => c.id.toString() === formData.customer.toString()
+        );
+        if (customer) {
+          const fullAddress = [
+            customer.house_flat_no,
+            customer.wing_lane,
+            customer.society_colony,
+            customer.area,
+            customer.city,
+            customer.district,
+            customer.state,
+            customer.pincode,
+          ].filter(Boolean).join(", ");
+          setFormData((prev) => ({ ...prev, delivery_address: fullAddress }));
+        }
+      } else if (value === "custom") {
+        setFormData((prev) => ({ ...prev, delivery_address: "" }));
+      }
+    }
   };
 
   const addProduct = () => {
@@ -247,6 +328,7 @@ const OrderNew = () => {
       status: formData.status,
       payment_status: formData.payment_status,
       ...(formData.followup_date && { followup_date: formData.followup_date }),
+      delivery_address: formData.delivery_address,
       total_amount: totals.total,
       paid_amount:
         formData.payment_status === "Paid"
@@ -272,11 +354,11 @@ const OrderNew = () => {
           <div className="flex items-center space-x-3">
             <ShoppingCart className="w-10 h-10 text-blue-600" />
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Create New Order
+             New Order
             </h1>
           </div>
-          <div className="py-2">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
                 <User className="w-4 h-4 mr-2 text-blue-500" />
@@ -371,7 +453,7 @@ const OrderNew = () => {
                 value={
                   customers?.find(
                     (c) => c.id.toString() === formData.customer?.toString()
-                  )?.agent_name || "Auto-assigned"
+                  )?.agent_name || ""
                 }
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 transition-all duration-200"
                 readOnly
@@ -387,47 +469,26 @@ const OrderNew = () => {
                 type="text"
                 value={
                   formData.customer
-                    ? `${
-                        customers?.find(
+                    ? (() => {
+                        const customer = customers?.find(
                           (c) =>
                             c.id.toString() === formData.customer.toString()
-                        )?.house_flat_no || ""
-                      } ${
-                        customers?.find(
-                          (c) =>
-                            c.id.toString() === formData.customer.toString()
-                        )?.wing_lane || ""
-                      } ${
-                        customers?.find(
-                          (c) =>
-                            c.id.toString() === formData.customer.toString()
-                        )?.society_colony || ""
-                      } ${
-                        customers?.find(
-                          (c) =>
-                            c.id.toString() === formData.customer.toString()
-                        )?.area || ""
-                      } ${
-                        customers?.find(
-                          (c) =>
-                            c.id.toString() === formData.customer.toString()
-                        )?.city || ""
-                      } ${
-                        customers?.find(
-                          (c) =>
-                            c.id.toString() === formData.customer.toString()
-                        )?.district || ""
-                      } ${
-                        customers?.find(
-                          (c) =>
-                            c.id.toString() === formData.customer.toString()
-                        )?.state || ""
-                      } ${
-                        customers?.find(
-                          (c) =>
-                            c.id.toString() === formData.customer.toString()
-                        )?.pincode || ""
-                      }`.trim()
+                        );
+                        return customer
+                          ? [
+                              customer.house_flat_no,
+                              customer.wing_lane,
+                              customer.society_colony,
+                              customer.area,
+                              customer.city,
+                              customer.district,
+                              customer.state,
+                              customer.pincode,
+                            ]
+                              .filter(Boolean)
+                              .join(", ")
+                          : "";
+                      })()
                     : ""
                 }
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 transition-all duration-200"
@@ -468,6 +529,40 @@ const OrderNew = () => {
                 <option value="Credit">Credit</option>
               </select>
             </div>
+          
+
+          {/* Delivery Address Options */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <MapPin className="w-4 h-4 mr-2 text-red-500" />
+              Delivery Address Option
+            </label>
+            <select
+              name="delivery_option"
+              value={formData.delivery_option}
+              onChange={handleFormChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50"
+            >
+              <option value="primary">Use Primary Address</option>
+              <option value="custom">Enter Custom Address</option>
+            </select>
+          </div>
+
+          {/* Delivery Address Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 flex items-center">
+              <MapPin className="w-4 h-4 mr-2 text-red-500" />
+              Delivery Address
+            </label>
+            <textarea
+              name="delivery_address"
+              value={formData.delivery_address}
+              onChange={handleFormChange}
+              placeholder={formData.delivery_option === "custom" ? "Enter delivery address" : "Primary address will be used"}
+              rows="1"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50"
+              readOnly={formData.delivery_option === "primary"}
+            />
           </div>
 
           {/* Conditional Fields */}
@@ -507,6 +602,7 @@ const OrderNew = () => {
                 />
               </div>
             )}
+          </div>
           </div>
         </div>
         </div>
@@ -604,10 +700,29 @@ const OrderNew = () => {
                                 setProductDropdownOpen(false);
                                 setProductSearch("");
                               }}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                              className="w-full px-4 py-3 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none flex items-center space-x-3"
                             >
-                              {product.title} (SKU: {product.sku}) - ₹
-                              {product.price} (Stock: {product.stock_qty})
+                              <div className="flex-shrink-0">
+                                {product.image ? (
+                                  <img
+                                    src={product.image}
+                                    alt={product.title}
+                                    className="w-10 h-10 object-cover rounded-lg border border-gray-200"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-gray-500" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 truncate">
+                                  {product.title}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  SKU: {product.sku} • ₹{product.price} • Stock: {product.stock_qty}
+                                </div>
+                              </div>
                             </button>
                           ))
                         ) : (
@@ -657,69 +772,262 @@ const OrderNew = () => {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {orderItems.map((item) => (
+                  {totals.itemsWithCombinations?.map((item) => (
                     <div
-                      key={item.product}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                      key={`${item.product}-${item.is_free ? 'free' : 'paid'}`}
+                      className={`flex items-center justify-between p-4 rounded-lg ${
+                        item.is_free ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
+                      }`}
                     >
                       <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">
+                        <h4 className={`font-medium ${item.is_free ? 'text-green-900' : 'text-gray-900'}`}>
                           {item.product_title}
+                          {item.is_free && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                              FREE
+                            </span>
+                          )}
                         </h4>
                         <p className="text-sm text-gray-600">
                           SKU: {item.product_sku}
                         </p>
                         <div className="flex items-center space-x-4 mt-2">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() =>
-                                updateQuantity(item.product, item.quantity - 1)
-                              }
-                              className="w-6 h-6 bg-gray-200 rounded text-gray-600 hover:bg-gray-300"
-                            >
-                              -
-                            </button>
-                            <span className="w-8 text-center">
-                              {item.quantity}
+                          {!item.is_free && (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() =>
+                                  updateQuantity(item.product, item.quantity - 1)
+                                }
+                                className="w-6 h-6 bg-gray-200 rounded text-gray-600 hover:bg-gray-300"
+                              >
+                                -
+                              </button>
+                              <span className="w-8 text-center">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  updateQuantity(item.product, item.quantity + 1)
+                                }
+                                className="w-6 h-6 bg-gray-200 rounded text-gray-600 hover:bg-gray-300"
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                          {item.is_free && (
+                            <span className="text-sm text-green-600 font-medium">
+                              Quantity: {item.quantity}
                             </span>
-                            <button
-                              onClick={() =>
-                                updateQuantity(item.product, item.quantity + 1)
-                              }
-                              className="w-6 h-6 bg-gray-200 rounded text-gray-600 hover:bg-gray-300"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <span className="text-sm text-gray-600">
+                          )}
+                          <span className={`text-sm ${item.is_free ? 'text-green-600' : 'text-gray-600'}`}>
                             ₹{item.unit_price} × {item.quantity} = ₹
                             {(item.unit_price * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeProduct(item.product)}
-                        className="ml-4 text-red-600 hover:text-red-800"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      {!item.is_free && (
+                        <button
+                          onClick={() => removeProduct(item.product)}
+                          className="ml-4 text-red-600 hover:text-red-800"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+
                         </svg>
-                      </button>
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Combo Offers Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8 hover:shadow-2xl transition-all duration-300">
+            <div className="flex items-center space-x-3 mb-6">
+              <Package className="w-6 h-6 text-yellow-600" />
+              <h2 className="text-2xl font-bold text-gray-900">Combo Offers</h2>
+            </div>
+
+            {selectedProduct ? (
+              (() => {
+                const selectedProductId = parseInt(selectedProduct);
+                const relatedCombinations = combinations?.filter(
+                  (combo) =>
+                    combo.is_active &&
+                    combo.items?.some((item) => item.product === selectedProductId)
+                ) || [];
+
+                if (relatedCombinations.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 text-lg">
+                        No combo offers available for this product.
+                      </p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        Select a different product to see available offers.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {relatedCombinations.map((combo) => {
+                      const requiredItems = combo.items || [];
+                      const rewardItems = combo.rewards || [];
+
+                      return (
+                        <div
+                          key={combo.id}
+                          className="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+                          onClick={() => {
+                            // Apply the combo offer
+                            requiredItems.forEach((reqItem) => {
+                              const product = products?.find((p) => p.id === reqItem.product);
+                              if (product) {
+                                const existingItem = orderItems.find((item) => item.product === product.id);
+                                if (existingItem) {
+                                  setOrderItems((prev) =>
+                                    prev.map((item) =>
+                                      item.product === product.id
+                                        ? { ...item, quantity: item.quantity + reqItem.quantity_required }
+                                        : item
+                                    )
+                                  );
+                                } else {
+                                  setOrderItems((prev) => [
+                                    ...prev,
+                                    {
+                                      product: product.id,
+                                      product_title: product.title,
+                                      product_sku: product.sku,
+                                      quantity: reqItem.quantity_required,
+                                      unit_price: parseFloat(product.price),
+                                      gst_rate: parseFloat(product.gst_rate),
+                                    },
+                                  ]);
+                                }
+                              }
+                            });
+
+                            // Add free items
+                            rewardItems.forEach((reward) => {
+                              const product = products?.find((p) => p.id === reward.product);
+                              if (product) {
+                                setOrderItems((prev) => [
+                                  ...prev,
+                                  {
+                                    product: product.id,
+                                    product_title: `${product.title} (FREE)`,
+                                    product_sku: product.sku,
+                                    quantity: reward.quantity_free,
+                                    unit_price: 0,
+                                    gst_rate: parseFloat(product.gst_rate),
+                                    is_free: true,
+                                  },
+                                ]);
+                              }
+                            });
+
+                            // Clear selection
+                            setSelectedProduct("");
+                            setQuantity(1);
+                          }}
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900 mb-2">
+                                {combo.name}
+                              </h4>
+                              {combo.description && (
+                                <p className="text-sm text-gray-600 mb-3">
+                                  {combo.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-medium">
+                              Click to Apply
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">
+                                Buy:
+                              </span>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {requiredItems.map((item, index) => {
+                                  const product = products?.find(
+                                    (p) => p.id === item.product
+                                  );
+                                  return (
+                                    <span
+                                      key={index}
+                                      className={`px-3 py-1 text-xs rounded-full font-medium ${
+                                        item.product === selectedProductId
+                                          ? "bg-blue-100 text-blue-800 border-2 border-blue-300"
+                                          : "bg-gray-100 text-gray-700"
+                                      }`}
+                                    >
+                                      {product?.title} x{item.quantity_required}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div>
+                              <span className="text-sm font-medium text-green-700">
+                                Get FREE:
+                              </span>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {rewardItems.map((reward, index) => {
+                                  const product = products?.find(
+                                    (p) => p.id === reward.product
+                                  );
+                                  return (
+                                    <span
+                                      key={index}
+                                      className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded-full border border-green-300 font-medium"
+                                    >
+                                      {product?.title} x{reward.quantity_free}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="text-center py-12">
+                <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">
+                  Select a product to see combo offers
+                </p>
+                <p className="text-gray-400 text-sm mt-2">
+                  Choose a product from the left panel to view available combo deals.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

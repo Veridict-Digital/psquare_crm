@@ -22,6 +22,7 @@ const Navigation = () => {
     { path: '/customers', label: 'Customers', icon: '👥' },
     { path: '/orders', label: 'Orders', icon: '📦' },
     { path: '/products', label: 'Products', icon: '🛍️' },
+    { path: '/product-combinations', label: 'Combinations', icon: '🎁' },
     { path: '/users', label: 'Users', icon: '👤' },
     { path: '/calllogs', label: 'Call Logs', icon: '📞' },
     { path: '/profile', label: 'Profile', icon: '👨‍💼' },

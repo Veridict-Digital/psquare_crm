@@ -318,11 +318,22 @@ const ProductList = () => {
                     {/* Product Details */}
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center">
-                          <Package className="h-5 w-5 text-blue-600" />
+                        <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center overflow-hidden">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.title}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                          ) : null}
+                          <Package className="h-5 w-5 text-blue-600" style={{ display: product.image ? 'none' : 'block' }} />
                         </div>
                         <div className="ml-4">
-                          <Link 
+                          <Link
                             to={`/products/${product.id}`}
                             className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition duration-200"
                           >

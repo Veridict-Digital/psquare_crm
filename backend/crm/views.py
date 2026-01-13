@@ -6,8 +6,8 @@ from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import models
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -297,6 +297,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
     def details(self, request, pk=None):
         customer = self.get_object()
 
+        # Get all phone numbers for customers with the same name
+        all_phones = Customer.objects.filter(name=customer.name).values('phone', 'id').distinct()
+
         # Get call logs for this customer
         call_logs = CallLog.objects.filter(customer=customer).select_related('employee').order_by('-date')
 
@@ -313,6 +316,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         # Serialize data
         customer_data = CustomerSerializer(customer).data
+        customer_data['all_phones'] = list(all_phones)  # Add all phone numbers
         call_logs_data = CallLogSerializer(call_logs, many=True).data
 
         # Add agent name and items to orders
@@ -478,6 +482,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class GSTRateViewSet(viewsets.ModelViewSet):
     queryset = GSTRate.objects.filter(is_active=True)
     serializer_class = GSTRateSerializer
+    permission_classes = [IsAuthenticated]
+
+class ProductCombinationViewSet(viewsets.ModelViewSet):
+    queryset = ProductCombination.objects.filter(is_active=True)
+    serializer_class = ProductCombinationSerializer
     permission_classes = [IsAuthenticated]
 
 from rest_framework.views import APIView

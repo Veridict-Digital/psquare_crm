@@ -169,7 +169,7 @@ const OrderList = () => {
                 onChange={(e) => setFilterAgent(e.target.value)}
                 className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white transition-all duration-200"
               >
-                <option value="">All Agents</option>
+                <option value="">All Telecallers</option>
                 {uniqueAgents.map(agent => (
                   <option key={agent} value={agent}>{agent}</option>
                 ))}
