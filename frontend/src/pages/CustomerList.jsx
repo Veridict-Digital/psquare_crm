@@ -84,6 +84,7 @@ const CustomerList = () => {
     },
   });
 
+  // Fetch Customer objects with contact_type='Lead' for leads view
   const { data: leadsData, isLoading: leadsLoading, error: leadsError } = useQuery({
     queryKey: ['leads', dateFrom, dateTo],
     queryFn: async () => {
@@ -92,10 +93,8 @@ const CustomerList = () => {
       if (dateFrom) params.append('date_from', dateFrom);
       if (dateTo) params.append('date_to', dateTo);
 
-      const response = await axios.get(`api/leads/?${params.toString()}`);
-      const data = response.data;
-      // Add contact_type to leads data for consistency
-      return data.map(lead => ({ ...lead, contact_type: 'Lead' }));
+      const response = await axios.get(`api/customers/?${params.toString()}`);
+      return response.data;
     },
   });
 

@@ -161,11 +161,11 @@ export const CallPopupProvider = ({ children }) => {
         console.error('Error saving call log:', error.response?.data || error.message);
       }
     }
-    // Now reset all call state after ending the call
-    setIsVisible(false);
-    setIsEmbedded(false);
-    setCustomer(null);
-    setLead(null);
+    // Now reset call state after ending the call, but keep the popup open and keep customer/lead context
+    // setIsVisible(false);
+    // setIsEmbedded(false);
+    // setCustomer(null);
+    // setLead(null);
     setTimer(0);
     setIsRunning(false);
     setNotes('');
