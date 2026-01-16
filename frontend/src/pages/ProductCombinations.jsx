@@ -222,7 +222,7 @@ const ProductCombinations = () => {
                   onClick={addItem}
                   className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
                 >
-                  Add Item
+                  Add Paid Item
                 </button>
               </div>
               {formData.items.map((item, index) => (

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../api/axios';
 import { useState, useEffect } from 'react';
+import { fetchCustomerTypes, addCustomerType } from '../api/customerTypes';
 import { useCallPopup } from '../context/CallPopupContext';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -63,6 +64,32 @@ const CustomerList = () => {
     tahsil: '',
     city: ''
   });
+  const [showNewCustomerTypeInput, setShowNewCustomerTypeInput] = useState(false);
+  const [newCustomerType, setNewCustomerType] = useState('');
+  const [customerTypes, setCustomerTypes] = useState([]);
+    // Fetch customer types from backend
+    useEffect(() => {
+      fetchCustomerTypes().then((data) => setCustomerTypes(data)).catch(() => setCustomerTypes([]));
+    }, []);
+
+    // Mutation for adding new customer type
+    const [addCustomerTypeLoading, setAddCustomerTypeLoading] = useState(false);
+    const handleAddCustomerType = async () => {
+      if (!newCustomerType.trim()) return;
+      setAddCustomerTypeLoading(true);
+      try {
+        const data = await addCustomerType({ name: newCustomerType.trim() });
+        setCustomerTypes((prev) => [...prev, data]);
+        setNewContact({ ...newContact, customer_type: data.id });
+        setShowNewCustomerTypeInput(false);
+        setNewCustomerType('');
+        alert('Customer type added successfully!');
+      } catch (e) {
+        alert('Failed to add customer type');
+      } finally {
+        setAddCustomerTypeLoading(false);
+      }
+    };
   const [phoneError, setPhoneError] = useState('');
   const [showNewOrgTypeInput, setShowNewOrgTypeInput] = useState(false);
   const [newOrgType, setNewOrgType] = useState('');
@@ -656,17 +683,50 @@ const CustomerList = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
               <select
-                value={newContact.customer_type}
-                onChange={(e) => setNewContact({ ...newContact, customer_type: e.target.value })}
+                value={showNewCustomerTypeInput ? 'add_new' : newContact.customer_type}
+                onChange={(e) => {
+                  if (e.target.value === 'add_new') {
+                    setShowNewCustomerTypeInput(true);
+                  } else {
+                    // Always store as number or empty string
+                    setNewContact({ ...newContact, customer_type: e.target.value ? Number(e.target.value) : '' });
+                  }
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Select Customer Type</option>
-                <option value="Superstockist">Superstockist</option>
-                <option value="Wholesaler">Wholesaler</option>
-                <option value="End User">End User</option>
-                <option value="Consumer">Consumer</option>
-                <option value="Distributor">Distributor</option>
+                {customerTypes.map((type) => (
+                  <option key={type.id} value={type.id}>{type.name}</option>
+                ))}
+                <option value="add_new">Add New</option>
               </select>
+              {showNewCustomerTypeInput && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newCustomerType}
+                    onChange={(e) => setNewCustomerType(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="New customer type"
+                  />
+                  <button
+                    onClick={handleAddCustomerType}
+                    disabled={addCustomerTypeLoading || !newCustomerType.trim()}
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg disabled:opacity-50"
+                  >
+                    {addCustomerTypeLoading ? 'Adding...' : 'Add'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNewCustomerTypeInput(false);
+                      setNewCustomerType('');
+                    }}
+                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Pincode</label>

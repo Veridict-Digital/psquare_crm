@@ -6,8 +6,8 @@ from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import models
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -477,6 +477,54 @@ class CallLogViewSet(viewsets.ModelViewSet):
         else:
             serializer.save(employee=self.request.user)
 
+    @action(detail=False, methods=['post'])
+    def save_info(self, request):
+        from django.utils import timezone
+        from rest_framework import serializers
+        data = request.data.copy()
+        data['employee'] = request.user.id
+        data['status'] = 'In Progress'
+        data['saved_at'] = timezone.now()
+
+        # Convert duration from seconds to timedelta
+        if 'duration' in data:
+            from datetime import timedelta
+            data['duration'] = timedelta(seconds=int(data['duration']))
+
+        call_id = data.get('call_id')
+        existing_call_log = None
+
+        # Check if call log with this call_id already exists (for editing)
+        if call_id:
+            try:
+                existing_call_log = CallLog.objects.get(call_id=call_id)
+            except CallLog.DoesNotExist:
+                pass
+
+        if existing_call_log:
+            # Update existing call log
+            serializer = self.get_serializer(existing_call_log, data=data, partial=True)
+        else:
+            # Create new call log
+            serializer = self.get_serializer(data=data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError as e:
+            # If the error is about invalid customer pk, remove customer and try again
+            if 'customer' in e.detail and any('Invalid pk' in str(error) for error in e.detail['customer']):
+                data.pop('customer', None)
+                if existing_call_log:
+                    serializer = self.get_serializer(existing_call_log, data=data, partial=True)
+                else:
+                    serializer = self.get_serializer(data=data)
+                serializer.is_valid(raise_exception=True)
+            else:
+                raise
+        call_log = serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 class LeadViewSet(viewsets.ModelViewSet):
     queryset = Lead.objects.all()
     serializer_class = LeadSerializer
@@ -539,6 +587,11 @@ class GSTRateViewSet(viewsets.ModelViewSet):
 class ProductCombinationViewSet(viewsets.ModelViewSet):
     queryset = ProductCombination.objects.filter(is_active=True)
     serializer_class = ProductCombinationSerializer
+    permission_classes = [IsAuthenticated]
+
+class CustomerTypeViewSet(viewsets.ModelViewSet):
+    queryset = CustomerType.objects.filter(is_active=True)
+    serializer_class = CustomerTypeSerializer
     permission_classes = [IsAuthenticated]
 
 from rest_framework.views import APIView

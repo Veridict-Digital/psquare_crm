@@ -73,12 +73,13 @@ export const CallPopupProvider = ({ children }) => {
     setIsEmbedded(false);
     // Only reset call state if not already running a call
     if (!isRunning) {
-      setTimer(0);
-      setNotes('');
-      setCallId(null);
-      setSelectedAssumption([]);
-      setSelectedAssumption2([]);
-      setSelectedAssumption3([]);
+      setTimer(data.timer || 0);
+      setNotes(data.notes || '');
+      setCallId(data.callId || Date.now().toString()); // Set callId for saving info
+      setSelectedAssumption(data.selectedAssumption || []);
+      setSelectedAssumption2(data.selectedAssumption2 || []);
+      setSelectedAssumption3(data.selectedAssumption3 || []);
+      setOrderId(data.orderId || '');
     }
   };
 
@@ -99,7 +100,7 @@ export const CallPopupProvider = ({ children }) => {
     if (!isRunning) {
       setTimer(0);
       setNotes('');
-      setCallId(null);
+      setCallId(Date.now().toString()); // Set callId for saving info
       setSelectedAssumption([]);
       setSelectedAssumption2([]);
       setSelectedAssumption3([]);
@@ -278,6 +279,68 @@ export const CallPopupProvider = ({ children }) => {
     }
   };
 
+  const saveInfo = async () => {
+    console.log('saveInfo called with callId:', callId);
+    if (!callId) {
+      console.log('No callId, returning early');
+      return;
+    }
+    // Validate that either a valid customer or lead is present
+    if ((!customer || !customer.id) && (!lead || !lead.id)) {
+      alert('Cannot save call log: No valid customer or lead selected.');
+      return;
+    }
+    try {
+      const callLogData = {
+        duration: timer, // Send duration in seconds as integer
+        note: notes,
+        status: 'In Progress',
+        call_id: callId, // Include the call tracker ID
+      };
+
+      // Set customer or lead based on which one is active
+      if (customer && customer.id) {
+        callLogData.customer = customer.id;
+      } else if (lead && lead.id) {
+        callLogData.lead = lead.id;
+      }
+
+      // If order ID is provided, include it
+      if (orderId.trim()) {
+        callLogData.order_id = orderId.trim();
+      }
+
+      // If assumption is selected, include it
+      if (selectedAssumption && selectedAssumption.length > 0) {
+        callLogData.assumption = selectedAssumption;
+      }
+      if (selectedAssumption2 && selectedAssumption2.length > 0) {
+        callLogData.assumption2 = selectedAssumption2;
+      }
+      if (selectedAssumption3 && selectedAssumption3.length > 0) {
+        callLogData.assumption3 = selectedAssumption3;
+      }
+
+      console.log('Sending callLogData:', callLogData);
+      const response = await axios.post('/api/calllogs/save_info/', callLogData);
+      console.log('Save info response:', response);
+      // Invalidate queries to refresh the UI with the new call log
+      queryClient.invalidateQueries(['call-logs']);
+      queryClient.invalidateQueries(['customer-details']);
+      alert('Info saved successfully! You can edit it within 24 hours.');
+      // Optionally, set a timer to end the call after 24 hours
+      setTimeout(() => {
+        if (isRunning) {
+          endCall();
+          alert('Call ended automatically after 24 hours.');
+        }
+      }, 24 * 60 * 60 * 1000); // 24 hours in milliseconds
+    } catch (error) {
+      console.error('Error saving info:', error.response?.data || error.message);
+      alert('Failed to save info. Check console for details.');
+    }
+  };
+
   useEffect(() => {
     let interval;
     if (isRunning) {
@@ -289,7 +352,7 @@ export const CallPopupProvider = ({ children }) => {
   }, [isRunning]);
 
   return (
-    <CallPopupContext.Provider value={{ isVisible, isEmbedded, customer, lead, timer, isRunning, notes, setNotes, orderId, setOrderId, selectedAssumption, setSelectedAssumption, selectedAssumption2, setSelectedAssumption2, selectedAssumption3, setSelectedAssumption3, assumptions, assumptions2, assumptions3, openPopup, hidePopup, startEmbeddedCall, startTimer, stopTimer, endCall, placeOrder, convertToCustomer, showCreateAssumptionModal, setShowCreateAssumptionModal, newAssumptionName, setNewAssumptionName, createNewAssumption, showManageAssumptionsModal, setShowManageAssumptionsModal, editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, editingAssumption, editAssumptionName, setEditAssumptionName, callId, currentDropdown, setCurrentDropdown }}>
+    <CallPopupContext.Provider value={{ isVisible, isEmbedded, customer, lead, timer, isRunning, notes, setNotes, orderId, setOrderId, selectedAssumption, setSelectedAssumption, selectedAssumption2, setSelectedAssumption2, selectedAssumption3, setSelectedAssumption3, assumptions, assumptions2, assumptions3, openPopup, hidePopup, startEmbeddedCall, startTimer, stopTimer, endCall, saveInfo, placeOrder, convertToCustomer, showCreateAssumptionModal, setShowCreateAssumptionModal, newAssumptionName, setNewAssumptionName, createNewAssumption, showManageAssumptionsModal, setShowManageAssumptionsModal, editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, editingAssumption, editAssumptionName, setEditAssumptionName, callId, currentDropdown, setCurrentDropdown }}>
       {children}
       <CallPopup />
 

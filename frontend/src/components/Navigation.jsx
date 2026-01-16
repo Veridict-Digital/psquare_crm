@@ -22,7 +22,7 @@ const Navigation = () => {
     { path: '/customers', label: 'Customers', icon: '👥' },
     { path: '/orders', label: 'Orders', icon: '📦' },
     { path: '/products', label: 'Products', icon: '🛍️' },
-    { path: '/product-combinations', label: 'Combinations', icon: '🎁' },
+    { path: '/product-combinations', label: 'Combo\'s', icon: '🎁' },
     { path: '/users', label: 'Users', icon: '👤' },
     { path: '/calllogs', label: 'Call Logs', icon: '📞' },
     { path: '/profile', label: 'Profile', icon: '👨‍💼' },
@@ -49,6 +49,16 @@ const Navigation = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
+          {/* Back Button */}
+        <div>
+          <button
+            onClick={() => navigate(-1)}
+            className={`flex items-center ${isOpen ? 'px-2' : 'justify-center'} text-left text-blue-100 bg-white rounded-lg hover:bg-white-500 hover:text-white rounded-lg transition-colors duration-200`}
+            title={!isOpen ? 'Go Back' : ''}
+          >
+            <span className={`text-lg ${isOpen ? 'mr-3' : ''}`}>⬅️</span>
+          </button>
+        </div>
         </div>
 
         <nav>

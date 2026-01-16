@@ -11,7 +11,7 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['sku', 'title', 'stock_qty', 'price', 'cost', 'gst_rate']
+    list_display = ['sku', 'title', 'stock_qty', 'price', 'purchase_price', 'gst_rate']
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):

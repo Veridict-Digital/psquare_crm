@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet
+from .views import UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, CustomerTypeViewSet
 from .auth_views import send_registration_otp, verify_registration_otp, send_password_reset_otp, verify_password_reset_otp
 
 router = DefaultRouter()
@@ -18,6 +18,7 @@ router.register(r'categories', CategoryViewSet)
 router.register(r'organizationtypes', OrganizationTypeViewSet)
 router.register(r'gstrates', GSTRateViewSet)
 router.register(r'productcombinations', ProductCombinationViewSet)
+router.register(r'customertypes', CustomerTypeViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),

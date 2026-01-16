@@ -21,6 +21,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { MapPin, DollarSign, UserCheck } from "lucide-react";
+import { fetchCustomerTypes } from "../api/customerTypes";
 
 const CustomerDetail = () => {
   const { id } = useParams();
@@ -39,6 +40,8 @@ const CustomerDetail = () => {
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const [showOrgTypeDropdown, setShowOrgTypeDropdown] = useState(false);
+  const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] =
+    useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [tempAddress, setTempAddress] = useState({});
   const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false);
@@ -47,40 +50,42 @@ const CustomerDetail = () => {
   const [showNameEditDropdown, setShowNameEditDropdown] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempSurname, setTempSurname] = useState("");
+  const [showAllPhones, setShowAllPhones] = useState(false);
+  const [customerTypes, setCustomerTypes] = useState([]);
   const itemsPerPage = 5;
 
   const startEditingName = () => {
-    setTempName(customer?.name || '');
-    setEditingField('name');
+    setTempName("");
+    setEditingField("name");
     setShowNameEditDropdown(false);
   };
 
   const startEditingSurname = () => {
-    setTempSurname(customer?.surname || '');
-    setEditingField('surname');
+    setTempSurname("");
+    setEditingField("surname");
     setShowNameEditDropdown(false);
   };
 
   const saveNameEdit = () => {
     updateMutation.mutate({ name: tempName });
     setEditingField(null);
-    setTempName('');
+    setTempName("");
   };
 
   const saveSurnameEdit = () => {
     updateMutation.mutate({ surname: tempSurname });
     setEditingField(null);
-    setTempSurname('');
+    setTempSurname("");
   };
 
   const cancelNameEdit = () => {
     setEditingField(null);
-    setTempName('');
+    setTempName("");
   };
 
   const cancelSurnameEdit = () => {
     setEditingField(null);
-    setTempSurname('');
+    setTempSurname("");
   };
 
   const {
@@ -117,7 +122,8 @@ const CustomerDetail = () => {
   });
 
   const addPhoneMutation = useMutation({
-    mutationFn: (phoneData) => axios.post(`/api/customers/${id}/add_phone/`, phoneData),
+    mutationFn: (phoneData) =>
+      axios.post(`/api/customers/${id}/add_phone/`, phoneData),
     onSuccess: () => {
       queryClient.invalidateQueries(["customer-details", id]);
       setShowAddPhone(false);
@@ -133,7 +139,10 @@ const CustomerDetail = () => {
   });
 
   const setPrimaryPhoneMutation = useMutation({
-    mutationFn: (phoneId) => axios.post(`/api/customers/${id}/set_primary_phone/`, { phone_id: phoneId }),
+    mutationFn: (phoneId) =>
+      axios.post(`/api/customers/${id}/set_primary_phone/`, {
+        phone_id: phoneId,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries(["customer-details", id]);
     },
@@ -149,6 +158,12 @@ const CustomerDetail = () => {
   useEffect(() => {
     if (customerDetails?.customer) setFormData(customerDetails.customer);
   }, [customerDetails]);
+
+  useEffect(() => {
+    fetchCustomerTypes()
+      .then(setCustomerTypes)
+      .catch(() => setCustomerTypes([]));
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -194,6 +209,11 @@ const CustomerDetail = () => {
     setShowOrgTypeDropdown(false);
   };
 
+  const handleCustomerTypeSelect = (customerType) => {
+    updateMutation.mutate({ customer_type: customerType });
+    setShowCustomerTypeDropdown(false);
+  };
+
   const startEditingAddress = () => {
     setEditingAddress(true);
     setTempAddress({
@@ -234,7 +254,11 @@ const CustomerDetail = () => {
   if (error)
     return (
       <div className="text-red-500 text-center p-8">
-        Error loading customer details: {error.message}
+        Error loading customer details:{" "}
+        {error?.response?.data?.customer?.[0] ||
+          error?.response?.data?.detail ||
+          error.message ||
+          "Unknown error"}
       </div>
     );
 
@@ -321,10 +345,15 @@ const CustomerDetail = () => {
                   ) : (
                     <div className="flex items-center space-x-2 relative">
                       <span className="text-2xl font-bold text-gray-900">
-                        {customer?.name?.charAt(0)?.toUpperCase() + customer?.name?.slice(1) || 'Unknown'} {customer?.surname?.charAt(0)?.toUpperCase() + customer?.surname?.slice(1) || ''}
+                        {customer?.name?.charAt(0)?.toUpperCase() +
+                          customer?.name?.slice(1) || "Unknown"}{" "}
+                        {customer?.surname?.charAt(0)?.toUpperCase() +
+                          customer?.surname?.slice(1) || ""}
                       </span>
                       <button
-                        onClick={() => setShowNameEditDropdown(!showNameEditDropdown)}
+                        onClick={() =>
+                          setShowNameEditDropdown(!showNameEditDropdown)
+                        }
                         className="text-gray-400 hover:text-gray-600"
                       >
                         <Edit className="h-5 w-5" />
@@ -350,235 +379,245 @@ const CustomerDetail = () => {
                 </div>
               </div>
               {customer?.all_phones && customer.all_phones.length > 0 && (
-                    <div className="flex flex-col">
-                      {customer.all_phones.map((phoneObj, index) => (
-                        <div key={phoneObj.id || index} className="flex flex-col text-md text-gray-600">
-                          <div className="flex items-center">
-                            <Phone className="h-4 w-2 mr-1 text-gray-400" />
-                            {phoneObj.phone === customer.phone && editingField === "phone" ? (
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="text"
-                                  value={tempValue}
-                                  onChange={(e) => setTempValue(e.target.value)}
-                                  className="px-2 py-1 border border-gray-300 rounded text-sm"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={saveEdit}
-                                  className="text-green-600 hover:text-green-800"
-                                >
-                                  <Save className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={cancelEdit}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <span
-                                  className={`${
-                                    phoneObj.is_primary ? "font-semibold text-blue-600" : "text-gray-600"
-                                  }`}
-                                >
-                                  {phoneObj.phone}
-                                  {phoneObj.is_primary && " (Primary)"}
-                                </span>
-                                {phoneObj.is_primary && (
-                                  <button
-                                    onClick={() => setShowPrimaryDropdown(!showPrimaryDropdown)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                  >
-                                    <ChevronDown className={`h-4 w-4 transform transition-transform ${showPrimaryDropdown ? "rotate-180" : ""}`} />
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          {phoneObj.is_primary && showPrimaryDropdown && (
-                            <div className="ml-2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-30 overflow-y-auto">
-                              <div className="p-2">
-                                {customer.all_phones.filter((p) => !p.is_primary).map((p) => (
-                                  <button
-                                    key={p.id}
-                                    onClick={() => {
-                                      setPrimaryPhoneMutation.mutate(p.id);
-                                      setShowPrimaryDropdown(false);
-                                    }}
-                                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded"
-                                    disabled={setPrimaryPhoneMutation.isPending}
-                                  >
-                                    {p.phone}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-            </div>
-
-            {/* Middle: Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1 mx-8">
-              <div className="flex items-center justify-between">
-              <div>
-                <p className="text-md font-medium text-gray-600">
-                  Total Calls
-                </p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  {summary?.total_calls || 0}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-md font-medium text-gray-600">
-                  Total Orders
-                </p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  {summary?.total_orders || 0}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-md font-medium text-gray-600">Total Paid</p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  ₹{summary?.total_paid?.toFixed(2) || "0.00"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-md font-medium text-gray-600">
-                  Pending Amount
-                </p>
-                <p className="text-base font-bold text-gray-900 mt-1">
-                  ₹{summary?.total_pending?.toFixed(2) || "0.00"}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1 hover:shadow-md transition-shadow relative">
-            <div
-              className="flex items-center justify-between cursor-pointer"
-              onClick={() => setShowAgentDropdown(!showAgentDropdown)}
-            >
-              <div>
-                <p className="text-md font-medium text-gray-600">
-                  Telecaller
-                </p>
-                <p className="text-base font-bold text-gray-900 mt-1 truncate">
-                  {customer?.agent_name || "Not assigned"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <ChevronDown
-                  className={`w-3 h-3 text-gray-400 transform transition-transform ${
-                    showAgentDropdown ? "rotate-180" : ""
-                  }`}
+  <div className="relative">
+    {/* Show first 2 phone numbers stacked */}
+    <div className="space-y-1">
+      {customer.all_phones.slice(0, 2).map((phoneObj, index) => (
+        <div key={phoneObj.id || index} className="relative">
+          <div className="flex items-center">
+            <Phone className="h-4 w-4 mr-2 text-gray-400" />
+            {phoneObj.phone === customer.phone && editingField === "phone" ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={tempValue}
+                  onChange={(e) => setTempValue(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                  autoFocus
                 />
+                <button
+                  onClick={saveEdit}
+                  className="text-green-600 hover:text-green-800"
+                >
+                  <Save className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            </div>
-            {showAgentDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto w-auto min-w-32">
-                <div className="p-2">
+            ) : (
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`${
+                    phoneObj.is_primary
+                      ? "font-semibold text-blue-600"
+                      : "text-gray-600"
+                  }`}
+                >
+                  {phoneObj.phone}
+                  {phoneObj.is_primary && " (P)"}
+                </span>
+                {phoneObj.is_primary && (
                   <button
-                    onClick={() => handleAgentSelect(null)}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
+                    onClick={() =>
+                      setShowPrimaryDropdown(!showPrimaryDropdown)
+                    }
+                    className="text-gray-400 hover:text-gray-600"
                   >
-                    Not assigned
+                    <ChevronDown
+                      className={`h-4 w-4 transform transition-transform ${
+                        showPrimaryDropdown ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
-                  {employees?.map((employee) => (
-                    <button
-                      key={employee.id}
-                      onClick={() => handleAgentSelect(employee.id)}
-                      className="w-full text-left px-3 py-1.5 text-md hover:bg-gray-100 rounded"
-                    >
-                      {employee.username}
-                    </button>
-                  ))}
-                </div>
+                )}
               </div>
             )}
-            </div>
           </div>
           
-
-            {/* Right side: Buttons aligned with name */}
-            <div className="flex space-x-2">
-              {!showAddPhone ? (
-  <button
-    onClick={() => setShowAddPhone(true)}
-    className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
-  >
-    <Plus className="h-4 w-4 mr-1" />
-    Add Phone
-  </button>
-) : (
-  <div className="flex flex-col">
-    <div className="flex items-center space-x-2">
-      <input
-        type="text"
-        value={newPhoneNumber}
-        onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, ''); // Only allow digits
-          if (value.length <= 10) {
-            setNewPhoneNumber(value);
-            if (value.length === 10) {
-              setPhoneError("");
-            } else if (value.length > 0) {
-              setPhoneError("Phone number must be exactly 10 digits.");
-            } else {
-              setPhoneError("");
-            }
-          }
-        }}
-        placeholder="Enter new phone number"
-        className="px-2 py-1 border border-gray-300 rounded text-sm"
-        autoFocus
-      />
-      <button
-        onClick={() => {
-          if (newPhoneNumber.length < 10) {
-            alert("Phone number must be at least 10 digits long.");
-            return;
-          }
-          if (newPhoneNumber.length > 10) {
-            alert("Phone number cannot be more than 10 digits long.");
-            return;
-          }
-          addPhoneMutation.mutate({
-            phone: newPhoneNumber,
-          });
-        }}
-        className="text-green-600 hover:text-green-800"
-      >
-        <Save className="h-4 w-4" />
-      </button>
-      <button
-        onClick={() => {
-          setShowAddPhone(false);
-          setNewPhoneNumber("");
-        }}
-        className="text-red-600 hover:text-red-800"
-      >
-        <X className="h-4 w-4" />
-      </button>
+          {/* Primary phone dropdown */}
+          {phoneObj.is_primary && showPrimaryDropdown && (
+            <div className="ml-6 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <div className="p-2 max-h-40 overflow-y-auto">
+                <div className="text-xs text-gray-500 mb-1 px-1">Set as primary:</div>
+                {customer.all_phones
+                  .filter((p) => !p.is_primary)
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setPrimaryPhoneMutation.mutate(p.id);
+                        setShowPrimaryDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded disabled:opacity-50"
+                      disabled={setPrimaryPhoneMutation.isPending}
+                    >
+                      {p.phone}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
-    {phoneError && (
-      <p className="text-red-500 text-xs mt-1 ml-1">
-        {phoneError}
-      </p>
+
+    {/* Show "+X more" dropdown if more than 2 phones */}
+    {customer.all_phones.length > 2 && (
+      <div className="mt-1 relative">
+        <button
+          onClick={() => setShowAllPhones(!showAllPhones)}
+          className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          +{customer.all_phones.length - 2} more numbers
+          <ChevronDown className={`h-3 w-3 ml-1 transform ${showAllPhones ? "rotate-180" : ""}`} />
+        </button>
+        
+        {/* All phones dropdown */}
+        {showAllPhones && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
+            <div className="p-2 max-h-48 overflow-y-auto">
+              <div className="text-xs text-gray-500 mb-2 px-2">All phone numbers:</div>
+              {customer.all_phones.map((phone, idx) => (
+                <div
+                  key={phone.id || idx}
+                  className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded"
+                >
+                  <div className="flex items-center">
+                    <Phone className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                    <span className={`text-sm ${phone.is_primary ? "font-semibold text-blue-600" : "text-gray-700"}`}>
+                      {phone.phone}
+                    </span>
+                  </div>
+                  {phone.is_primary && (
+                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">Primary</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     )}
   </div>
 )}
+            </div>
+
+            {/* Middle: Summary Cards */}
+            <div className="grid grid-cols-5 gap-2 mx-4">
+      {[
+        { label: "Total Calls", value: summary?.total_calls || 0 },
+        { label: "Total Orders", value: summary?.total_orders || 0 },
+        { label: "Total Paid", value: `₹${summary?.total_paid?.toFixed(2) || "0.00"}` },
+        { label: "Pending", value: `₹${summary?.total_pending?.toFixed(2) || "0.00"}` },
+      ].map((item, idx) => (
+        <div key={idx} className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
+          <p className="text-xs text-gray-500 truncate">{item.label}</p>
+          <p className="text-sm font-bold text-gray-900 truncate">{item.value}</p>
+        </div>
+      ))}
+      
+      <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-20 relative">
+        <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowAgentDropdown(!showAgentDropdown)}>
+          <div>
+            <p className="text-xs text-gray-500 truncate">Telecaller</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{customer?.agent_name || "Not assigned"}</p>
+          </div>
+          <ChevronDown className={`w-3 h-3 text-gray-400 transform ${showAgentDropdown ? "rotate-180" : ""}`} />
+        </div>
+        {showAgentDropdown && (
+          <div className="absolute top-full left-0 mt-0.5 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-32 overflow-y-auto w-full">
+            <div className="p-1">
+              <button onClick={() => handleAgentSelect(null)} className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100">Not assigned</button>
+              {employees?.map((employee) => (
+                <button key={employee.id} onClick={() => handleAgentSelect(employee.id)} className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 truncate">
+                  {employee.username}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+            {/* Right side: Buttons aligned with name */}
+            <div className="flex space-x-2 items-center justify-end flex-1 relative z-10">
+              {!showAddPhone ? (
+                <button
+                  onClick={() => setShowAddPhone(true)}
+                  className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Phone
+                </button>
+              ) : (
+                <div className="flex flex-col">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={newPhoneNumber}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, ""); // Only allow digits
+                        if (value.length <= 10) {
+                          setNewPhoneNumber(value);
+                          if (value.length === 10) {
+                            setPhoneError("");
+                          } else if (value.length > 0) {
+                            setPhoneError(
+                              "Phone number must be exactly 10 digits."
+                            );
+                          } else {
+                            setPhoneError("");
+                          }
+                        }
+                      }}
+                      placeholder="Enter new phone number"
+                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => {
+                        if (newPhoneNumber.length < 10) {
+                          alert(
+                            "Phone number must be at least 10 digits long."
+                          );
+                          return;
+                        }
+                        if (newPhoneNumber.length > 10) {
+                          alert(
+                            "Phone number cannot be more than 10 digits long."
+                          );
+                          return;
+                        }
+                        addPhoneMutation.mutate({
+                          phone: newPhoneNumber,
+                        });
+                      }}
+                      className="text-green-600 hover:text-green-800"
+                    >
+                      <Save className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddPhone(false);
+                        setNewPhoneNumber("");
+                      }}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {phoneError && (
+                    <p className="text-red-500 text-xs mt-1 ml-1">
+                      {phoneError}
+                    </p>
+                  )}
+                </div>
+              )}
               <button
                 onClick={() => openPopup(customer)}
                 className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
@@ -597,7 +636,11 @@ const CustomerDetail = () => {
               </button>
               <button
                 onClick={() => {
-                  if (window.confirm(`Are you sure you want to delete customer "${customer?.name}"? This action cannot be undone.`)) {
+                  if (
+                    window.confirm(
+                      `Are you sure you want to delete customer "${customer?.name}"? This action cannot be undone.`
+                    )
+                  ) {
                     deleteMutation.mutate();
                   }
                 }}
@@ -610,8 +653,8 @@ const CustomerDetail = () => {
           </div>
 
           {/* Secondary info below */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-            <div className="flex items-center text-lg text-gray-600">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 mt-2">
+            <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <User className="h-5 w-5 mr-2 text-gray-400" />
               <span className="font-medium mr-2">Org Name:</span>
               {editingField === "company_name" ? (
@@ -642,7 +685,9 @@ const CustomerDetail = () => {
                     {customer?.company_name || "Not set"}
                   </span>
                   <button
-                    onClick={() => startEditing("company_name", customer?.company_name)}
+                    onClick={() =>
+                      startEditing("company_name", customer?.company_name)
+                    }
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <Edit className="h-4 w-4" />
@@ -650,25 +695,81 @@ const CustomerDetail = () => {
                 </div>
               )}
             </div>
-            <div className="flex items-center text-lg text-gray-600 relative">
+            <div className="flex items-center text-lg text-gray-600 relative bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <User className="h-5 w-5 mr-2 text-gray-400" />
               <span className="font-medium mr-2">Org Type:</span>
-              <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setShowOrgTypeDropdown(!showOrgTypeDropdown)}>
-                <span className="font-semibold text-gray-900">{customer?.company_type_display || "Not set"}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transform transition-transform ${showOrgTypeDropdown ? "rotate-180" : ""}`} />
+              <div
+                className="flex items-center space-x-2 cursor-pointer"
+                onClick={() => setShowOrgTypeDropdown(!showOrgTypeDropdown)}
+              >
+                <span className="font-semibold text-gray-900">
+                  {customer?.company_type_display || "Not set"}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-400 transform transition-transform ${
+                    showOrgTypeDropdown ? "rotate-180" : ""
+                  }`}
+                />
               </div>
               {showOrgTypeDropdown && (
                 <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto w-auto min-w-32">
                   <div className="p-2">
-                    <button onClick={() => handleOrgTypeSelect(null)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded">Not set</button>
+                    <button
+                      onClick={() => handleOrgTypeSelect(null)}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
+                    >
+                      Not set
+                    </button>
                     {organizationTypes?.map((orgType) => (
-                      <button key={orgType.id} onClick={() => handleOrgTypeSelect(orgType.id)} className="w-full text-left px-3 py-1.5 text-md hover:bg-gray-100 rounded">{orgType.name}</button>
+                      <button
+                        key={orgType.id}
+                        onClick={() => handleOrgTypeSelect(orgType.id)}
+                        className="w-full text-left px-3 py-1.5 text-md hover:bg-gray-100 rounded"
+                      >
+                        {orgType.name}
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-            <div className="flex items-center text-lg text-gray-600">
+            <div className="flex items-center text-lg text-gray-600 relative bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
+              <User className="h-5 w-5 mr-2 text-gray-400" />
+              <span className="font-medium mr-2">Customer Type:</span>
+              <div
+                className="flex items-center space-x-2 cursor-pointer"
+                onClick={() => setShowCustomerTypeDropdown(!showCustomerTypeDropdown)}
+              >
+                <span className="font-semibold text-gray-900">
+                  {customerTypes.find(t => t.id === customer?.customer_type)?.name || "Not set"}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-400 transform transition-transform ${showCustomerTypeDropdown ? "rotate-180" : ""}`}
+                />
+              </div>
+              {showCustomerTypeDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto w-auto min-w-32">
+                  <div className="p-2">
+                    <button
+                      onClick={() => handleCustomerTypeSelect("")}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
+                    >
+                      Not set
+                    </button>
+                    {customerTypes.map(type => (
+                      <button
+                        key={type.id}
+                        onClick={() => handleCustomerTypeSelect(type.id)}
+                        className="w-full text-left px-3 py-1.5 text-md hover:bg-gray-100 rounded"
+                      >
+                        {type.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <Calendar className="h-5 w-5 mr-2 text-gray-400" />
               <span className="font-medium mr-2">Appointment Date:</span>
               {editingField === "appointment_date" ? (
@@ -696,10 +797,17 @@ const CustomerDetail = () => {
               ) : (
                 <div className="flex items-center space-x-2">
                   <span className="font-semibold text-gray-900">
-                    {customer?.appointment_date ? new Date(customer.appointment_date).toLocaleDateString() : new Date(customer.created_at).toLocaleDateString()}
+                    {customer?.appointment_date
+                      ? new Date(customer.appointment_date).toLocaleDateString()
+                      : new Date(customer.created_at).toLocaleDateString()}
                   </span>
                   <button
-                    onClick={() => startEditing("appointment_date", customer?.appointment_date || "")}
+                    onClick={() =>
+                      startEditing(
+                        "appointment_date",
+                        customer?.appointment_date || ""
+                      )
+                    }
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <Edit className="h-4 w-4" />
@@ -707,264 +815,380 @@ const CustomerDetail = () => {
                 </div>
               )}
             </div>
-          
           </div>
-          {(customer?.house_flat_no || customer?.wing_lane || customer?.society_colony || customer?.landmark || customer?.area || customer?.pincode || customer?.city || customer?.district || customer?.state) && (
-              <div className="flex items-start font-semibold text-gray-700">
-                <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  {editingAddress ? (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-9 gap-2">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">House No</label>
-                          <input
-                            type="text"
-                            placeholder="House/Flat No"
-                            value={tempAddress.house_flat_no}
-                            onChange={(e) => setTempAddress({ ...tempAddress, house_flat_no: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Wing/Lane</label>
-                          <input
-                            type="text"
-                            placeholder="Wing/Lane"
-                            value={tempAddress.wing_lane}
-                            onChange={(e) => setTempAddress({ ...tempAddress, wing_lane: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Society/Colony</label>
-                          <input
-                            type="text"
-                            placeholder="Society/Colony"
-                            value={tempAddress.society_colony}
-                            onChange={(e) => setTempAddress({ ...tempAddress, society_colony: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Landmark</label>
-                          <input
-                            type="text"
-                            placeholder="Landmark"
-                            value={tempAddress.landmark}
-                            onChange={(e) => setTempAddress({ ...tempAddress, landmark: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Area</label>
-                          <input
-                            type="text"
-                            placeholder="Area"
-                            value={tempAddress.area}
-                            onChange={(e) => setTempAddress({ ...tempAddress, area: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Pincode</label>
-                          <input
-                            type="text"
-                            placeholder="Pincode"
-                            value={tempAddress.pincode}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                              setTempAddress({ ...tempAddress, pincode: value });
-                              if (value.length < 6 && value.length > 0) {
-                                setAddressError("Pincode must be exactly 6 digits.");
-                              } else {
-                                setAddressError("");
-                              }
-                            }}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                            maxLength={6}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
-                          <input
-                            type="text"
-                            placeholder="City"
-                            value={tempAddress.city}
-                            onChange={(e) => setTempAddress({ ...tempAddress, city: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">District</label>
-                          <input
-                            type="text"
-                            placeholder="District"
-                            value={tempAddress.district}
-                            onChange={(e) => setTempAddress({ ...tempAddress, district: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
-                          <input
-                            type="text"
-                            placeholder="State"
-                            value={tempAddress.state}
-                            onChange={(e) => setTempAddress({ ...tempAddress, state: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          />
-                        </div>
+          {(customer?.house_flat_no ||
+            customer?.wing_lane ||
+            customer?.society_colony ||
+            customer?.landmark ||
+            customer?.area ||
+            customer?.pincode ||
+            customer?.city ||
+            customer?.district ||
+            customer?.state) && (
+            <div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
+              <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                {editingAddress ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-9 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          House No
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="House/Flat No"
+                          value={tempAddress.house_flat_no}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              house_flat_no: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
                       </div>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <button
-                          onClick={saveAddressEdit}
-                          className="text-green-600 hover:text-green-800"
-                        >
-                          <Save className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={cancelAddressEdit}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Wing/Lane
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Wing/Lane"
+                          value={tempAddress.wing_lane}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              wing_lane: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Society/Colony
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Society/Colony"
+                          value={tempAddress.society_colony}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              society_colony: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Landmark
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Landmark"
+                          value={tempAddress.landmark}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              landmark: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Area
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Area"
+                          value={tempAddress.area}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              area: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Pincode
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Pincode"
+                          value={tempAddress.pincode}
+                          onChange={(e) => {
+                            const value = e.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 6);
+                            setTempAddress({ ...tempAddress, pincode: value });
+                            if (value.length < 6 && value.length > 0) {
+                              setAddressError(
+                                "Pincode must be exactly 6 digits."
+                              );
+                            } else {
+                              setAddressError("");
+                            }
+                          }}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          maxLength={6}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="City"
+                          value={tempAddress.city}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              city: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          District
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="District"
+                          value={tempAddress.district}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              district: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="State"
+                          value={tempAddress.state}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              state: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-9 gap-1">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">House No</label>
-                          <input
-                            type="text"
-                            placeholder="House/Flat No"
-                            value={customer?.house_flat_no || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Wing/Lane</label>
-                          <input
-                            type="text"
-                            placeholder="Wing/Lane"
-                            value={customer?.wing_lane || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Society/Colony</label>
-                          <input
-                            type="text"
-                            placeholder="Society/Colony"
-                            value={customer?.society_colony || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Landmark</label>
-                          <input
-                            type="text"
-                            placeholder="Landmark"
-                            value={customer?.landmark || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Area</label>
-                          <input
-                            type="text"
-                            placeholder="Area"
-                            value={customer?.area || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Pincode</label>
-                          <input
-                            type="text"
-                            placeholder="Pincode"
-                            value={customer?.pincode || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
-                          <input
-                            type="text"
-                            placeholder="City"
-                            value={customer?.city || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">District</label>
-                          <input
-                            type="text"
-                            placeholder="District"
-                            value={customer?.district || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
-                          <input
-                            type="text"
-                            placeholder="State"
-                            value={customer?.state || ""}
-                            readOnly
-                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                          />
-                        </div>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <button
+                        onClick={saveAddressEdit}
+                        className="text-green-600 hover:text-green-800"
+                      >
+                        <Save className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={cancelAddressEdit}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-9 gap-1">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          House No
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="House/Flat No"
+                          value={customer?.house_flat_no || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
                       </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Wing/Lane
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Wing/Lane"
+                          value={customer?.wing_lane || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Society/Colony
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Society/Colony"
+                          value={customer?.society_colony || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Landmark
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Landmark"
+                          value={customer?.landmark || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Area
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Area"
+                          value={customer?.area || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Pincode
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Pincode"
+                          value={customer?.pincode || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="City"
+                          value={customer?.city || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          District
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="District"
+                          value={customer?.district || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="State"
+                          value={customer?.state || ""}
+                          readOnly
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
+                        />
+                      </div>
+                    </div>
 
-                      <div className="flex justify-end">
-                        <button
-                          onClick={startEditingAddress}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={startEditingAddress}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+          )}
         </div>
-        
 
         {/* Conversation history*/}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-4 h-96 overflow-y-auto">
-          <div className="flex items-center">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Conversation History
+                </h2>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                Conversation History
-              </h2>
-            </div>
+            {callLogs.length > 0 &&
+              callLogs[0]?.date &&
+              new Date() - new Date(callLogs[0].date) < 24 * 60 * 60 * 1000 && (
+                <button
+                  onClick={() => {
+                    // Use the most recent call log (already sorted by date descending)
+                    const recentCall = callLogs[0];
+                    // Open popup with pre-populated data for editing
+                    const callData = {
+                      ...customer,
+                      // Pre-populate with existing call data
+                      notes: recentCall.note || "",
+                      selectedAssumption: recentCall.assumption || [],
+                      selectedAssumption2: recentCall.assumption2 || [],
+                      selectedAssumption3: recentCall.assumption3 || [],
+                      orderId: recentCall.order_id || "",
+                      callId: recentCall.call_id,
+                      id: recentCall.id,
+                      timer: Math.round(recentCall.duration_minutes * 60) || 0,
+                    };
+                    openPopup(callData);
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25 text-sm"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Last Call
+                </button>
+              )}
           </div>
 
           {callLogs.length === 0 ? (
@@ -1005,7 +1229,10 @@ const CustomerDetail = () => {
 
                   const elements = [];
                   elements.push(
-                    <span key="date" className="text-gray-900 font-semibold text-lg">
+                    <span
+                      key="date"
+                      className="text-gray-900 font-semibold text-lg"
+                    >
                       {formattedDate}
                     </span>
                   );
@@ -1016,7 +1243,10 @@ const CustomerDetail = () => {
                     </span>
                   );
                   elements.push(
-                    <span key="time" className="text-gray-900 font-semibold text-lg">
+                    <span
+                      key="time"
+                      className="text-gray-900 font-semibold text-lg"
+                    >
                       {formattedTime}
                     </span>
                   );
@@ -1027,7 +1257,10 @@ const CustomerDetail = () => {
                     </span>
                   );
                   elements.push(
-                    <span key="duration" className="text-blue-600 font-medium text-lg">
+                    <span
+                      key="duration"
+                      className="text-blue-600 font-medium text-lg"
+                    >
                       {formatDuration(call.duration_minutes)}
                     </span>
                   );
@@ -1063,7 +1296,10 @@ const CustomerDetail = () => {
                       </span>
                     );
                   }
-                  if (call.assumption_names && call.assumption_names.length > 0) {
+                  if (
+                    call.assumption_names &&
+                    call.assumption_names.length > 0
+                  ) {
                     elements.push(
                       <span key="sep6" className="text-gray-400 text-lg">
                         {" "}
@@ -1073,7 +1309,10 @@ const CustomerDetail = () => {
                     call.assumption_names.forEach((name, index) => {
                       if (index > 0) {
                         elements.push(
-                          <span key={`assumption-sep-${index}`} className="text-gray-400 text-lg">
+                          <span
+                            key={`assumption-sep-${index}`}
+                            className="text-gray-400 text-lg"
+                          >
                             ,{" "}
                           </span>
                         );
@@ -1088,7 +1327,10 @@ const CustomerDetail = () => {
                       );
                     });
                   }
-                  if (call.assumption2_names && call.assumption2_names.length > 0) {
+                  if (
+                    call.assumption2_names &&
+                    call.assumption2_names.length > 0
+                  ) {
                     elements.push(
                       <span key="sep7" className="text-gray-400 text-lg">
                         {" "}
@@ -1098,7 +1340,10 @@ const CustomerDetail = () => {
                     call.assumption2_names.forEach((name, index) => {
                       if (index > 0) {
                         elements.push(
-                          <span key={`assumption2-sep-${index}`} className="text-gray-400 text-lg">
+                          <span
+                            key={`assumption2-sep-${index}`}
+                            className="text-gray-400 text-lg"
+                          >
                             ,{" "}
                           </span>
                         );
@@ -1113,7 +1358,10 @@ const CustomerDetail = () => {
                       );
                     });
                   }
-                  if (call.assumption3_names && call.assumption3_names.length > 0) {
+                  if (
+                    call.assumption3_names &&
+                    call.assumption3_names.length > 0
+                  ) {
                     elements.push(
                       <span key="sep8" className="text-gray-400 text-lg">
                         {" "}
@@ -1123,7 +1371,10 @@ const CustomerDetail = () => {
                     call.assumption3_names.forEach((name, index) => {
                       if (index > 0) {
                         elements.push(
-                          <span key={`assumption3-sep-${index}`} className="text-gray-400 text-lg">
+                          <span
+                            key={`assumption3-sep-${index}`}
+                            className="text-gray-400 text-lg"
+                          >
                             ,{" "}
                           </span>
                         );
@@ -1162,7 +1413,10 @@ const CustomerDetail = () => {
                   if (index === 0) return [curr];
                   return [
                     ...acc,
-                    <span key={`space-${index}`} className="text-gray-300 text-lg">
+                    <span
+                      key={`space-${index}`}
+                      className="text-gray-300 text-lg"
+                    >
                       {" "}
                     </span>,
                     ...curr,

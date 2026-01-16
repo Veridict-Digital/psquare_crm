@@ -7,11 +7,39 @@ class User(AbstractUser):
     ROLE_CHOICES = [
         ('Admin', 'Admin'),
         ('Employee', 'Employee'),
+        ('Telecaller', 'Telecaller'),
     ]
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='Employee')
     pincode_territory = models.CharField(max_length=10, blank=True, null=True)
 
+    # Additional user details
+    first_name = models.CharField(max_length=50, blank=True, null=True)
+    middle_name = models.CharField(max_length=50, blank=True, null=True)
+    last_name = models.CharField(max_length=50, blank=True, null=True)
+    aadhar_number = models.CharField(max_length=12, blank=True, null=True, unique=True)
+    pan_number = models.CharField(max_length=10, blank=True, null=True, unique=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')], blank=True, null=True)
+    emergency_contact_name = models.CharField(max_length=100, blank=True, null=True)
+    emergency_contact_phone = models.CharField(max_length=15, blank=True, null=True)
+    joining_date = models.DateField(blank=True, null=True)
+    salary = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    bank_account_number = models.CharField(max_length=20, blank=True, null=True)
+    bank_name = models.CharField(max_length=100, blank=True, null=True)
+    ifsc_code = models.CharField(max_length=11, blank=True, null=True)
+
 class OrganizationType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+class CustomerType(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -25,18 +53,11 @@ class Customer(models.Model):
         ('Customer', 'Customer'),
         ('Lead', 'Lead'),
     ]
-    CUSTOMER_TYPES = [
-        ('Superstockist', 'Superstockist'),
-        ('Wholesaler', 'Wholesaler'),
-        ('End User', 'End User'),
-        ('Consumer', 'Consumer'),
-        ('Distributor', 'Distributor'),
-    ]
     name = models.CharField(max_length=100)
     surname = models.CharField(max_length=100, blank=True, null=True)
     company_name = models.CharField(max_length=100, blank=True, null=True)
     company_type = models.ForeignKey(OrganizationType, on_delete=models.SET_NULL, null=True, blank=True)
-    customer_type = models.CharField(max_length=20, choices=CUSTOMER_TYPES, blank=True, null=True)
+    customer_type = models.ForeignKey(CustomerType, on_delete=models.SET_NULL, null=True, blank=True)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=15)
@@ -129,7 +150,10 @@ class Product(models.Model):
     b2c_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # B2C Price
     b2b_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # B2B Price
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    cost = models.DecimalField(max_digits=10, decimal_places=2)
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Purchase Price (formerly cost)
+    product_volume = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Product Volume
+    unit = models.CharField(max_length=20, blank=True, null=True)  # Unit (e.g., kg, liter, piece)
+    product_weight = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Product Weight
     gst_rate = models.ForeignKey(GSTRate, on_delete=models.SET_NULL, null=True, blank=True)
     gst_calculated_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # GST Calculated Amount
     use_case = models.TextField(blank=True, null=True)  # Use Case
@@ -224,6 +248,7 @@ class CustomerAssumption3(models.Model):
 class CallLog(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
+        ('In Progress', 'In Progress'),
         ('Completed', 'Completed'),
         ('Follow-up', 'Follow-up'),
     ]
@@ -233,6 +258,7 @@ class CallLog(models.Model):
     lead = models.ForeignKey('Lead', on_delete=models.CASCADE, null=True, blank=True)
     employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='call_logs', null=True, blank=True)  # Add this
     date = models.DateTimeField(auto_now_add=True)  # Add this
+    saved_at = models.DateTimeField(blank=True, null=True)  # Timestamp when info is saved
     duration = models.DurationField()
     note = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')

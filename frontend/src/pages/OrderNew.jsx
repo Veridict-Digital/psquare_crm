@@ -47,6 +47,9 @@ const OrderNew = () => {
   const [productSearch, setProductSearch] = useState("");
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [selectedCombo, setSelectedCombo] = useState(null);
+  const [appliedCombos, setAppliedCombos] = useState([]);
+  const [showComboSelection, setShowComboSelection] = useState(false);
 
   // Fetch customers, products, and combinations
   const { data: customers } = useQuery({
@@ -808,9 +811,7 @@ const OrderNew = () => {
                                 : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
                             }`}
                             onClick={() => {
-                              if (!canApplyCombo) return;
-
-                              // Apply the combo offer
+                              // Apply the combo offer - always allow applying combos
                               requiredItems.forEach((reqItem) => {
                                 const product = products?.find((p) => p.id === reqItem.product);
                                 if (product) {
@@ -831,7 +832,7 @@ const OrderNew = () => {
                                         product_title: product.title,
                                         product_sku: product.sku,
                                         quantity: reqItem.quantity_required,
-                                        unit_price: parseFloat(product.price),
+                                        unit_price: reqItem.offer_price && reqItem.offer_price > 0 ? parseFloat(reqItem.offer_price) : parseFloat(product.price),
                                         gst_rate: parseFloat(product.gst_rate),
                                       },
                                     ]);
@@ -876,6 +877,9 @@ const OrderNew = () => {
                                   ]);
                                 }
                               });
+
+                              // Add to applied combos for display
+                              setAppliedCombos((prev) => [...prev, combo.id]);
                             }}
                           >
                             <div className="flex items-start justify-between mb-4">

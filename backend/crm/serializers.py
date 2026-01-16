@@ -1,13 +1,17 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'pincode_territory', 'password']
+        fields = ['id', 'username', 'email', 'role', 'pincode_territory', 'password',
+                  'first_name', 'middle_name', 'last_name', 'aadhar_number', 'pan_number',
+                  'phone_number', 'address', 'date_of_birth', 'gender', 'emergency_contact_name',
+                  'emergency_contact_phone', 'joining_date', 'salary', 'bank_account_number',
+                  'bank_name', 'ifsc_code']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -32,7 +36,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     outstanding_amount = serializers.SerializerMethodField()
     phones = PhoneSerializer(many=True, read_only=True)
     company_type_display = serializers.CharField(source='company_type.name', read_only=True)
-    customer_type_display = serializers.CharField(source='get_customer_type_display', read_only=True)
+    customer_type_display = serializers.CharField(source='customer_type.name', read_only=True)
 
     def get_total_order_value(self, obj):
         # Calculate total order value from all orders for this customer
@@ -77,6 +81,9 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
+        extra_kwargs = {
+            'cost': {'write_only': True},  # Keep cost for backward compatibility but make it write-only
+        }
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)
@@ -180,7 +187,7 @@ class CallLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CallLog
-        fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_names', 'assumption2', 'assumption2_names', 'assumption3', 'assumption3_names']
+        fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'saved_at', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_names', 'assumption2', 'assumption2_names', 'assumption3', 'assumption3_names']
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -334,3 +341,8 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+class CustomerTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerType
+        fields = '__all__'

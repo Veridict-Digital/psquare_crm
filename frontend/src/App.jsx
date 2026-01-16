@@ -16,6 +16,7 @@ import ProductEdit from './pages/ProductEdit';
 import ProductDetail from './pages/ProductDetail';
 import ProductNew from './pages/ProductNew';
 import UserManagement from './pages/UserManagement';
+import UserNew from './pages/UserNew';
 import CallLogList from './pages/CallLogList';
 import CallLogEdit from './pages/CallLogEdit';
 import Login from './pages/Login';
@@ -56,7 +57,7 @@ const AppContent = () => {
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/product-combinations" element={<ProductCombinations />} />
           <Route path="/users" element={<UserManagement />} />
-          <Route path="/users/new" element={<UserEdit />} />
+          <Route path="/users/new" element={<UserNew />} />
           <Route path="/users/edit/:id" element={<UserEdit />} />
           <Route path="/calllogs" element={<CallLogList />} />
           <Route path="/calllogs/edit/:id" element={<CallLogEdit />} />
