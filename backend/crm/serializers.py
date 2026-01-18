@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -341,6 +341,11 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+class UnitSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Unit
+        fields = '__all__'
 
 class CustomerTypeSerializer(serializers.ModelSerializer):
     class Meta:

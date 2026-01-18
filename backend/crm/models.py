@@ -131,6 +131,14 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+class Unit(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
 class GSTRate(models.Model):
     name = models.CharField(max_length=50, unique=True)
     rate = models.DecimalField(max_digits=5, decimal_places=2)  # GST rate in percentage, e.g., 18.00

@@ -521,7 +521,7 @@ const CustomerDetail = () => {
         </div>
       ))}
       
-      <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-20 relative">
+      <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-38 relative">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowAgentDropdown(!showAgentDropdown)}>
           <div>
             <p className="text-xs text-gray-500 truncate">Telecaller</p>
@@ -545,7 +545,7 @@ const CustomerDetail = () => {
     </div>
 
             {/* Right side: Buttons aligned with name */}
-            <div className="flex space-x-2 items-center justify-end flex-1 relative z-10">
+            <div className="flex space-x-2 items-center min-w-max">
               {!showAddPhone ? (
                 <button
                   onClick={() => setShowAddPhone(true)}
@@ -627,7 +627,7 @@ const CustomerDetail = () => {
               </button>
               <button
                 onClick={() =>
-                  window.open(`/orders/new?customer=${customer.id}`, "_blank")
+                  navigate(`/orders/new?customer=${customer.id}`)
                 }
                 className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25"
               >

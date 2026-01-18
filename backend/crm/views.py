@@ -6,8 +6,8 @@ from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import models
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -587,6 +587,11 @@ class GSTRateViewSet(viewsets.ModelViewSet):
 class ProductCombinationViewSet(viewsets.ModelViewSet):
     queryset = ProductCombination.objects.filter(is_active=True)
     serializer_class = ProductCombinationSerializer
+    permission_classes = [IsAuthenticated]
+
+class UnitViewSet(viewsets.ModelViewSet):
+    queryset = Unit.objects.filter(is_active=True)
+    serializer_class = UnitSerializer
     permission_classes = [IsAuthenticated]
 
 class CustomerTypeViewSet(viewsets.ModelViewSet):

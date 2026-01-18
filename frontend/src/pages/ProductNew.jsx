@@ -52,6 +52,9 @@ const ProductNew = () => {
   const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: "", description: "" });
 
+  const [showNewUnitForm, setShowNewUnitForm] = useState(false);
+  const [newUnit, setNewUnit] = useState({ name: "", description: "" });
+
   const { data: gstRates, isLoading: gstRatesLoading } = useQuery({
     queryKey: ["gstRates"],
     queryFn: async () => {
@@ -64,6 +67,14 @@ const ProductNew = () => {
     queryKey: ["categories"],
     queryFn: async () => {
       const response = await axios.get("/api/categories/");
+      return response.data;
+    },
+  });
+
+  const { data: units, isLoading: unitsLoading } = useQuery({
+    queryKey: ["units"],
+    queryFn: async () => {
+      const response = await axios.get("/api/units/");
       return response.data;
     },
   });
@@ -128,6 +139,23 @@ const ProductNew = () => {
     },
   });
 
+  const unitMutation = useMutation({
+    mutationFn: async (data) => {
+      const response = await axios.post("/api/units/", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["units"]);
+      setShowNewUnitForm(false);
+      setNewUnit({ name: "", description: "" });
+      toast.success("Unit added successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to add Unit");
+      console.error("Error adding Unit:", error);
+    },
+  });
+
   const handleChange = (e) => {
     if (e.target.name === "image") {
       setFormData({ ...formData, [e.target.name]: e.target.files[0] });
@@ -157,6 +185,15 @@ const ProductNew = () => {
   const handleCategorySubmit = (e) => {
     e.preventDefault();
     categoryMutation.mutate(newCategory);
+  };
+
+  const handleUnitChange = (e) => {
+    setNewUnit({ ...newUnit, [e.target.name]: e.target.value });
+  };
+
+  const handleUnitSubmit = (e) => {
+    e.preventDefault();
+    unitMutation.mutate(newUnit);
   };
 
   return (
@@ -353,14 +390,44 @@ const ProductNew = () => {
                       <label className="block text-sm font-semibold text-gray-700">
                         Unit
                       </label>
-                      <input
-                        type="text"
-                        name="unit"
-                        value={formData.unit}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="e.g., ml, kg, piece"
-                      />
+                      <div className="relative">
+                        <select
+                          name="unit"
+                          value={formData.unit}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                        >
+                          <option value="">Select Unit</option>
+                          {units?.map((unit) => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                          <svg
+                            className="w-5 h-5 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowNewUnitForm(true)}
+                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium mt-2 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add New Unit
+                      </button>
                     </div>
 
                     <div className="space-y-2">
@@ -665,6 +732,84 @@ const ProductNew = () => {
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {categoryMutation.isLoading ? "Adding..." : "Add Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Unit Modal */}
+      {showNewUnitForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in fade-in zoom-in-95">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Tag className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Add Unit
+                  </h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNewUnitForm(false);
+                    setNewUnit({ name: "", description: "" });
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUnitSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Unit Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newUnit.name}
+                    onChange={handleUnitChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., kg, liter, piece"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newUnit.description}
+                    onChange={handleUnitChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                    placeholder="Describe the unit..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewUnitForm(false);
+                      setNewUnit({ name: "", description: "" });
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={unitMutation.isLoading}
+                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {unitMutation.isLoading ? "Adding..." : "Add Unit"}
                   </button>
                 </div>
               </form>
