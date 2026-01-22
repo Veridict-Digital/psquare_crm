@@ -38,7 +38,7 @@ const CustomerList = () => {
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
   const [viewType, setViewType] = useState('customers'); // 'customers' or 'leads'
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(15);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [appointmentValue, setAppointmentValue] = useState('');
@@ -67,6 +67,8 @@ const CustomerList = () => {
   const [showNewCustomerTypeInput, setShowNewCustomerTypeInput] = useState(false);
   const [newCustomerType, setNewCustomerType] = useState('');
   const [customerTypes, setCustomerTypes] = useState([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
     // Fetch customer types from backend
     useEffect(() => {
       fetchCustomerTypes().then((data) => setCustomerTypes(data)).catch(() => setCustomerTypes([]));
@@ -91,6 +93,7 @@ const CustomerList = () => {
       }
     };
   const [phoneError, setPhoneError] = useState('');
+  const [phoneExists, setPhoneExists] = useState(false);
   const [showNewOrgTypeInput, setShowNewOrgTypeInput] = useState(false);
   const [newOrgType, setNewOrgType] = useState('');
   const { openPopup } = useCallPopup();
@@ -98,13 +101,16 @@ const CustomerList = () => {
   const navigate = useNavigate();
 
   const { data: customersData, isLoading: customersLoading, error: customersError } = useQuery({
-    queryKey: ['customers', dateFrom, dateTo, contactType],
+    queryKey: ['customers', dateFrom, dateTo, contactType, currentPage, pageSize, search],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('contact_type', 'Customer');
+      params.append('page', currentPage);
+      params.append('page_size', pageSize);
       if (dateFrom) params.append('date_from', dateFrom);
       if (dateTo) params.append('date_to', dateTo);
       if (contactType) params.append('contact_type', contactType);
+      if (search) params.append('search', search);
 
       const response = await axios.get(`api/customers/?${params.toString()}`);
       return response.data;
@@ -113,12 +119,15 @@ const CustomerList = () => {
 
   // Fetch Customer objects with contact_type='Lead' for leads view
   const { data: leadsData, isLoading: leadsLoading, error: leadsError } = useQuery({
-    queryKey: ['leads', dateFrom, dateTo],
+    queryKey: ['leads', dateFrom, dateTo, currentPage, pageSize, search],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('contact_type', 'Lead');
+      params.append('page', currentPage);
+      params.append('page_size', pageSize);
       if (dateFrom) params.append('date_from', dateFrom);
       if (dateTo) params.append('date_to', dateTo);
+      if (search) params.append('search', search);
 
       const response = await axios.get(`api/customers/?${params.toString()}`);
       return response.data;
@@ -128,6 +137,19 @@ const CustomerList = () => {
   const { data: organizationTypes } = useQuery({
     queryKey: ['organizationTypes'],
     queryFn: () => axios.get('/api/organizationtypes/').then((res) => res.data),
+  });
+
+  // Query to check if phone number exists
+  const { data: phoneCheckData, isLoading: phoneCheckLoading } = useQuery({
+    queryKey: ['phoneCheck', newContact.phone],
+    queryFn: async () => {
+      if (newContact.phone.length >= 10) {
+        const response = await axios.get(`/api/customers/?phone=${newContact.phone}&page_size=1`);
+        return response.data;
+      }
+      return null;
+    },
+    enabled: newContact.phone.length >= 10,
   });
 
   const data = viewType === 'leads' ? leadsData : customersData;
@@ -145,45 +167,67 @@ const CustomerList = () => {
   };
 
   // Extract unique agents for filter
-  const agents = [...new Set(data?.map(customer => customer.agent_name).filter(Boolean))];
+  const agents = [...new Set(data?.results?.map(customer => customer.agent_name).filter(Boolean))];
 
   // Reset to first page when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterAgent, contactType, dateFrom, dateTo, viewType]);
+  }, [search, filterAgent, contactType, dateFrom, dateTo, viewType, pageSize]);
 
-  // Combine data for search or use viewType specific data
-  const combinedData = search ? [...(customersData || []), ...(leadsData || [])] : data;
+  // Auto-close success message after 1 second
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage('');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
-  // Filter and search customers
-  const filteredCustomers = combinedData?.filter(customer =>
-    customer.name?.toLowerCase().includes(search.toLowerCase()) ||
-    customer.email?.toLowerCase().includes(search.toLowerCase()) ||
-    customer.phone?.includes(search) ||
-    customer.id?.toString().includes(search)
-  ).filter(customer =>
-    !filterAgent || customer.agent_name === filterAgent
-  ).filter(customer =>
-    search || (viewType === 'customers' ? customer.contact_type === 'Customer' : true)
-  ).sort((a, b) => {
-    // Sort by appointment date in ascending order
-    const dateA = new Date(a.appointment_date || a.created_at);
-    const dateB = new Date(b.appointment_date || b.created_at);
-    return dateA - dateB;
-  }) || [];
+  // Auto-close error message after 3 seconds
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => {
+        setErrorMessage('');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredCustomers.length / pageSize);
-  const paginatedCustomers = filteredCustomers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Update phone error based on phone length
+  useEffect(() => {
+    if (newContact.phone.length > 0 && newContact.phone.length < 10) {
+      setPhoneError('Phone number must be at least 10 digits');
+    } else if (newContact.phone.length === 0) {
+      setPhoneError('');
+    }
+  }, [newContact.phone]);
 
-  // Calculate stats
-  const totalCustomers = filteredCustomers.length;
-  const totalOrderValue = filteredCustomers.reduce((sum, customer) => sum + (customer.total_order_value || 0), 0);
-  const activeAgents = new Set(filteredCustomers.map(customer => customer.agent_name).filter(Boolean)).size;
-  const avgOrderValue = totalCustomers > 0 ? totalOrderValue / totalCustomers : 0;
+  // Update phone error based on phoneCheckData
+  useEffect(() => {
+    if (newContact.phone.length >= 10) {
+      if (phoneCheckLoading) {
+        setPhoneError('Checking phone number...');
+      } else if (phoneCheckData && phoneCheckData.count > 0) {
+        setPhoneError('Phone number already exists');
+      } else {
+        setPhoneError('');
+      }
+    }
+  }, [newContact.phone, phoneCheckData, phoneCheckLoading]);
+
+  // Use paginated data from server
+  const customers = data?.results || [];
+  const totalPages = Math.ceil((data?.count || 0) / pageSize);
+
+  // Calculate stats (simplified since we don't have all data)
+  const totalCustomers = data?.count || 0;
+  const totalOrderValue = customers.reduce((sum, customer) => sum + (customer.total_order_value || 0), 0);
+  const activeAgents = new Set(customers.map(customer => customer.agent_name).filter(Boolean)).size;
+  const avgOrderValue = customers.length > 0 ? totalOrderValue / customers.length : 0;
 
   // Calculate customers with outstanding payments (only for customers, not leads)
-  const customersWithOutstanding = filteredCustomers.filter(customer =>
+  const customersWithOutstanding = customers.filter(customer =>
     customer.contact_type === 'Customer' && customer.outstanding_amount && customer.outstanding_amount > 0
   ).length;
 
@@ -292,7 +336,7 @@ const CustomerList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['customers']);
-      alert('Customer added successfully!');
+      setSuccessMessage('Customer added successfully!');
       setNewContact({
         name: '',
         surname: '',
@@ -317,7 +361,7 @@ const CustomerList = () => {
     onError: (error) => {
       console.error('Error adding customer:', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.response?.data?.phone?.[0] || 'Failed to add customer';
-      alert(errorMessage);
+      setErrorMessage(errorMessage);
     }
   });
 
@@ -375,6 +419,32 @@ const CustomerList = () => {
           </Link> */}
         </div>
       </div>
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center justify-between">
+          <div className="flex items-center">
+            <Check className="h-5 w-5 mr-2" />
+            {successMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center justify-between">
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 mr-2" />
+            {errorMessage}
+          </div>
+          <button
+            onClick={() => setErrorMessage('')}
+            className="text-red-700 hover:text-red-900"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
@@ -443,6 +513,35 @@ const CustomerList = () => {
               className="pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
               placeholder="To Date"
             />
+          </div>
+
+          {/* Clear Filters Button */}
+          <button
+            onClick={() => {
+              setSearch('');
+              setFilterAgent('');
+              setContactType('');
+              setDateFrom('');
+              setDateTo('');
+            }}
+            className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition duration-200 flex items-center gap-2"
+            title="Clear all filters"
+          >
+            <X className="h-4 w-4" />
+            Clear Filters
+          </button>
+
+          {/* Page Size Dropdown */}
+          <div className="relative">
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 appearance-none bg-white"
+            >
+              <option value={15}>15 per page</option>
+              <option value={30}>30 per page</option>
+              <option value={25}>25 per page</option>
+            </select>
           </div>
 
           {/* View Toggle */}
@@ -560,21 +659,14 @@ const CustomerList = () => {
                 value={newContact.phone}
                 onChange={(e) => {
                   const value = e.target.value;
+                  // Only allow numeric input
                   if (value && !/^\d*$/.test(value)) {
-                    alert('Only numbers are allowed in phone field');
-                    return;
+                    return; // Don't update if non-numeric
                   }
                   if (value.length > 10) {
-                    alert('Phone number must be exactly 10 digits');
-                    return;
+                    return; // Don't allow more than 10 digits
                   }
                   setNewContact({ ...newContact, phone: value });
-                  // Set error if phone is less than 10 digits
-                  if (value.length > 0 && value.length < 10) {
-                    setPhoneError('Phone number must be at least 10 digits');
-                  } else {
-                    setPhoneError('');
-                  }
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Phone number"
@@ -858,8 +950,9 @@ const CustomerList = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Organization Name</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Organization Type</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Telecaller</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointment Date</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Time</th>
@@ -868,7 +961,7 @@ const CustomerList = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {paginatedCustomers.map((customer) => (
+                  {customers.map((customer) => (
                     <tr
                       key={customer.id}
                       className="hover:bg-gray-50 transition duration-150 cursor-pointer"
@@ -899,6 +992,12 @@ const CustomerList = () => {
                           </div>
                         </div>
                       </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {customer.company_name || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {customer.company_type_display || 'N/A'}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
                           {customer.all_phones && customer.all_phones.length > 0 ? (
@@ -923,12 +1022,6 @@ const CustomerList = () => {
                               {customer.phone}
                             </div>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                          {customer.pincode}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -1080,8 +1173,8 @@ const CustomerList = () => {
                   <div>
                     <p className="text-sm text-gray-700">
                       Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-                      <span className="font-medium">{Math.min(currentPage * pageSize, filteredCustomers.length)}</span> of{' '}
-                      <span className="font-medium">{filteredCustomers.length}</span> results
+                      <span className="font-medium">{Math.min(currentPage * pageSize, data?.count || 0)}</span> of{' '}
+                      <span className="font-medium">{data?.count || 0}</span> results
                     </p>
                   </div>
                   <div>
@@ -1126,7 +1219,7 @@ const CustomerList = () => {
             )}
 
             {/* Empty State */}
-            {filteredCustomers.length === 0 && (
+            {customers.length === 0 && (
               <div className="py-16 text-center">
                 <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No customers found</h3>
@@ -1143,7 +1236,7 @@ const CustomerList = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredCustomers.map((customer) => (
+            {customers.map((customer) => (
               <div key={customer.id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
                 {/* Card Header with Avatar */}
                 <div className="bg-white p-6 border-b border-gray-100">
@@ -1233,7 +1326,7 @@ const CustomerList = () => {
             ))}
 
             {/* Empty State for Cards */}
-            {filteredCustomers.length === 0 && (
+            {customers.length === 0 && (
               <div className="col-span-full py-16 text-center">
                 <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No customers found</h3>

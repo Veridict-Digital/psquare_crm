@@ -1,51 +1,18 @@
-# OrderNew Page Enhancement TODO
+# TODO: Enhance ProductCombinations Page
 
-## Phase 1: Core Fixes
-- [ ] Fix calculation logic in calculateTotals function
-- [ ] Prevent double application of combo offers
-- [ ] Ensure accurate GST and total calculations
+## Backend Changes
+- [x] Add quantity field to CombinationGift model in models.py
+- [x] Update CombinationGiftSerializer in serializers.py to include quantity
+- [x] Modify ProductCombinationSerializer create and update methods to handle quantity in gifts_data
 
-## Phase 2: Multi-Select Functionality
-- [ ] Implement multi-select for products using checkboxes
-- [ ] Allow bulk addition of selected products
-- [ ] Show selected products count
-- [ ] Update product selection UI
+## Frontend Changes
+- [ ] Enhance form to display selected product details (SKU, price, stock) below each dropdown in items, rewards, and gifts sections
+- [ ] Add quantity input field for gifts section
+- [ ] Update form state, addGift, updateGift handlers to include quantity for gifts
+- [ ] Update form submission logic to handle quantity for gifts
+- [ ] Update table display to show quantities for gifts
 
-## Phase 3: Combo Offers Improvements
-- [ ] Fix bug where selecting one offer selects two
-- [ ] Add filters for combo offers (by category, price range, etc.)
-- [ ] Better visual indication of applicable combos
-- [ ] Show combo savings clearly
-- [ ] Improve combo offer display logic
-
-## Phase 4: Layout and Space Optimization
-- [ ] Reduce excessive padding and margins
-- [ ] Implement compact grid layouts
-- [ ] Add collapsible sections for better organization
-- [ ] Improve responsive design
-
-## Phase 5: 360-Degree View & KPIs
-- [ ] Add customer order history summary
-- [ ] Display customer KPIs (total orders, total value, average order value, last order date)
-- [ ] Show product performance metrics
-- [ ] Add customer insights section
-- [ ] Implement 4 product KPIs: Total Sales, Stock Level, Average Price, Popularity Score
-
-## Phase 6: Enhanced Filtering System
-- [ ] Add product filters (category, price range, stock status)
-- [ ] Implement combo offer filters (savings amount, applicable products)
-- [ ] Add customer-based filtering for personalized offers
-
-## Phase 7: UI/UX Improvements
-- [ ] Better visual hierarchy
-- [ ] Improved color scheme and icons
-- [ ] Add loading states and error handling
-- [ ] Better mobile responsiveness
-- [ ] Professional styling throughout
-
-## Phase 8: Testing & Validation
-- [ ] Test all calculation scenarios
-- [ ] Validate multi-select functionality
-- [ ] Test combo offer logic
-- [ ] Ensure responsive design works on all devices
-- [ ] Performance optimization
+## Followup Steps
+- [ ] Run Django migrations for backend model changes
+- [ ] Test frontend functionality: product details display and quantity handling for gifts
+- [ ] Verify form submission and data persistence

@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,6 +13,16 @@ from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum, Count, Q
+
+class CustomerPagination(PageNumberPagination):
+    page_size = 15
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class LeadPagination(PageNumberPagination):
+    page_size = 15
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -230,10 +241,17 @@ class UserViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+class CustomerPagination(PageNumberPagination):
+    page_size = 15
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = CustomerPagination
+    pagination_class = CustomerPagination
 
     def get_queryset(self):
         queryset = Customer.objects.annotate(
@@ -245,6 +263,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             date_from = self.request.query_params.get('date_from')
             date_to = self.request.query_params.get('date_to')
             contact_type = self.request.query_params.get('contact_type')
+            search = self.request.query_params.get('search')
 
             if date_from:
                 queryset = queryset.filter(created_at__date__gte=date_from)
@@ -252,6 +271,13 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(created_at__date__lte=date_to)
             if contact_type:
                 queryset = queryset.filter(contact_type=contact_type)
+            if search:
+                queryset = queryset.filter(
+                    Q(name__icontains=search) |
+                    Q(email__icontains=search) |
+                    Q(phone__icontains=search) |
+                    Q(id__icontains=search)
+                )
 
         return queryset
 
@@ -439,9 +465,38 @@ class OrderViewSet(viewsets.ModelViewSet):
                     if admin_user:
                         data['agent'] = admin_user.id
 
+        # Validate stock availability before creating order
+        for item_data in data.get('items', []):
+            product_id = item_data.get('product')
+            quantity = item_data.get('quantity', 0)
+            if product_id and quantity > 0:
+                try:
+                    product = Product.objects.get(id=product_id)
+                    if product.stock_qty < quantity:
+                        return Response({
+                            'error': f'Insufficient stock for product "{product.title}". Available: {product.stock_qty}, Requested: {quantity}'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except Product.DoesNotExist:
+                    return Response({
+                        'error': f'Product with ID {product_id} not found'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        order = serializer.save()
+
+        # Reduce stock for each order item
+        for item_data in data.get('items', []):
+            product_id = item_data.get('product')
+            quantity = item_data.get('quantity', 0)
+            if product_id and quantity > 0:
+                try:
+                    product = Product.objects.get(id=product_id)
+                    product.stock_qty -= quantity
+                    product.save()
+                except Product.DoesNotExist:
+                    pass  # Product not found, skip
+
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -529,6 +584,7 @@ class LeadViewSet(viewsets.ModelViewSet):
     queryset = Lead.objects.all()
     serializer_class = LeadSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = LeadPagination
 
     def create(self, request, *args, **kwargs):
         phone = request.data.get('phone')

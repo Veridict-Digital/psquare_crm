@@ -42,7 +42,7 @@ const OrderNew = () => {
     customer: "",
     agent: "",
     status: "Placed",
-    payment_status: "Paid",
+    payment_status: "Credit",
     followup_date: "",
     partial_amount: 0,
     delivery_address: "",
@@ -99,12 +99,11 @@ const OrderNew = () => {
   });
 
   // Filtered customers and products based on search
-  const filteredCustomers =
-    customers?.filter(
-      (customer) =>
-        customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        customer.phone.includes(customerSearch)
-    ) || [];
+  const filteredCustomers = ((customers?.results || customers) || []).filter(
+    (customer) =>
+      customer.name?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      customer.phone?.includes(customerSearch)
+  ) || [];
 
   const filteredProducts =
     products?.filter(
@@ -129,7 +128,7 @@ const OrderNew = () => {
         customer: "",
         agent: "",
         status: "Placed",
-        payment_status: "Paid",
+        payment_status: "Credit",
         followup_date: "",
         partial_amount: 0,
         delivery_address: "",
@@ -144,7 +143,7 @@ const OrderNew = () => {
     },
   });
 
-  // Calculate totals with combination logic
+  // Calculate totals with combination logic - Inclusive GST
   const calculateTotals = () => {
     let itemsWithCombinations = [...orderItems];
 
@@ -162,100 +161,88 @@ const OrderNew = () => {
         const orderItem = itemsWithCombinations.find(
           (i) => i.product === reqItem.product && !i.is_free && !i.is_gift
         );
-        return orderItem && orderItem.quantity >= reqItem.quantity;
+        return orderItem && orderItem.quantity >= reqItem.quantity_required;
       });
     });
 
-    // Only apply manually selected combinations
+    // Create a copy of items to apply combo prices
+    let finalItems = [...itemsWithCombinations];
+
+    // Apply combo offer prices to items
     if (combinations && combinations.length > 0 && appliedCombos.length > 0) {
       appliedCombos.forEach((comboId) => {
         const combination = combinations.find(c => c.id === comboId);
         if (!combination || !combination.is_active) return;
 
-        // Check if all required items are still in the order with sufficient quantities
-        const requiredItems = combination.combination_items || [];
-        let canApplyCombination = true;
-
+        // Apply offer prices to required items
+        const requiredItems = combination.items || [];
         requiredItems.forEach((reqItem) => {
-          const orderItem = itemsWithCombinations.find(
-            (item) => item.product === reqItem.product && !item.is_free && !item.is_gift
-          );
-          if (!orderItem || orderItem.quantity < reqItem.quantity) {
-            canApplyCombination = false;
+          if (reqItem.offer_price && reqItem.offer_price > 0) {
+            // Find the item in finalItems and update its price
+            const itemIndex = finalItems.findIndex(item => 
+              item.product === reqItem.product && !item.is_free && !item.is_gift
+            );
+            if (itemIndex !== -1) {
+              const item = finalItems[itemIndex];
+              // Apply offer price
+              finalItems[itemIndex] = {
+                ...item,
+                unit_price: parseFloat(reqItem.offer_price),
+                original_price: item.original_price || item.unit_price, // Store original price
+              };
+            }
           }
         });
-
-        if (canApplyCombination) {
-          // Add free items from combination rewards
-          const rewards = combination.combination_rewards || [];
-          rewards.forEach((reward) => {
-            const existingFreeItem = itemsWithCombinations.find(
-              (item) => item.product === reward.product && item.is_free && item.combo_id === comboId
-            );
-
-            if (!existingFreeItem) {
-              const product = products?.find((p) => p.id === reward.product);
-              if (product) {
-                itemsWithCombinations.push({
-                  product: product.id,
-                  product_title: `${product.title} (FREE)`,
-                  product_sku: product.sku,
-                  quantity: reward.quantity,
-                  unit_price: 0, // Free items have 0 price
-                  gst_rate: product.gst_rate,
-                  is_free: true,
-                  combo_id: comboId,
-                });
-              }
-            }
-          });
-
-          // Add gifts
-          const gifts = combination.combination_gifts || [];
-          gifts.forEach((gift) => {
-            const existingGiftItem = itemsWithCombinations.find(
-              (item) => item.product === gift.product && item.is_gift && item.combo_id === comboId
-            );
-
-            if (!existingGiftItem) {
-              const product = products?.find((p) => p.id === gift.product);
-              if (product) {
-                itemsWithCombinations.push({
-                  product: product.id,
-                  product_title: `${product.title} (GIFT)`,
-                  product_sku: product.sku,
-                  quantity: 1,
-                  unit_price: 0, // Gift items have 0 price
-                  gst_rate: product.gst_rate,
-                  is_gift: true,
-                  combo_id: comboId,
-                });
-              }
-            }
-          });
-        } else {
-          // Remove this combo from applied combos if it's no longer valid
-          setAppliedCombos(prev => prev.filter(id => id !== comboId));
-        }
       });
     }
 
-    const subtotal = itemsWithCombinations.reduce(
-      (sum, item) => sum + item.unit_price * item.quantity,
-      0
-    );
-    const gstTotal = itemsWithCombinations.reduce(
-      (sum, item) => {
+    // Calculate totals with Inclusive GST
+    let subtotal = 0;
+    let gstAmount = 0;
+    let totalDiscount = 0;
+
+    finalItems.forEach((item) => {
+      if (!item.is_free && !item.is_gift) {
+        // For paid items
+        const itemTotal = item.unit_price * item.quantity;
+        
+        // For inclusive GST: GST is already included in the price
+        // We need to calculate the GST amount from the inclusive price
         const gstRate = !isNaN(item.gst_rate_value) ? item.gst_rate_value : 0;
-        return sum + (item.unit_price * item.quantity * gstRate) / 100;
-      },
-      0
-    );
+        
+        // Calculate GST amount from inclusive price
+        // GST = (price × GST rate) / (100 + GST rate)
+        const itemGST = (itemTotal * gstRate) / (100 + gstRate);
+        
+        // Calculate taxable value (price without GST)
+        const taxableValue = itemTotal - itemGST;
+        
+        subtotal += taxableValue;
+        gstAmount += itemGST;
+        
+        // Calculate discount if there was an original price
+        if (item.original_price && item.original_price > item.unit_price) {
+          const originalTotal = item.original_price * item.quantity;
+          const originalTaxableValue = originalTotal - (originalTotal * gstRate) / (100 + gstRate);
+          totalDiscount += originalTaxableValue - taxableValue;
+        }
+      }
+    });
+
+    // Grand total is the sum of all paid items (already includes GST)
+    const grandTotal = finalItems.reduce((sum, item) => {
+      if (!item.is_free && !item.is_gift) {
+        return sum + (item.unit_price * item.quantity);
+      }
+      return sum;
+    }, 0);
+
     return {
       subtotal: subtotal,
-      gstTotal: gstTotal,
-      total: subtotal + gstTotal,
-      itemsWithCombinations: itemsWithCombinations,
+      gstAmount: gstAmount,
+      total: grandTotal,
+      itemsWithCombinations: finalItems,
+      totalDiscount: totalDiscount,
     };
   };
 
@@ -265,7 +252,7 @@ const OrderNew = () => {
   useEffect(() => {
     const customerId = searchParams.get("customer");
     if (customerId && customers) {
-      const customerExists = customers.find(
+      const customerExists = customers?.results?.find(
         (c) => c.id.toString() === customerId.toString()
       );
       if (customerExists) {
@@ -277,7 +264,7 @@ const OrderNew = () => {
   // Auto-assign agent based on customer selection
   useEffect(() => {
     if (formData.customer && customers) {
-      const selectedCustomer = customers.find(
+      const selectedCustomer = customers?.results?.find(
         (c) => c.id.toString() === formData.customer.toString()
       );
       if (selectedCustomer && selectedCustomer.agent) {
@@ -342,7 +329,7 @@ const OrderNew = () => {
     // Handle delivery option change
     if (name === "delivery_option") {
       if (value === "primary" && formData.customer) {
-        const customer = customers?.find(
+        const customer = customers?.results?.find(
           (c) => c.id.toString() === formData.customer.toString()
         );
         if (customer) {
@@ -372,13 +359,26 @@ const OrderNew = () => {
     );
     if (!product) return;
 
-    // Check if product already exists in order items
+    // Check stock availability
     const existingItem = orderItems.find((item) => item.product === product.id);
+    const currentQuantity = existingItem ? existingItem.quantity : 0;
+    const newTotalQuantity = currentQuantity + quantity;
+
+    if (newTotalQuantity > product.stock_qty) {
+      alert(`Insufficient stock for "${product.title}". Available: ${product.stock_qty}, Requested: ${newTotalQuantity}`);
+      return;
+    }
+
+    // Check if product already exists in order items
     if (existingItem) {
       setOrderItems((prev) =>
         prev.map((item) =>
           item.product === product.id
-            ? { ...item, quantity: item.quantity + quantity }
+            ? {
+                ...item,
+                quantity: item.quantity + quantity,
+                original_price: item.original_price || parseFloat(product.price)
+              }
             : item
         )
       );
@@ -391,8 +391,9 @@ const OrderNew = () => {
           product_sku: product.sku,
           quantity: quantity,
           unit_price: parseFloat(product.price) || 0,
-          gst_rate: product.gst_rate, // GSTRate ID
-          gst_rate_value: !isNaN(parseFloat(product.gst_rate_display)) ? parseFloat(product.gst_rate_display) : 0, // Rate value for calculation
+          original_price: parseFloat(product.price) || 0,
+          gst_rate: product.gst_rate,
+          gst_rate_value: !isNaN(parseFloat(product.gst_rate_display)) ? parseFloat(product.gst_rate_display) : 0,
         },
       ]);
     }
@@ -407,6 +408,13 @@ const OrderNew = () => {
 
   const updateQuantity = (productId, newQuantity) => {
     if (newQuantity <= 0) return;
+
+    const product = products?.find(p => p.id.toString() === productId.toString());
+    if (product && newQuantity > product.stock_qty) {
+      alert(`Insufficient stock for "${product.title}". Available: ${product.stock_qty}, Requested: ${newQuantity}`);
+      return;
+    }
+
     setOrderItems((prev) =>
       prev.map((item) =>
         item.product === productId ? { ...item, quantity: newQuantity } : item
@@ -434,7 +442,11 @@ const OrderNew = () => {
           setOrderItems(prev =>
             prev.map(item =>
               item.product === product.id
-                ? { ...item, quantity: item.quantity + 1 }
+                ? { 
+                    ...item, 
+                    quantity: item.quantity + 1,
+                    original_price: item.original_price || parseFloat(product.price)
+                  }
                 : item
             )
           );
@@ -447,8 +459,9 @@ const OrderNew = () => {
               product_sku: product.sku,
               quantity: 1,
               unit_price: parseFloat(product.price) || 0,
+              original_price: parseFloat(product.price) || 0,
               gst_rate: product.gst_rate,
-          gst_rate_value: !isNaN(parseFloat(product.gst_rate_display)) ? parseFloat(product.gst_rate_display) : 0, // Rate value for calculation
+              gst_rate_value: !isNaN(parseFloat(product.gst_rate_display)) ? parseFloat(product.gst_rate_display) : 0,
             },
           ]);
         }
@@ -521,7 +534,7 @@ const OrderNew = () => {
   // Fetch customer KPIs when customer is selected
   useEffect(() => {
     if (formData.customer && customers) {
-      const customer = customers.find(c => c.id.toString() === formData.customer.toString());
+      const customer = customers?.results?.find(c => c.id.toString() === formData.customer.toString());
       if (customer) {
         // Mock customer KPIs - in real app, this would be fetched from API
         setCustomerKPIs({
@@ -551,6 +564,9 @@ const OrderNew = () => {
       return;
     }
 
+    // Get the final items with applied combo prices
+    const finalItems = totals.itemsWithCombinations;
+
     const orderData = {
       customer: formData.customer,
       agent: formData.agent || undefined,
@@ -565,12 +581,13 @@ const OrderNew = () => {
           : formData.payment_status === "Partial"
           ? parseFloat(formData.partial_amount)
           : 0,
-      items: orderItems.map((item) => ({
+      items: finalItems.filter(item => !item.is_free && !item.is_gift).map((item) => ({
         product: item.product,
         quantity: item.quantity,
         unit_price: item.unit_price,
         gst_rate: item.gst_rate_value || 0,
       })),
+      applied_combos: appliedCombos,
     };
 
     mutation.mutate(orderData);
@@ -605,7 +622,7 @@ const OrderNew = () => {
                     }
                   >
                     {formData.customer
-                      ? customers?.find(
+                      ? customers?.results?.find(
                           (c) =>
                             c.id.toString() === formData.customer.toString()
                         )?.name
@@ -680,7 +697,7 @@ const OrderNew = () => {
               <input
                 type="text"
                 value={
-                  customers?.find(
+                  customers?.results?.find(
                     (c) => c.id.toString() === formData.customer?.toString()
                   )?.agent_name || ""
                 }
@@ -699,7 +716,7 @@ const OrderNew = () => {
                 value={
                   formData.customer
                     ? (() => {
-                        const customer = customers?.find(
+                        const customer = customers?.results?.find(
                           (c) =>
                             c.id.toString() === formData.customer.toString()
                         );
@@ -980,7 +997,17 @@ const OrderNew = () => {
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-900 truncate">{product.title}</div>
                         <div className="text-sm text-gray-600">
-                          SKU: {product.sku} • ₹{product.price} • Stock: {product.stock_qty}
+                          SKU: {product.sku} • ₹{product.price} (Incl. GST) • Stock: {product.stock_qty}
+                          {product.stock_qty === 0 && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                              Out of Stock
+                            </span>
+                          )}
+                          {product.stock_qty > 0 && product.stock_qty < 5 && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                              Low Stock
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1044,7 +1071,7 @@ const OrderNew = () => {
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-100 text-sm"
                           >
-                            {product.title} - ₹{product.price}
+                            {product.title} - ₹{product.price} (Incl. GST)
                           </button>
                         ))}
                       </div>
@@ -1112,7 +1139,7 @@ const OrderNew = () => {
                         return (
                           <div
                             key={combo.id}
-                            className={`border rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-200 ${
+                            className={`border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 ${
                               appliedCombos.includes(combo.id)
                                 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 cursor-pointer'
                                 : canApplyCombo
@@ -1120,7 +1147,34 @@ const OrderNew = () => {
                                 : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
                             }`}
                             onClick={() => {
-                              // Apply the combo offer - always allow applying combos
+                              // Check stock availability for all required items before applying combo
+                              let insufficientStockItems = [];
+                              requiredItems.forEach((reqItem) => {
+                                const product = products?.find((p) => p.id === reqItem.product);
+                                if (product) {
+                                  const existingItem = orderItems.find((item) => item.product === product.id);
+                                  const currentQuantity = existingItem ? existingItem.quantity : 0;
+                                  const newTotalQuantity = Math.max(currentQuantity, reqItem.quantity_required);
+
+                                  if (newTotalQuantity > product.stock_qty) {
+                                    insufficientStockItems.push({
+                                      product: product.title,
+                                      available: product.stock_qty,
+                                      required: newTotalQuantity
+                                    });
+                                  }
+                                }
+                              });
+
+                              if (insufficientStockItems.length > 0) {
+                                const messages = insufficientStockItems.map(item =>
+                                  `${item.product}: Available ${item.available}, Required ${item.required}`
+                                ).join('\n');
+                                alert(`Insufficient stock for combo items:\n${messages}`);
+                                return;
+                              }
+
+                              // Apply the combo offer
                               requiredItems.forEach((reqItem) => {
                                 const product = products?.find((p) => p.id === reqItem.product);
                                 if (product) {
@@ -1132,8 +1186,12 @@ const OrderNew = () => {
                                           ? {
                                               ...item,
                                               quantity: Math.max(item.quantity, reqItem.quantity_required),
-                                              unit_price: reqItem.offer_price && reqItem.offer_price > 0 ? parseFloat(reqItem.offer_price) : item.unit_price,
-                                              gst_rate_value: reqItem.offer_price && reqItem.offer_price > 0 ? (product.gst_rate_display && !isNaN(parseFloat(product.gst_rate_display)) ? parseFloat(product.gst_rate_display) : item.gst_rate_value) : item.gst_rate_value
+                                              unit_price: reqItem.offer_price && reqItem.offer_price > 0
+                                                ? parseFloat(reqItem.offer_price)
+                                                : item.unit_price,
+                                              original_price: reqItem.offer_price && reqItem.offer_price > 0
+                                                ? item.original_price || parseFloat(product.price)
+                                                : item.original_price || parseFloat(product.price),
                                             }
                                           : item
                                       )
@@ -1146,9 +1204,14 @@ const OrderNew = () => {
                                         product_title: product.title,
                                         product_sku: product.sku,
                                         quantity: reqItem.quantity_required,
-                                        unit_price: reqItem.offer_price && reqItem.offer_price > 0 ? parseFloat(reqItem.offer_price) : parseFloat(product.price),
+                                        unit_price: reqItem.offer_price && reqItem.offer_price > 0
+                                          ? parseFloat(reqItem.offer_price)
+                                          : parseFloat(product.price),
+                                        original_price: parseFloat(product.price),
                                         gst_rate: product.gst_rate,
-                                        gst_rate_value: product.gst_rate_display && !isNaN(parseFloat(product.gst_rate_display)) ? parseFloat(product.gst_rate_display) : 0,
+                                        gst_rate_value: product.gst_rate_display && !isNaN(parseFloat(product.gst_rate_display))
+                                          ? parseFloat(product.gst_rate_display)
+                                          : 0,
                                       },
                                     ]);
                                   }
@@ -1168,7 +1231,7 @@ const OrderNew = () => {
                                       quantity: reward.quantity_free,
                                       unit_price: 0,
                                       gst_rate: product.gst_rate,
-                                      gst_rate_value: parseFloat(product.gst_rate_display || 0), // Rate value for calculation
+                                      gst_rate_value: parseFloat(product.gst_rate_display || 0),
                                       is_free: true,
                                     },
                                   ]);
@@ -1187,9 +1250,9 @@ const OrderNew = () => {
                                       product_sku: product.sku,
                                       quantity: 1,
                                       unit_price: 0,
-                                        gst_rate: product.gst_rate,
-                                        gst_rate_value: parseFloat(product.gst_rate_display || 0), // Rate value for calculation
-                                        is_gift: true,
+                                      gst_rate: product.gst_rate,
+                                      gst_rate_value: parseFloat(product.gst_rate_display || 0),
+                                      is_gift: true,
                                     },
                                   ]);
                                 }
@@ -1199,16 +1262,11 @@ const OrderNew = () => {
                               setAppliedCombos((prev) => [...prev, combo.id]);
                             }}
                           >
-                            <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <h4 className="font-semibold text-gray-900 mb-2">
+                                <h4 className="font-semibold text-gray-900">
                                   {combo.name}
                                 </h4>
-                                {combo.description && (
-                                  <p className="text-sm text-gray-600 mb-3">
-                                    {combo.description}
-                                  </p>
-                                )}
                               </div>
                               <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                                 appliedCombos.includes(combo.id)
@@ -1217,7 +1275,7 @@ const OrderNew = () => {
                                   ? 'bg-blue-100 text-blue-800'
                                   : 'bg-gray-100 text-gray-800'
                               }`}>
-                                {appliedCombos.includes(combo.id) ? 'Applied' : canApplyCombo ? 'Available' : 'Not Available'}
+                                {appliedCombos.includes(combo.id) ? 'Applied' : canApplyCombo ? 'Available' : 'Add to apply'}
                               </div>
                             </div>
 
@@ -1226,7 +1284,7 @@ const OrderNew = () => {
                                 <span className="text-sm font-medium text-gray-700">
                                   Buy:
                                 </span>
-                                <div className="flex flex-wrap gap-2 mt-1">
+                                <div className="flex flex-wrap gap-2">
                                   {requiredItems.map((item, index) => {
                                     const product = products?.find((p) => p.id === item.product);
                                     const inOrder = orderItems.find(orderItem => orderItem.product === item.product);
@@ -1242,7 +1300,7 @@ const OrderNew = () => {
                                       >
                                         {product?.title} x{item.quantity_required}
                                         {item.offer_price && item.offer_price > 0 && (
-                                          <span className="ml-1 text-green-600">₹{item.offer_price}</span>
+                                          <span className="ml-1 text-green-600">₹{item.offer_price} (Incl. GST)</span>
                                         )}
                                       </span>
                                     );
@@ -1263,7 +1321,7 @@ const OrderNew = () => {
                                           key={index}
                                           className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded-full border border-green-300 font-medium"
                                         >
-                                          {product?.title} x{reward.quantity_free} (₹{parseFloat(product?.price || 0).toFixed(2)})
+                                          {product?.title} x{reward.quantity_free} (₹{parseFloat(product?.price || 0).toFixed(2)} Incl. GST)
                                         </span>
                                       );
                                     })}
@@ -1284,7 +1342,7 @@ const OrderNew = () => {
                                           key={index}
                                           className="px-3 py-1 text-xs bg-purple-100 text-purple-800 rounded-full border border-purple-300 font-medium"
                                         >
-                                          {product?.title} (₹{parseFloat(product?.price || 0).toFixed(2)})
+                                          {product?.title} (₹{parseFloat(product?.price || 0).toFixed(2)} Incl. GST)
                                         </span>
                                       );
                                     })}
@@ -1327,12 +1385,20 @@ const OrderNew = () => {
                               FREE
                             </span>
                           )}
+                          {item.original_price && item.original_price > item.unit_price && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                              COMBO PRICE
+                            </span>
+                          )}
                         </h4>
                         <p className="text-sm text-gray-600">
                           SKU: {item.product_sku}
+                          {!item.is_free && !item.is_gift && (
+                            <span className="ml-2">GST: {item.gst_rate_value || 0}%</span>
+                          )}
                         </p>
                         <div className="flex items-center space-x-4 mt-2">
-                          {!item.is_free && (
+                          {!item.is_free && !item.is_gift && (
                             <div className="flex items-center space-x-2">
                               <button
                                 type="button"
@@ -1357,18 +1423,25 @@ const OrderNew = () => {
                               </button>
                             </div>
                           )}
-                          {item.is_free && (
+                          {(item.is_free || item.is_gift) && (
                             <span className="text-sm text-green-600 font-medium">
                               Quantity: {item.quantity}
                             </span>
                           )}
-                          <span className={`text-sm ${item.is_free ? 'text-green-600' : 'text-gray-600'}`}>
-                            ₹{item.unit_price} × {item.quantity} = ₹
-                            {(item.unit_price * item.quantity).toFixed(2)}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className={`text-sm ${item.is_free ? 'text-green-600' : 'text-gray-600'}`}>
+                              ₹{item.unit_price.toFixed(2)} × {item.quantity} = ₹
+                              {(item.unit_price * item.quantity).toFixed(2)}
+                            </span>
+                            {item.original_price && item.original_price > item.unit_price && (
+                              <span className="text-xs text-gray-500 line-through">
+                                Original: ₹{(item.original_price * item.quantity).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      {!item.is_free && (
+                      {!item.is_free && !item.is_gift && (
                         <button
                           onClick={() => removeProduct(item.product)}
                           className="ml-4 text-red-600 hover:text-red-800"
@@ -1385,8 +1458,7 @@ const OrderNew = () => {
                               strokeWidth={2}
                               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                             />
-
-                        </svg>
+                          </svg>
                         </button>
                       )}
                     </div>
@@ -1397,271 +1469,404 @@ const OrderNew = () => {
           </div>
 
           {/* Applied Combo Offers */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <Package className="w-6 h-6 text-yellow-600" />
-                <h2 className="text-2xl font-bold text-gray-900">Applied Combo Offers</h2>
+<div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8 hover:shadow-2xl transition-all duration-300">
+  <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center space-x-3">
+      <Package className="w-6 h-6 text-yellow-600" />
+      <h2 className="text-2xl font-bold text-gray-900">Applied Combo Offers</h2>
+    </div>
+    
+    {/* Compact Calculation Display */}
+    {appliedCombos.length > 0 && (
+      <div className="text-right">
+        <div className="text-xs text-gray-600 mb-1">Savings Calculation</div>
+        <div className="text-sm font-semibold text-green-700">
+          Save ₹{totals.totalDiscount.toFixed(2)}
+        </div>
+        <div className="text-xs text-gray-500">
+          vs regular price
+        </div>
+      </div>
+    )}
+  </div>
+
+  {(() => {
+    // Show only manually applied combinations
+    const appliedCombinations = combinations?.filter(combo =>
+      appliedCombos.includes(combo.id) && combo.is_active
+    ) || [];
+
+    if (appliedCombinations.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">
+            No combo offers applied yet
+          </p>
+          <p className="text-gray-400 text-sm mt-2">
+            Add products to see available combo deals on the left.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {appliedCombinations.map((combo) => {
+          const requiredItems = combo.items || [];
+          const rewardItems = combo.rewards || [];
+          const giftItems = combo.gifts || [];
+
+          // Calculate savings for this specific combo
+          let comboRegularTotal = 0;
+          let comboOfferTotal = 0;
+          let comboSavings = 0;
+
+          requiredItems.forEach(reqItem => {
+            const product = products?.find(p => p.id === reqItem.product);
+            if (product) {
+              const regularPrice = parseFloat(product.price) * reqItem.quantity_required;
+              comboRegularTotal += regularPrice;
+              
+              if (reqItem.offer_price && reqItem.offer_price > 0) {
+                const offerPrice = parseFloat(reqItem.offer_price) * reqItem.quantity_required;
+                comboOfferTotal += offerPrice;
+              } else {
+                comboOfferTotal += regularPrice;
+              }
+            }
+          });
+
+          // Add value of free items to savings
+          rewardItems.forEach(reward => {
+            const product = products?.find(p => p.id === reward.product);
+            if (product) {
+              const freeItemValue = parseFloat(product.price) * reward.quantity_free;
+              comboRegularTotal += freeItemValue; // User would have to pay this normally
+            }
+          });
+
+          // Add value of gifts to savings
+          giftItems.forEach(gift => {
+            const product = products?.find(p => p.id === gift.product);
+            if (product) {
+              const giftValue = parseFloat(product.price);
+              comboRegularTotal += giftValue; // User would have to pay this normally
+            }
+          });
+
+          comboSavings = comboRegularTotal - comboOfferTotal;
+
+          return (
+            <div
+              key={combo.id}
+              className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 shadow-sm"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3">
+                    <h4 className="font-semibold text-gray-900 mb-2">
+                      {combo.name}
+                    </h4>
+                    {/* Combo-specific calculation */}
+                    <div className="flex items-center space-x-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <span>Save ₹{comboSavings.toFixed(2)}</span>
+                      <span className="text-gray-500">•</span>
+                      <span className="line-through text-gray-600">₹{comboRegularTotal.toFixed(2)}</span>
+                      <span className="font-bold">→ ₹{comboOfferTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  {combo.description && (
+                    <p className="text-sm text-gray-600 mb-3">
+                      {combo.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium">
+                    Applied
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAppliedCombos(prev => prev.filter(id => id !== combo.id));
+                    }}
+                    className="text-red-600 hover:text-red-800 p-1"
+                    title="Remove this combo offer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              {appliedCombos.length > 0 && (
-                <div className="text-right">
-                  <div className="text-sm text-gray-600 mt-1">Amount to Pay</div>
-                  <div className="text-lg font-bold text-blue-600">
-                    ₹{(() => {
-                      let totalSavings = 0;
-                      appliedCombos.forEach(comboId => {
-                        const combo = combinations?.find(c => c.id === comboId);
-                        if (combo && combo.items) {
-                          combo.items.forEach(reqItem => {
-                            if (reqItem.offer_price && reqItem.offer_price > 0) {
-                              const product = products?.find(p => p.id === reqItem.product);
-                              if (product) {
-                                const originalPrice = parseFloat(product.price) * reqItem.quantity_required;
-                                const offerPrice = parseFloat(reqItem.offer_price) * reqItem.quantity_required;
-                                totalSavings += originalPrice - offerPrice;
-                              }
-                            }
-                          });
-                        }
-                      });
-                      return (totals.total - totalSavings).toFixed(2);
-                    })()}
+
+              {/* Compact Savings Breakdown */}
+              <div className="mb-4 p-3 bg-white rounded-lg border border-green-100">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="text-gray-600">Regular Price:</div>
+                  <div className="text-right font-medium">₹{comboRegularTotal.toFixed(2)}</div>
+                  
+                  <div className="text-gray-600">Combo Price:</div>
+                  <div className="text-right font-medium text-green-700">₹{comboOfferTotal.toFixed(2)}</div>
+                  
+                  <div className="text-gray-600">Free Items Value:</div>
+                  <div className="text-right">
+                    <span className="font-medium text-green-700">
+                      ₹{(rewardItems.reduce((sum, reward) => {
+                        const product = products?.find(p => p.id === reward.product);
+                        return sum + (parseFloat(product?.price || 0) * reward.quantity_free);
+                      }, 0)).toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  <div className="text-gray-600">Gifts Value:</div>
+                  <div className="text-right">
+                    <span className="font-medium text-purple-700">
+                      ₹{(giftItems.reduce((sum, gift) => {
+                        const product = products?.find(p => p.id === gift.product);
+                        return sum + (parseFloat(product?.price || 0));
+                      }, 0)).toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  <div className="col-span-2 border-t border-gray-100 pt-2 mt-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-800 font-semibold">Total Savings:</span>
+                      <span className="text-green-700 font-bold">₹{comboSavings.toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {(() => {
-              // Show only manually applied combinations
-              const appliedCombinations = combinations?.filter(combo =>
-                appliedCombos.includes(combo.id) && combo.is_active
-              ) || [];
-
-              if (appliedCombinations.length === 0) {
-                return (
-                  <div className="text-center py-12">
-                    <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg">
-                      No combo offers applied yet
-                    </p>
-                    <p className="text-gray-400 text-sm mt-2">
-                      Add products to see available combo deals on the left.
-                    </p>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="space-y-6">
-                  {appliedCombinations.map((combo) => {
-                    const requiredItems = combo.items || [];
-                    const rewardItems = combo.rewards || [];
-                    const giftItems = combo.gifts || [];
-
-                    // Calculate savings
-                    let totalSavings = 0;
-                    requiredItems.forEach(reqItem => {
-                      if (reqItem.offer_price && reqItem.offer_price > 0) {
-                        const product = products?.find(p => p.id === reqItem.product);
-                        if (product) {
-                          const originalPrice = parseFloat(product.price) * reqItem.quantity_required;
-                          const offerPrice = parseFloat(reqItem.offer_price) * reqItem.quantity_required;
-                          totalSavings += originalPrice - offerPrice;
-                        }
-                      }
-                    });
-
-                    return (
-                      <div
-                        key={combo.id}
-                        className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 mb-2">
-                              {combo.name}
-                            </h4>
-                            {combo.description && (
-                              <p className="text-sm text-gray-600 mb-3">
-                                {combo.description}
-                              </p>
+              <div className="space-y-4">
+                {/* Required Items */}
+                <div>
+                  <span className="text-sm font-medium text-gray-700 mb-2 block">
+                    Items Purchased:
+                  </span>
+                  <div className="grid grid-cols-1 gap-3">
+                    {requiredItems.map((item, index) => {
+                      const product = products?.find((p) => p.id === item.product);
+                      const hasDiscount = item.offer_price && item.offer_price > 0;
+                      
+                      return (
+                        <div key={index} className="flex items-center space-x-3 bg-white rounded-lg p-3 border border-gray-200">
+                          <div className="flex-shrink-0">
+                            {product?.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.title}
+                                className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                                <Package className="w-6 h-6 text-gray-500" />
+                              </div>
                             )}
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium">
-                              Applied
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 truncate">
+                              {product?.title}
                             </div>
-                            <button
-                              onClick={() => {
-                                setAppliedCombos(prev => prev.filter(id => id !== combo.id));
-                              }}
-                              className="text-red-600 hover:text-red-800 p-1"
-                              title="Remove this combo offer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4">
-                          {/* Required Items */}
-                          <div>
-                            <span className="text-sm font-medium text-gray-700 mb-2 block">
-                              Items Purchased:
-                            </span>
-                            <div className="grid grid-cols-1 gap-3">
-                              {requiredItems.map((item, index) => {
-                                const product = products?.find((p) => p.id === item.product);
-                                return (
-                                  <div key={index} className="flex items-center space-x-3 bg-white rounded-lg p-3 border border-gray-200">
-                                    <div className="flex-shrink-0">
-                                      {product?.image ? (
-                                        <img
-                                          src={product.image}
-                                          alt={product.title}
-                                          className="w-12 h-12 object-cover rounded-lg border border-gray-200"
-                                        />
-                                      ) : (
-                                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                                          <Package className="w-6 h-6 text-gray-500" />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-gray-900 truncate">
-                                        {product?.title}
-                                      </div>
-                                      <div className="text-sm text-gray-600">
-                                        Qty: {item.quantity_required}
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      {item.offer_price && item.offer_price > 0 ? (
-                                        <div>
-                                          <div className="text-sm text-gray-500 line-through">
-                                            ₹{(parseFloat(product?.price || 0) * item.quantity_required).toFixed(2)}
-                                          </div>
-                                          <div className="font-semibold text-green-600">
-                                            ₹{(parseFloat(item.offer_price) * item.quantity_required).toFixed(2)}
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="font-semibold text-gray-900">
-                                          ₹{(parseFloat(product?.price || 0) * item.quantity_required).toFixed(2)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                            <div className="text-sm text-gray-600">
+                              Qty: {item.quantity_required}
                             </div>
                           </div>
-
-                          {/* Free Items */}
-                          {rewardItems.length > 0 && (
-                            <div>
-                              <span className="text-sm font-medium text-green-700 mb-2 block">
-                                Free Items:
-                              </span>
-                              <div className="grid grid-cols-1 gap-3">
-                                {rewardItems.map((reward, index) => {
-                                  const product = products?.find((p) => p.id === reward.product);
-                                  return (
-                                    <div key={index} className="flex items-center space-x-3 bg-green-50 rounded-lg p-3 border border-green-200">
-                                      <div className="flex-shrink-0">
-                                        {product?.image ? (
-                                          <img
-                                            src={product.image}
-                                            alt={product.title}
-                                            className="w-12 h-12 object-cover rounded-lg border border-gray-200"
-                                          />
-                                        ) : (
-                                          <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                                            <Package className="w-6 h-6 text-gray-500" />
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-medium text-green-900 truncate">
-                                          {product?.title}
-                                        </div>
-                                        <div className="text-sm text-green-700">
-                                          Qty: {reward.quantity_free}
-                                        </div>
-                                      </div>
-                                      <div className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
-                                        FREE
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                          <div className="text-right">
+                            {hasDiscount ? (
+                              <div className="space-y-1">
+                                <div className="text-sm text-gray-500 line-through">
+                                  ₹{(parseFloat(product?.price || 0) * item.quantity_required).toFixed(2)}
+                                </div>
+                                <div className="font-semibold text-green-600">
+                                  ₹{(parseFloat(item.offer_price) * item.quantity_required).toFixed(2)}
+                                </div>
+                                <div className="text-xs text-green-700">
+                                  Save ₹{((parseFloat(product?.price || 0) - parseFloat(item.offer_price)) * item.quantity_required).toFixed(2)}
+                                </div>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Gifts */}
-                          {giftItems.length > 0 && (
-                            <div>
-                              <span className="text-sm font-medium text-purple-700 mb-2 block">
-                                Gifts:
-                              </span>
-                              <div className="grid grid-cols-1 gap-3">
-                                {giftItems.map((gift, index) => {
-                                  const product = products?.find((p) => p.id === gift.product);
-                                  return (
-                                    <div key={index} className="flex items-center space-x-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
-                                      <div className="flex-shrink-0">
-                                        {product?.image ? (
-                                          <img
-                                            src={product.image}
-                                            alt={product.title}
-                                            className="w-12 h-12 object-cover rounded-lg border border-gray-200"
-                                          />
-                                        ) : (
-                                          <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                                            <Package className="w-6 h-6 text-gray-500" />
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-medium text-purple-900 truncate">
-                                          {product?.title}
-                                        </div>
-                                        <div className="text-sm text-purple-700">
-                                          Gift Item
-                                        </div>
-                                      </div>
-                                      <div className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
-                                        GIFT
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                            ) : (
+                              <div className="font-semibold text-gray-900">
+                                ₹{(parseFloat(product?.price || 0) * item.quantity_required).toFixed(2)}
                               </div>
-                            </div>
-                          )}
-
-                          {/* Savings Summary */}
-                          {totalSavings > 0 && (
-                            <div className="bg-green-100 border border-green-300 rounded-lg p-4">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-green-800">
-                                  Total Savings from this combo:
-                                </span>
-                                <span className="text-lg font-bold text-green-900">
-                                  ₹{totalSavings.toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              );
-            })()}
+
+                {/* Free Items */}
+                {rewardItems.length > 0 && (
+                  <div>
+                    <span className="text-sm font-medium text-green-700 mb-2 block">
+                      Free Items:
+                    </span>
+                    <div className="grid grid-cols-1 gap-3">
+                      {rewardItems.map((reward, index) => {
+                        const product = products?.find((p) => p.id === reward.product);
+                        const freeItemValue = parseFloat(product?.price || 0) * reward.quantity_free;
+                        
+                        return (
+                          <div key={index} className="flex items-center space-x-3 bg-green-50 rounded-lg p-3 border border-green-200">
+                            <div className="flex-shrink-0">
+                              {product?.image ? (
+                                <img
+                                  src={product.image}
+                                  alt={product.title}
+                                  className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                                  <Package className="w-6 h-6 text-gray-500" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-green-900 truncate">
+                                {product?.title}
+                              </div>
+                              <div className="text-sm text-green-700">
+                                Qty: {reward.quantity_free}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end space-y-1">
+                              <div className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                                FREE
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Value: ₹{freeItemValue.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Gifts */}
+                {giftItems.length > 0 && (
+                  <div>
+                    <span className="text-sm font-medium text-purple-700 mb-2 block">
+                      Gifts:
+                    </span>
+                    <div className="grid grid-cols-1 gap-3">
+                      {giftItems.map((gift, index) => {
+                        const product = products?.find((p) => p.id === gift.product);
+                        const giftValue = parseFloat(product?.price || 0);
+                        
+                        return (
+                          <div key={index} className="flex items-center space-x-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
+                            <div className="flex-shrink-0">
+                              {product?.image ? (
+                                <img
+                                  src={product.image}
+                                  alt={product.title}
+                                  className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                                  <Package className="w-6 h-6 text-gray-500" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-purple-900 truncate">
+                                {product?.title}
+                              </div>
+                              <div className="text-sm text-purple-700">
+                                Gift Item
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end space-y-1">
+                              <div className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
+                                GIFT
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Value: ₹{giftValue.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        
+        {/* Overall Calculation Summary */}
+        {appliedCombinations.length > 0 && (
+          <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-xl p-4">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-xs text-gray-600 mb-1">Regular Total</div>
+                <div className="text-lg font-bold text-gray-700 line-through">
+                  ₹{(() => {
+                    let total = 0;
+                    appliedCombinations.forEach(combo => {
+                      combo.items?.forEach(item => {
+                        const product = products?.find(p => p.id === item.product);
+                        if (product) {
+                          total += parseFloat(product.price) * item.quantity_required;
+                        }
+                      });
+                      combo.rewards?.forEach(reward => {
+                        const product = products?.find(p => p.id === reward.product);
+                        if (product) {
+                          total += parseFloat(product.price) * reward.quantity_free;
+                        }
+                      });
+                      combo.gifts?.forEach(gift => {
+                        const product = products?.find(p => p.id === gift.product);
+                        if (product) {
+                          total += parseFloat(product.price);
+                        }
+                      });
+                    });
+                    return total.toFixed(2);
+                  })()}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 mb-1">Combo Total</div>
+                <div className="text-2xl font-bold text-green-700">
+                  ₹{(() => {
+                    let total = 0;
+                    appliedCombinations.forEach(combo => {
+                      combo.items?.forEach(item => {
+                        const product = products?.find(p => p.id === item.product);
+                        if (product) {
+                          if (item.offer_price && item.offer_price > 0) {
+                            total += parseFloat(item.offer_price) * item.quantity_required;
+                          } else {
+                            total += parseFloat(product.price) * item.quantity_required;
+                          }
+                        }
+                      });
+                    });
+                    return total.toFixed(2);
+                  })()}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 mb-1">Total Savings</div>
+                <div className="text-xl font-bold text-green-800">
+                  ₹{totals.totalDiscount.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-center text-gray-500 mt-2">
+              You're saving {((totals.totalDiscount / (totals.total + totals.totalDiscount)) * 100).toFixed(1)}% on your order!
+            </div>
           </div>
+        )}
+      </div>
+    );
+  })()}
+</div>
         </div>
 
         {/* Order Summary */}
@@ -1670,14 +1875,30 @@ const OrderNew = () => {
             <div className="flex items-center space-x-3 mb-6">
               <DollarSign className="w-6 h-6 text-green-600" />
               <h2 className="text-2xl font-bold text-gray-900">
-                Order Summary
+                Order Summary (Incl. GST)
               </h2>
             </div>
+            
+            {/* Discount Display */}
+            {totals.totalDiscount > 0 && (
+              <div className="mb-6 p-4 bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-yellow-700">
+                    <TrendingUp className="w-5 h-5 mr-2" />
+                    <span className="font-medium">Total Savings from Combos</span>
+                  </div>
+                  <span className="text-xl font-bold text-green-700">
+                    -₹{totals.totalDiscount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300">
                 <div className="text-sm font-medium text-blue-600 flex items-center">
                   <IndianRupee className="w-4 h-4 mr-1" />
-                  Subtotal
+                  Taxable Value (Excl. GST)
                 </div>
                 <div className="text-2xl font-bold text-blue-900">
                   ₹{totals.subtotal.toFixed(2)}
@@ -1686,22 +1907,32 @@ const OrderNew = () => {
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300">
                 <div className="text-sm font-medium text-purple-600 flex items-center">
                   <Package className="w-4 h-4 mr-1" />
-                  GST Total
+                  GST Amount
                 </div>
                 <div className="text-2xl font-bold text-purple-900">
-                  ₹{(totals.gstTotal || 0).toFixed(2)}
+                  ₹{(totals.gstAmount || 0).toFixed(2)}
                 </div>
               </div>
               <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300">
                 <div className="text-sm font-medium text-green-600 flex items-center">
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  Grand Total
+                  Grand Total (Incl. GST)
                 </div>
                 <div className="text-2xl font-bold text-green-900">
                   ₹{totals.total.toFixed(2)}
                 </div>
               </div>
             </div>
+            
+            {/* GST Breakdown */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">GST Breakdown</h4>
+              <div className="text-sm text-gray-600">
+                <p>All prices shown include GST. The total amount payable is inclusive of all applicable taxes.</p>
+                <p className="mt-1">Taxable Value: ₹{totals.subtotal.toFixed(2)} + GST: ₹{totals.gstAmount.toFixed(2)} = Grand Total: ₹{totals.total.toFixed(2)}</p>
+              </div>
+            </div>
+            
             <div className="mt-6 flex justify-center">
               <button
                 type="submit"
@@ -1718,23 +1949,13 @@ const OrderNew = () => {
         {showSuccessModal && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-10 relative overflow-hidden">
-              
-              
-
               <div className="relative z-10 text-center">
-              
                 <div className="relative mb-8 flex justify-center">
                   <div className="relative">
-                    
-                   
-
                     {/* Pulsing core with checkmark */}
                     <div className="w-28 h-28 bg-gradient-to-br from-green-100 via-green-200 to-green-300 rounded-full flex items-center justify-center animate-pulse shadow-2xl border-4 border-white">
                       <CheckCircle className="w-14 h-14 text-green-600 drop-shadow-lg" />
                     </div>
-
-                   
-                    
                   </div>
                 </div>
 
@@ -1761,12 +1982,7 @@ const OrderNew = () => {
                           <div className="w-8 h-1 bg-gradient-to-r from-blue-600 to-transparent animate-pulse rounded-full" style={{ animationDelay: '0.9s', animationDuration: '0.3s' }}></div>
                         </div>
                       </div>
-
-                    
-                      
                     </div>
-
-                   
                   </div>
                 </div>
 
@@ -1788,7 +2004,6 @@ const OrderNew = () => {
                     <button
                       onClick={() => navigator.clipboard.writeText(generatedOrderId)}
                       className="bg-green-600 text-white px-6 py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                      
                     >
                       Copy
                     </button>
@@ -1807,10 +2022,9 @@ const OrderNew = () => {
                   </button>
                   <button
                     onClick={() => navigate("/orders")}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 "
-                    
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl "
                   >
-                    <ShoppingCart className="w-5 h-5" />
+                    <ShoppingCart className="w-3 h-5" />
                     <span>View Orders</span>
                   </button>
                 </div>

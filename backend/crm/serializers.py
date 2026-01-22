@@ -223,7 +223,7 @@ class CombinationGiftSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CombinationGift
-        fields = ['id', 'product', 'product_title']
+        fields = ['id', 'product', 'product_title', 'quantity']
 
 class ProductCombinationSerializer(serializers.ModelSerializer):
     items = CombinationItemSerializer(many=True, read_only=True)
@@ -334,10 +334,12 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
 
         for gift_data in gifts_data:
             product_id = gift_data.get('product')
+            quantity = gift_data.get('quantity', 1)
             if product_id:
                 CombinationGift.objects.create(
                     combination=instance,
-                    product_id=product_id
+                    product_id=product_id,
+                    quantity=quantity
                 )
 
         return instance

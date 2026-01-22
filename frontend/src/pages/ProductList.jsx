@@ -407,10 +407,10 @@ const ProductList = () => {
                     <td className="px-6 py-4">
                       <div className="space-y-1">
                         <div className="text-sm font-semibold text-gray-900">
-                          {formatCurrency(product.price)}
+                          {formatCurrency(product.price || 0)}
                         </div>
                         <div className="text-xs text-gray-500">
-                          Cost: {formatCurrency(product.cost)}
+                          Cost: {formatCurrency(product.purchase_price || 0)}
                         </div>
                       </div>
                     </td>

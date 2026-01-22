@@ -15,6 +15,7 @@ const ProductCombinations = () => {
     rewards: [],
     gifts: []
   });
+  const [selectedProducts, setSelectedProducts] = useState({});
 
   useEffect(() => {
     fetchCombinations();
@@ -139,7 +140,7 @@ const ProductCombinations = () => {
   const addGift = () => {
     setFormData({
       ...formData,
-      gifts: [...formData.gifts, { product: '' }]
+      gifts: [...formData.gifts, { product: '', quantity: 1 }]
     });
   };
 
@@ -176,7 +177,7 @@ const ProductCombinations = () => {
             {editingCombination ? 'Edit Combination' : 'Add New Combination'}
           </h2>
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Name *
@@ -189,6 +190,18 @@ const ProductCombinations = () => {
                   required
                 />
               </div>
+            
+              <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="1"
+              />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Active
@@ -200,17 +213,6 @@ const ProductCombinations = () => {
                   className="mt-1"
                 />
               </div>
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows="3"
-              />
             </div>
 
             {/* Required Items */}
@@ -226,44 +228,58 @@ const ProductCombinations = () => {
                 </button>
               </div>
               {formData.items.map((item, index) => (
-                <div key={index} className="flex items-center space-x-2 mb-2">
-                  <select
-                    value={item.product}
-                    onChange={(e) => updateItem(index, 'product', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Select Product</option>
-                    {products.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.title}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity_required}
-                    onChange={(e) => updateItem(index, 'quantity_required', parseInt(e.target.value))}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.offer_price}
-                    onChange={(e) => updateItem(index, 'offer_price', parseFloat(e.target.value))}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Offer Price"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
-                  >
-                    Remove
-                  </button>
+                <div key={index} className="mb-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <select
+                      value={item.product}
+                      onChange={(e) => updateItem(index, 'product', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select Product</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.title}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity_required}
+                      onChange={(e) => updateItem(index, 'quantity_required', parseInt(e.target.value))}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.offer_price}
+                      onChange={(e) => updateItem(index, 'offer_price', parseFloat(e.target.value))}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Offer Price"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {item.product && (
+                    <div className="ml-4 p-2 bg-gray-50 rounded text-sm">
+                      {(() => {
+                        const product = products.find(p => p.id === parseInt(item.product));
+                        return product ? (
+                          <div>
+                            <strong>SKU:</strong> {product.sku} | <strong>Price:</strong> ₹{product.price} | <strong>Stock:</strong> {product.stock_qty}
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -281,35 +297,49 @@ const ProductCombinations = () => {
                 </button>
               </div>
               {formData.rewards.map((reward, index) => (
-                <div key={index} className="flex items-center space-x-2 mb-2">
-                  <select
-                    value={reward.product}
-                    onChange={(e) => updateReward(index, 'product', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Select Product</option>
-                    {products.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.title}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="1"
-                    value={reward.quantity_free}
-                    onChange={(e) => updateReward(index, 'quantity_free', parseInt(e.target.value))}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeReward(index)}
-                    className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
-                  >
-                    Remove
-                  </button>
+                <div key={index} className="mb-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <select
+                      value={reward.product}
+                      onChange={(e) => updateReward(index, 'product', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select Product</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.title}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      value={reward.quantity_free}
+                      onChange={(e) => updateReward(index, 'quantity_free', parseInt(e.target.value))}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeReward(index)}
+                      className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {reward.product && (
+                    <div className="ml-4 p-2 bg-gray-50 rounded text-sm">
+                      {(() => {
+                        const product = products.find(p => p.id === parseInt(reward.product));
+                        return product ? (
+                          <div>
+                            <strong>SKU:</strong> {product.sku} | <strong>Price:</strong> ₹{product.price} | <strong>Stock:</strong> {product.stock_qty}
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -327,27 +357,49 @@ const ProductCombinations = () => {
                 </button>
               </div>
               {formData.gifts.map((gift, index) => (
-                <div key={index} className="flex items-center space-x-2 mb-2">
-                  <select
-                    value={gift.product}
-                    onChange={(e) => updateGift(index, 'product', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Select Product</option>
-                    {products.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.title}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => removeGift(index)}
-                    className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
-                  >
-                    Remove
-                  </button>
+                <div key={index} className="mb-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <select
+                      value={gift.product}
+                      onChange={(e) => updateGift(index, 'product', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select Product</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.title}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      value={gift.quantity}
+                      onChange={(e) => updateGift(index, 'quantity', parseInt(e.target.value))}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeGift(index)}
+                      className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {gift.product && (
+                    <div className="ml-4 p-2 bg-gray-50 rounded text-sm">
+                      {(() => {
+                        const product = products.find(p => p.id === parseInt(gift.product));
+                        return product ? (
+                          <div>
+                            <strong>SKU:</strong> {product.sku} | <strong>Price:</strong> ₹{product.price} | <strong>Stock:</strong> {product.stock_qty}
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

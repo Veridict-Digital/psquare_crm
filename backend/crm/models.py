@@ -218,9 +218,11 @@ class OrderItem(models.Model):
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def save(self, *args, **kwargs):
-        # Calculate total price including GST
-        gst_amount = (self.unit_price * self.quantity * self.gst_rate) / 100
-        self.total_price = (self.unit_price * self.quantity) + gst_amount
+        # Calculate total price with inclusive GST
+        # For inclusive GST: GST Amount = (unit_price * quantity * gst_rate) / (100 + gst_rate)
+        # Total Price = unit_price * quantity (which already includes GST)
+        gst_amount = (self.unit_price * self.quantity * self.gst_rate) / (100 + self.gst_rate)
+        self.total_price = self.unit_price * self.quantity
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -361,6 +363,7 @@ class CombinationReward(models.Model):
 class CombinationGift(models.Model):
     combination = models.ForeignKey(ProductCombination, on_delete=models.CASCADE, related_name='gifts')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=1)
 
     def __str__(self):
-        return f"{self.combination.name} - Gift {self.product.title}"
+        return f"{self.combination.name} - Gift {self.product.title} x{self.quantity}"
