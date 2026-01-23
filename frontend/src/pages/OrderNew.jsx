@@ -141,6 +141,22 @@ const OrderNew = () => {
       setAppliedCombos([]);
       setCustomerKPIs(null);
     },
+    onError: (error) => {
+      // Handle validation errors from backend
+      if (error.response && error.response.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === 'object' && errorData.detail) {
+          alert(`Error: ${errorData.detail}`);
+        } else if (Array.isArray(errorData) && errorData.length > 0) {
+          // Handle array of errors (like from ValidationError)
+          alert(`Error: ${errorData[0]}`);
+        } else {
+          alert("An error occurred while creating the order. Please try again.");
+        }
+      } else {
+        alert("An error occurred while creating the order. Please try again.");
+      }
+    },
   });
 
   // Calculate totals with combination logic - Inclusive GST
@@ -359,17 +375,8 @@ const OrderNew = () => {
     );
     if (!product) return;
 
-    // Check stock availability
-    const existingItem = orderItems.find((item) => item.product === product.id);
-    const currentQuantity = existingItem ? existingItem.quantity : 0;
-    const newTotalQuantity = currentQuantity + quantity;
-
-    if (newTotalQuantity > product.stock_qty) {
-      alert(`Insufficient stock for "${product.title}". Available: ${product.stock_qty}, Requested: ${newTotalQuantity}`);
-      return;
-    }
-
     // Check if product already exists in order items
+    const existingItem = orderItems.find((item) => item.product === product.id);
     if (existingItem) {
       setOrderItems((prev) =>
         prev.map((item) =>
@@ -408,12 +415,6 @@ const OrderNew = () => {
 
   const updateQuantity = (productId, newQuantity) => {
     if (newQuantity <= 0) return;
-
-    const product = products?.find(p => p.id.toString() === productId.toString());
-    if (product && newQuantity > product.stock_qty) {
-      alert(`Insufficient stock for "${product.title}". Available: ${product.stock_qty}, Requested: ${newQuantity}`);
-      return;
-    }
 
     setOrderItems((prev) =>
       prev.map((item) =>
@@ -1147,33 +1148,6 @@ const OrderNew = () => {
                                 : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
                             }`}
                             onClick={() => {
-                              // Check stock availability for all required items before applying combo
-                              let insufficientStockItems = [];
-                              requiredItems.forEach((reqItem) => {
-                                const product = products?.find((p) => p.id === reqItem.product);
-                                if (product) {
-                                  const existingItem = orderItems.find((item) => item.product === product.id);
-                                  const currentQuantity = existingItem ? existingItem.quantity : 0;
-                                  const newTotalQuantity = Math.max(currentQuantity, reqItem.quantity_required);
-
-                                  if (newTotalQuantity > product.stock_qty) {
-                                    insufficientStockItems.push({
-                                      product: product.title,
-                                      available: product.stock_qty,
-                                      required: newTotalQuantity
-                                    });
-                                  }
-                                }
-                              });
-
-                              if (insufficientStockItems.length > 0) {
-                                const messages = insufficientStockItems.map(item =>
-                                  `${item.product}: Available ${item.available}, Required ${item.required}`
-                                ).join('\n');
-                                alert(`Insufficient stock for combo items:\n${messages}`);
-                                return;
-                              }
-
                               // Apply the combo offer
                               requiredItems.forEach((reqItem) => {
                                 const product = products?.find((p) => p.id === reqItem.product);

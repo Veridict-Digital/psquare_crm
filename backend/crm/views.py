@@ -258,12 +258,19 @@ class CustomerViewSet(viewsets.ModelViewSet):
             total_order_value=models.Sum('order__total_amount')
         ).distinct()
 
+        # Filter by agent for non-admin users
+        # Temporarily disabled to allow all users to see all customers
+        if self.request.user.role != 'Admin':
+            queryset = queryset.filter(agent=self.request.user)
+
         if self.action == 'list':
             # Get date filters from query parameters
             date_from = self.request.query_params.get('date_from')
             date_to = self.request.query_params.get('date_to')
             contact_type = self.request.query_params.get('contact_type')
             search = self.request.query_params.get('search')
+            phone = self.request.query_params.get('phone')
+            agent = self.request.query_params.get('agent')
 
             if date_from:
                 queryset = queryset.filter(created_at__date__gte=date_from)
@@ -271,6 +278,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(created_at__date__lte=date_to)
             if contact_type:
                 queryset = queryset.filter(contact_type=contact_type)
+            if phone:
+                queryset = queryset.filter(phone=phone)
+            if agent:
+                queryset = queryset.filter(agent=int(agent))
             if search:
                 queryset = queryset.filter(
                     Q(name__icontains=search) |
@@ -279,7 +290,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     Q(id__icontains=search)
                 )
 
-        return queryset
+        return queryset.order_by('appointment_date')
 
     def create(self, request, *args, **kwargs):
         # Handle contact creation with automatic type determination
@@ -433,6 +444,60 @@ class CustomerViewSet(viewsets.ModelViewSet):
         serializer = PhoneSerializer(phone)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['delete'])
+    def delete_phone(self, request, pk=None):
+        customer = self.get_object()
+        phone_id = request.data.get('phone_id')
+
+        if not phone_id:
+            return Response({'error': 'Phone ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            phone = Phone.objects.get(id=phone_id, customer=customer)
+        except Phone.DoesNotExist:
+            return Response({'error': 'Phone not found for this customer'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Prevent deleting the primary phone if there are other phones
+        if phone.is_primary and customer.phones.count() > 1:
+            return Response({'error': 'Cannot delete primary phone. Set another phone as primary first.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        phone.delete()
+
+        # If the deleted phone was primary and it was the only phone, this shouldn't happen due to the check above
+        # But if it was primary, we need to set a new primary
+        if phone.is_primary and customer.phones.exists():
+            new_primary = customer.phones.first()
+            new_primary.is_primary = True
+            new_primary.save()
+            customer.phone = new_primary.phone
+            customer.save()
+
+        return Response({'message': 'Phone deleted successfully'}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def bulk_assign(self, request):
+        customer_ids = request.data.get('customer_ids', [])
+        agent_id = request.data.get('agent_id')
+
+        if not customer_ids:
+            return Response({'error': 'Customer IDs are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not agent_id:
+            return Response({'error': 'Agent ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            agent = User.objects.get(id=agent_id, role__in=['Employee', 'Telecaller'])
+        except User.DoesNotExist:
+            return Response({'error': 'Invalid agent ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update customers with the new agent
+        updated_count = Customer.objects.filter(id__in=customer_ids).update(agent=agent)
+
+        return Response({
+            'message': f'Successfully assigned {updated_count} customers to {agent.username}',
+            'updated_count': updated_count
+        }, status=status.HTTP_200_OK)
+
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -465,37 +530,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                     if admin_user:
                         data['agent'] = admin_user.id
 
-        # Validate stock availability before creating order
-        for item_data in data.get('items', []):
-            product_id = item_data.get('product')
-            quantity = item_data.get('quantity', 0)
-            if product_id and quantity > 0:
-                try:
-                    product = Product.objects.get(id=product_id)
-                    if product.stock_qty < quantity:
-                        return Response({
-                            'error': f'Insufficient stock for product "{product.title}". Available: {product.stock_qty}, Requested: {quantity}'
-                        }, status=status.HTTP_400_BAD_REQUEST)
-                except Product.DoesNotExist:
-                    return Response({
-                        'error': f'Product with ID {product_id} not found'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         order = serializer.save()
-
-        # Reduce stock for each order item
-        for item_data in data.get('items', []):
-            product_id = item_data.get('product')
-            quantity = item_data.get('quantity', 0)
-            if product_id and quantity > 0:
-                try:
-                    product = Product.objects.get(id=product_id)
-                    product.stock_qty -= quantity
-                    product.save()
-                except Product.DoesNotExist:
-                    pass  # Product not found, skip
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -603,6 +640,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         # Create customer from lead data
         customer_data = {
             'name': lead.name or 'Unknown',
+
             'phone': lead.phone,
             'email': lead.email,
             'pincode': '000000',  # Default pincode, can be updated later

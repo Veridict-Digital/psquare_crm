@@ -23,7 +23,7 @@ const Login = () => {
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      login(response.data.access); // update context
+      login(response.data.access, response.data.user); // update context
       navigate('/dashboard');
     },
   });

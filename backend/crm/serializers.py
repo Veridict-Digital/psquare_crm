@@ -113,6 +113,11 @@ class OrderSerializer(serializers.ModelSerializer):
         order = Order.objects.create(**validated_data)
         for item_data in items_data:
             OrderItem.objects.create(order=order, **item_data)
+            # Update product stock
+            product = item_data['product']
+            quantity = item_data['quantity']
+            product.stock_qty -= quantity
+            product.save()
         return order
 
     class Meta:
