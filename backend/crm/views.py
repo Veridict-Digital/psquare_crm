@@ -7,6 +7,7 @@ from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import models
+from django.utils import timezone
 from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit
 from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer
 
@@ -273,9 +274,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
             agent = self.request.query_params.get('agent')
 
             if date_from:
-                queryset = queryset.filter(created_at__date__gte=date_from)
+                # Filter by appointment_date if available, otherwise by created_at
+                queryset = queryset.filter(
+                    models.Q(appointment_date__gte=date_from) |
+                    (models.Q(appointment_date__isnull=True) & models.Q(created_at__gte=date_from))
+                )
             if date_to:
-                queryset = queryset.filter(created_at__date__lte=date_to)
+                # Filter by appointment_date if available, otherwise by created_at
+                queryset = queryset.filter(
+                    models.Q(appointment_date__lte=date_to) |
+                    (models.Q(appointment_date__isnull=True) & models.Q(created_at__lte=date_to))
+                )
             if contact_type:
                 queryset = queryset.filter(contact_type=contact_type)
             if phone:

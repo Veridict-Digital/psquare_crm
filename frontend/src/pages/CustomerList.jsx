@@ -1382,10 +1382,9 @@ const CustomerList = () => {
         {editingTime === customer.id ? (
           <div className="flex items-center space-x-2">
             <input
-              type="text"
+              type="time"
               value={timeValue}
               onChange={(e) => setTimeValue(e.target.value)}
-              placeholder="e.g., 2 to 4 pm"
               className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               autoFocus
             />

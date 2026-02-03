@@ -255,7 +255,7 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductCombination
-        fields = ['id', 'name', 'description', 'is_active', 'created_at', 'items', 'rewards', 'gifts', 'items_data', 'rewards_data', 'gifts_data']
+        fields = ['id', 'name', 'description', 'is_active', 'created_at', 'combo_weight', 'curriar_purchase_point', 'curriar_dispatch_point', 'items', 'rewards', 'gifts', 'items_data', 'rewards_data', 'gifts_data']
 
     def create(self, validated_data):
         items_data = validated_data.pop('items_data', [])

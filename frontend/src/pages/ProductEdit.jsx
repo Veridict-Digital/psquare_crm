@@ -35,6 +35,7 @@ const ProductEdit = () => {
 
   const [formData, setFormData] = useState({
     sku: "",
+    hsn: "",
     title: "",
     category: "",
     stock_qty: 0,
@@ -93,6 +94,7 @@ const ProductEdit = () => {
     if (product) {
       setFormData({
         sku: product.sku || "",
+        hsn: product.hsn || "",
         title: product.title || "",
         category: product.category || "",
         stock_qty: product.stock_qty || 0,
@@ -193,7 +195,13 @@ const ProductEdit = () => {
     if (e.target.name === "image") {
       setFormData({ ...formData, [e.target.name]: e.target.files[0] });
     } else {
-      setFormData({ ...formData, [e.target.name]: e.target.value });
+      const { name, value, type } = e.target;
+      // Handle number inputs properly
+      if (type === "number") {
+        setFormData({ ...formData, [name]: value === "" ? "" : parseFloat(value) || 0 });
+      } else {
+        setFormData({ ...formData, [name]: value });
+      }
     }
   };
 
@@ -290,7 +298,7 @@ const ProductEdit = () => {
 
               <form onSubmit={handleSubmit}>
                 {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 w-full">
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
@@ -306,7 +314,21 @@ const ProductEdit = () => {
                       required
                     />
                   </div>
-
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                      HSN No
+                    </label>
+                    <input
+                      type="text"
+                      name="hsn"
+                      value={formData.hsn}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter HSN code"
+                      required
+                    />
+                  </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
@@ -367,7 +389,6 @@ const ProductEdit = () => {
                       Add New Category
                     </button>
                   </div>
-
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
@@ -385,8 +406,7 @@ const ProductEdit = () => {
                   </div>
                 </div>
                 {/* Pricing Section */}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">
                       Purchase Price
@@ -424,7 +444,24 @@ const ProductEdit = () => {
                       />
                     </div>
                   </div>
-
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Price
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                        ₹
+                      </div>
+                      <input
+                        type="number"
+                        name="price"
+                        value={formData.price}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">
                       Product Volume
@@ -439,7 +476,9 @@ const ProductEdit = () => {
                       placeholder="e.g., 500"
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                </div>
+                {/* Unit and Weight */}
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-semibold text-gray-700">
                         Unit
@@ -483,7 +522,6 @@ const ProductEdit = () => {
                         Add New Unit
                       </button>
                     </div>
-
                     <div className="space-y-2">
                       <label className="block text-sm font-semibold text-gray-700">
                         Product Weight
@@ -498,10 +536,7 @@ const ProductEdit = () => {
                         placeholder="e.g., 1.5"
                       />
                     </div>
-
-
                   {/* GST and Use Case */}
-
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <Percent className="w-4 h-4 text-blue-500" />
@@ -547,7 +582,7 @@ const ProductEdit = () => {
                       Add New GST Rate
                     </button>
                   </div>
-                </div>
+              
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
                     <Briefcase className="w-4 h-4 text-blue-500" />
@@ -586,12 +621,6 @@ const ProductEdit = () => {
                   </div>
                 </div>
                 </div>
-
-
-
-                {/* Image Upload */}
-
-
                 {/* Submit Button */}
                 <div className="pt-6 border-t border-gray-200">
                   <button

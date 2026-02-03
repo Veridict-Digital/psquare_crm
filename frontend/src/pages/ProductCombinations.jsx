@@ -9,6 +9,9 @@ const ProductCombinations = () => {
   const [editingCombination, setEditingCombination] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
+    combo_weight: '',
+    curriar_purchase_point: '',
+    curriar_dispatch_point: '',
     description: '',
     is_active: true,
     items: [],
@@ -67,6 +70,9 @@ const ProductCombinations = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      combo_weight: '',
+      curriar_purchase_point: '',
+      curriar_dispatch_point: '',
       description: '',
       is_active: true,
       items: [],
@@ -80,6 +86,9 @@ const ProductCombinations = () => {
   const handleEdit = (combination) => {
     setFormData({
       name: combination.name,
+      combo_weight: combination.combo_weight || '',
+      curriar_purchase_point: combination.curriar_purchase_point || '',
+      curriar_dispatch_point: combination.curriar_dispatch_point || '',
       description: combination.description || '',
       is_active: combination.is_active,
       items: combination.items || [],
@@ -160,7 +169,7 @@ const ProductCombinations = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 max-w-full">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Product Combinations</h1>
         <button
@@ -177,7 +186,7 @@ const ProductCombinations = () => {
             {editingCombination ? 'Edit Combination' : 'Add New Combination'}
           </h2>
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Name *
@@ -188,6 +197,40 @@ const ProductCombinations = () => {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Combo Weight
+                </label>
+                <input
+                  type="text"
+                  value={formData.combo_weight}
+                  onChange={(e) => setFormData({ ...formData, combo_weight: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  curriar_purchase_point
+                </label>
+                <input
+                  type="text"
+                  value={formData.curriar_purchase_point}
+                  onChange={(e) => setFormData({ ...formData, curriar_purchase_point: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  curriar_dispatch_Point
+                </label>
+                <input
+                  type="text"
+                  value={formData.curriar_dispatch_point}
+                  onChange={(e) => setFormData({ ...formData, curriar_dispatch_point: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             
@@ -424,7 +467,7 @@ const ProductCombinations = () => {
       )}
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="max-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -462,20 +505,20 @@ const ProductCombinations = () => {
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {combination.items?.map(item => {
                     const product = products.find(p => p.id === item.product);
-                    return `${product?.title || 'Unknown'} x${item.quantity_required}`;
-                  }).join(', ') || '-'}
+                    return product ? `${product.title} x${item.quantity_required} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'}, Purchase: ₹${product.purchase_price || '0.00'})` : 'Unknown';
+                  }).join('; ') || '-'}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {combination.rewards?.map(reward => {
                     const product = products.find(p => p.id === reward.product);
-                    return `${product?.title || 'Unknown'} x${reward.quantity_free}`;
-                  }).join(', ') || '-'}
+                    return product ? `${product.title} x${reward.quantity_free} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'}, Purchase: ₹${product.purchase_price || '0.00'})` : 'Unknown';
+                  }).join('; ') || '-'}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {combination.gifts?.map(gift => {
                     const product = products.find(p => p.id === gift.product);
-                    return `${product?.title || 'Unknown'}`;
-                  }).join(', ') || '-'}
+                    return product ? `${product.title} x${gift.quantity} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'}, Purchase: ₹${product.purchase_price || '0.00'})` : 'Unknown';
+                  }).join('; ') || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -504,7 +547,7 @@ const ProductCombinations = () => {
             ))}
           </tbody>
         </table>
-      </div>
+      </div> 
     </div>
   );
 };

@@ -454,7 +454,11 @@ const CustomerDetail = () => {
                               )}
                               <button
                                 onClick={() => {
-                                  if (window.confirm(`Are you sure you want to delete phone number "${phoneObj.phone}"?`)) {
+                                  if (
+                                    window.confirm(
+                                      `Are you sure you want to delete phone number "${phoneObj.phone}"?`,
+                                    )
+                                  ) {
                                     deletePhoneMutation.mutate(phoneObj.id);
                                   }
                                 }}
@@ -538,7 +542,11 @@ const CustomerDetail = () => {
                                   )}
                                   <button
                                     onClick={() => {
-                                      if (window.confirm(`Are you sure you want to delete phone number "${phone.phone}"?`)) {
+                                      if (
+                                        window.confirm(
+                                          `Are you sure you want to delete phone number "${phone.phone}"?`,
+                                        )
+                                      ) {
                                         deletePhoneMutation.mutate(phone.id);
                                       }
                                     }}
@@ -561,66 +569,68 @@ const CustomerDetail = () => {
 
             {/* Middle: Summary Cards */}
             <div className="grid grid-cols-5 gap-2 mx-4">
-  {[
-    { label: "Total Calls", value: summary?.total_calls || 0 },
-    { label: "Total Orders", value: summary?.total_orders || 0 },
-    {
-      label: "Total Paid",
-      value: `₹${summary?.total_paid?.toFixed(2) || "0.00"}`,
-    },
-    {
-      label: "Pending",
-      value: `₹${summary?.total_pending?.toFixed(2) || "0.00"}`,
-    },
-  ].map((item, idx) => (
-    <div
-      key={idx}
-      className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-20"
-    >
-      <p className="text-xs text-gray-500 truncate">{item.label}</p>
-      <p className="text-sm font-bold text-gray-900 truncate">{item.value}</p>
-    </div>
-  ))}
+              {[
+                { label: "Total Calls", value: summary?.total_calls || 0 },
+                { label: "Total Orders", value: summary?.total_orders || 0 },
+                {
+                  label: "Total Paid",
+                  value: `₹${summary?.total_paid?.toFixed(2) || "0.00"}`,
+                },
+                {
+                  label: "Pending",
+                  value: `₹${summary?.total_pending?.toFixed(2) || "0.00"}`,
+                },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-20"
+                >
+                  <p className="text-xs text-gray-500 truncate">{item.label}</p>
+                  <p className="text-sm font-bold text-gray-900 truncate">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
 
-  <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-38 relative">
-    <div
-      className="flex items-center justify-between cursor-pointer"
-      onClick={() => setShowAgentDropdown(!showAgentDropdown)}
-    >
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-gray-500 truncate">Telecaller</p>
-        <p className="text-sm font-bold text-gray-900 truncate">
-          {customer?.agent_name || "Not assigned"}
-        </p>
-      </div>
-      <ChevronDown
-        className={`w-3 h-3 text-gray-400 flex-shrink-0 transform ${showAgentDropdown ? "rotate-180" : ""}`}
-      />
-    </div>
-    {showAgentDropdown && (
-      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-[200px] min-w-max">
-        <div className="py-1 overflow-y-auto max-h-48 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <button
-            onClick={() => handleAgentSelect(null)}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700"
-          >
-            Not assigned
-          </button>
-          {employees?.map((employee) => (
-            <button
-              key={employee.id}
-              onClick={() => handleAgentSelect(employee.id)}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700 truncate"
-              title={employee.username} // Tooltip for full name
-            >
-              {employee.username}
-            </button>
-          ))}
-        </div>
-      </div>
-    )}
-  </div>
-</div>
+              <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-38 relative">
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => setShowAgentDropdown(!showAgentDropdown)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-gray-500 truncate">Telecaller</p>
+                    <p className="text-sm font-bold text-gray-900 truncate">
+                      {customer?.agent_name || "Not assigned"}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transform ${showAgentDropdown ? "rotate-180" : ""}`}
+                  />
+                </div>
+                {showAgentDropdown && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-[200px] min-w-max">
+                    <div className="py-1 overflow-y-auto max-h-48 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                      <button
+                        onClick={() => handleAgentSelect(null)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700"
+                      >
+                        Not assigned
+                      </button>
+                      {employees?.map((employee) => (
+                        <button
+                          key={employee.id}
+                          onClick={() => handleAgentSelect(employee.id)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700 truncate"
+                          title={employee.username} // Tooltip for full name
+                        >
+                          {employee.username}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Right side: Buttons aligned with name */}
             <div className="flex space-x-2 items-center min-w-max">
@@ -729,7 +739,7 @@ const CustomerDetail = () => {
           </div>
 
           {/* Secondary info below */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 mt-2">
             <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <User className="h-5 w-5 mr-2 text-gray-400" />
               <span className="font-medium mr-2">Org Name:</span>
@@ -850,7 +860,7 @@ const CustomerDetail = () => {
             </div>
             <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <Calendar className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Appointment Date:</span>
+              <span className="font-medium mr-2">Appointment:</span>
               {editingField === "appointment_date" ? (
                 <div className="flex items-center space-x-2">
                   <input
@@ -894,6 +904,62 @@ const CustomerDetail = () => {
                 </div>
               )}
             </div>
+            <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
+              <svg
+                className="h-5 w-5 mr-2 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="font-medium mr-2">Time:</span>
+              {editingField === "appointment_time" ? (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="time"
+                    value={tempValue}
+                    onChange={(e) => setTempValue(e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                    autoFocus
+                  />
+                  <button
+                    onClick={saveEdit}
+                    className="text-green-600 hover:text-green-800"
+                  >
+                    <Save className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold text-gray-900">
+                    {customer?.appointment_time || "Not set"}
+                  </span>
+                  <button
+                    onClick={() =>
+                      startEditing(
+                        "appointment_time",
+                        customer?.appointment_time || "",
+                      )
+                    }
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {(customer?.house_flat_no ||
             customer?.wing_lane ||
@@ -906,304 +972,277 @@ const CustomerDetail = () => {
             customer?.state) && (
             <div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
               <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 {editingAddress ? (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-9 gap-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          House No
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="House/Flat No"
-                          value={tempAddress.house_flat_no}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              house_flat_no: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Wing/Lane
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Wing/Lane"
-                          value={tempAddress.wing_lane}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              wing_lane: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Society/Colony
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Society/Colony"
-                          value={tempAddress.society_colony}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              society_colony: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Landmark
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Landmark"
-                          value={tempAddress.landmark}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              landmark: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Area
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Area"
-                          value={tempAddress.area}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              area: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Pincode
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Pincode"
-                          value={tempAddress.pincode}
-                          onChange={(e) => {
-                            const value = e.target.value
-                              .replace(/\D/g, "")
-                              .slice(0, 6);
-                            setTempAddress({ ...tempAddress, pincode: value });
-                            if (value.length < 6 && value.length > 0) {
-                              setAddressError(
-                                "Pincode must be exactly 6 digits.",
-                              );
-                            } else {
-                              setAddressError("");
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="grid grid-cols-9 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            House No
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="House/Flat No"
+                            value={tempAddress.house_flat_no}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                house_flat_no: e.target.value,
+                              })
                             }
-                          }}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          maxLength={6}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="City"
-                          value={tempAddress.city}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              city: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          District
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="District"
-                          value={tempAddress.district}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              district: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          State
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="State"
-                          value={tempAddress.state}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              state: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Wing/Lane
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Wing/Lane"
+                            value={tempAddress.wing_lane}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                wing_lane: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Society/Colony
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Society/Colony"
+                            value={tempAddress.society_colony}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                society_colony: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Landmark
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Landmark"
+                            value={tempAddress.landmark}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                landmark: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Area
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Area"
+                            value={tempAddress.area}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                area: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Pincode
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Pincode"
+                            value={tempAddress.pincode}
+                            onChange={(e) => {
+                              const value = e.target.value
+                                .replace(/\D/g, "")
+                                .slice(0, 6);
+                              setTempAddress({
+                                ...tempAddress,
+                                pincode: value,
+                              });
+                              if (value.length < 6 && value.length > 0) {
+                                setAddressError(
+                                  "Pincode must be exactly 6 digits.",
+                                );
+                              } else {
+                                setAddressError("");
+                              }
+                            }}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                            maxLength={6}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            City
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="City"
+                            value={tempAddress.city}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                city: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            District
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="District"
+                            value={tempAddress.district}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                district: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            State
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="State"
+                            value={tempAddress.state}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                state: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 mt-2">
+                    <div className="ml-4 flex-shrink-0 pt-6 flex items-center space-x-2">
                       <button
                         onClick={saveAddressEdit}
-                        className="text-green-600 hover:text-green-800"
+                        className="text-green-600 hover:text-green-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
+                        title="Save changes"
                       >
                         <Save className="h-4 w-4" />
                       </button>
                       <button
                         onClick={cancelAddressEdit}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-red-600 hover:text-red-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
+                        title="Cancel editing"
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-9 gap-1">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          House No
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="House/Flat No"
-                          value={customer?.house_flat_no || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Wing/Lane
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Wing/Lane"
-                          value={customer?.wing_lane || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Society/Colony
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Society/Colony"
-                          value={customer?.society_colony || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Landmark
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Landmark"
-                          value={customer?.landmark || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Area
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Area"
-                          value={customer?.area || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Pincode
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Pincode"
-                          value={customer?.pincode || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="City"
-                          value={customer?.city || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          District
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="District"
-                          value={customer?.district || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          State
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="State"
-                          value={customer?.state || ""}
-                          readOnly
-                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 w-full"
-                        />
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="grid grid-cols-9 gap-1">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            House No
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.house_flat_no || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Wing/Lane
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.wing_lane || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Society/Colony
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.society_colony || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Landmark
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.landmark || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Area
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.area || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Pincode
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.pincode || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            City
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.city || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            District
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.district || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            State
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.state || "-"}
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex justify-end">
+                    <div className="ml-4 flex-shrink-0 pt-6">
                       <button
                         onClick={startEditingAddress}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 hover:text-gray-600 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
+                        title="Edit address"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
@@ -1216,12 +1255,68 @@ const CustomerDetail = () => {
         </div>
 
         {/* Conversation history*/}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-4 h-96 overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
+          {/* Left container - Conversation History (60%) */}
+          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-2 h-96 lg:h-[600px] xl:h-[700px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Conversation History
+                  </h2>
+                </div>
+              </div>
+              {callLogs.length > 0 &&
+                callLogs[0]?.date &&
+                new Date() - new Date(callLogs[0].date) <
+                  24 * 60 * 60 * 1000 && (
+                  <button
+                    onClick={() => {
+                      // Use the most recent call log (already sorted by date descending)
+                      const recentCall = callLogs[0];
+                      // Open popup with pre-populated data for editing
+                      const callData = {
+                        ...customer,
+                        // Pre-populate with existing call data
+                        notes: recentCall.note || "",
+                        selectedAssumption: recentCall.assumption || [],
+                        selectedAssumption2: recentCall.assumption2 || [],
+                        selectedAssumption3: recentCall.assumption3 || [],
+                        orderId: recentCall.order_id || "",
+                        callId: recentCall.call_id,
+                        id: recentCall.id,
+                        timer:
+                          Math.round(recentCall.duration_minutes * 60) || 0,
+                      };
+                      openPopup(callData);
+                    }}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25 text-sm"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Last Call
+                  </button>
+                )}
+            </div>
+
+            {callLogs.length === 0 ? (
+              <div className="text-center py-12">
                 <svg
-                  className="w-6 h-6 text-white"
+                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1233,571 +1328,524 @@ const CustomerDetail = () => {
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Conversation History
-                </h2>
-              </div>
-            </div>
-            {callLogs.length > 0 &&
-              callLogs[0]?.date &&
-              new Date() - new Date(callLogs[0].date) < 24 * 60 * 60 * 1000 && (
-                <button
-                  onClick={() => {
-                    // Use the most recent call log (already sorted by date descending)
-                    const recentCall = callLogs[0];
-                    // Open popup with pre-populated data for editing
-                    const callData = {
-                      ...customer,
-                      // Pre-populate with existing call data
-                      notes: recentCall.note || "",
-                      selectedAssumption: recentCall.assumption || [],
-                      selectedAssumption2: recentCall.assumption2 || [],
-                      selectedAssumption3: recentCall.assumption3 || [],
-                      orderId: recentCall.order_id || "",
-                      callId: recentCall.call_id,
-                      id: recentCall.id,
-                      timer: Math.round(recentCall.duration_minutes * 60) || 0,
-                    };
-                    openPopup(callData);
-                  }}
-                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25 text-sm"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Last Call
-                </button>
-              )}
-          </div>
-
-          {callLogs.length === 0 ? (
-            <div className="text-center py-12">
-              <svg
-                className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="text-gray-500 text-lg">
-                No call logs found for this customer.
-              </p>
-            </div>
-          ) : (
-            <div className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-              {callLogs
-                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .map((call, index) => {
-                  const callDate = new Date(call.date);
-                  const formattedDate = callDate.toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  });
-                  const formattedTime = callDate.toLocaleTimeString("en-GB", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  });
-
-                  const elements = [];
-                  elements.push(
-                    <span
-                      key="date"
-                      className="text-gray-900 font-semibold text-lg"
-                    >
-                      {formattedDate}
-                    </span>,
-                  );
-                  elements.push(
-                    <span key="sep1" className="text-gray-400 text-lg">
-                      {" "}
-                      |{" "}
-                    </span>,
-                  );
-                  elements.push(
-                    <span
-                      key="time"
-                      className="text-gray-900 font-semibold text-lg"
-                    >
-                      {formattedTime}
-                    </span>,
-                  );
-                  elements.push(
-                    <span key="sep2" className="text-gray-400 text-lg">
-                      {" "}
-                      |{" "}
-                    </span>,
-                  );
-                  elements.push(
-                    <span
-                      key="duration"
-                      className="text-blue-600 font-medium text-lg"
-                    >
-                      {formatDuration(call.duration_minutes)}
-                    </span>,
-                  );
-                  if (call.employee_name) {
-                    elements.push(
-                      <span key="sep4" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    elements.push(
-                      <span
-                        key="employee"
-                        className="text-indigo-600 font-medium text-lg"
-                      >
-                        {call.employee_name}
-                      </span>,
-                    );
-                  }
-                  if (call.order_placed === "Yes") {
-                    elements.push(
-                      <span key="sep5" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    elements.push(
-                      <span
-                        key="order"
-                        className="text-emerald-600 font-medium text-lg"
-                      >
-                        Order Placed
-                      </span>,
-                    );
-                  }
-                  if (
-                    call.assumption_names &&
-                    call.assumption_names.length > 0
-                  ) {
-                    elements.push(
-                      <span key="sep6" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    call.assumption_names.forEach((name, index) => {
-                      if (index > 0) {
-                        elements.push(
-                          <span
-                            key={`assumption-sep-${index}`}
-                            className="text-gray-400 text-lg"
-                          >
-                            ,{" "}
-                          </span>,
-                        );
-                      }
-                      elements.push(
-                        <span
-                          key={`assumption-${index}`}
-                          className="text-red-600 font-medium text-lg"
-                        >
-                          {name}
-                        </span>,
-                      );
-                    });
-                  }
-                  if (
-                    call.assumption2_names &&
-                    call.assumption2_names.length > 0
-                  ) {
-                    elements.push(
-                      <span key="sep7" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    call.assumption2_names.forEach((name, index) => {
-                      if (index > 0) {
-                        elements.push(
-                          <span
-                            key={`assumption2-sep-${index}`}
-                            className="text-gray-400 text-lg"
-                          >
-                            ,{" "}
-                          </span>,
-                        );
-                      }
-                      elements.push(
-                        <span
-                          key={`assumption2-${index}`}
-                          className="text-purple-600 font-medium text-lg"
-                        >
-                          {name}
-                        </span>,
-                      );
-                    });
-                  }
-                  if (
-                    call.assumption3_names &&
-                    call.assumption3_names.length > 0
-                  ) {
-                    elements.push(
-                      <span key="sep8" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    call.assumption3_names.forEach((name, index) => {
-                      if (index > 0) {
-                        elements.push(
-                          <span
-                            key={`assumption3-sep-${index}`}
-                            className="text-gray-400 text-lg"
-                          >
-                            ,{" "}
-                          </span>,
-                        );
-                      }
-                      elements.push(
-                        <span
-                          key={`assumption3-${index}`}
-                          className="text-green-600 font-medium text-lg"
-                        >
-                          {name}
-                        </span>,
-                      );
-                    });
-                  }
-                  elements.push(
-                    <span key="sep9" className="text-gray-400 text-lg">
-                      {" "}
-                      |{" "}
-                    </span>,
-                  );
-                  elements.push(
-                    <span key="notes" className="text-gray-700 text-lg">
-                      {call.note || "No notes provided"}
-                    </span>,
-                  );
-                  elements.push(
-                    <span key="sep10" className="text-gray-400 text-lg">
-                      {" "}
-                      |{" "}
-                    </span>,
-                  );
-
-                  return elements;
-                })
-                .reduce((acc, curr, index) => {
-                  if (index === 0) return [curr];
-                  return [
-                    ...acc,
-                    <span
-                      key={`space-${index}`}
-                      className="text-gray-300 text-lg"
-                    >
-                      {" "}
-                    </span>,
-                    ...curr,
-                  ];
-                }, [])}
-            </div>
-          )}
-        </div>
-        {/* Call Logs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-          <button
-            onClick={() => setCallHistoryOpen(!callHistoryOpen)}
-            className="w-full flex justify-between items-center text-left"
-          >
-            <h2 className="text-2xl font-bold text-gray-900">Call History</h2>
-            <svg
-              className={`w-6 h-6 transform transition-transform ${
-                callHistoryOpen ? "rotate-180" : ""
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-
-          {callHistoryOpen && (
-            <div className="mt-6">
-              {callLogs.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
+                <p className="text-gray-500 text-lg">
                   No call logs found for this customer.
                 </p>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Call ID
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Employee
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Duration
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Notes
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {callLogs
-                          .slice(
-                            (callLogsPage - 1) * itemsPerPage,
-                            callLogsPage * itemsPerPage,
-                          )
-                          .map((call) => (
-                            <tr key={call.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {call.call_id}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {new Date(call.date).toLocaleDateString()}{" "}
-                                {new Date(call.date).toLocaleTimeString()}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {call.employee_name || "Unknown"}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {formatDuration(call.duration_minutes)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    call.status === "Completed"
-                                      ? "bg-green-100 text-green-800"
-                                      : call.status === "Follow-up"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {call.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                                {call.note}
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
+              </div>
+            ) : (
+              <div className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                {callLogs
+                  .sort((a, b) => new Date(b.date) - new Date(a.date))
+                  .map((call, index) => {
+                    const callDate = new Date(call.date);
+                    const formattedDate = callDate.toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    });
+                    const formattedTime = callDate.toLocaleTimeString("en-GB", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    });
+
+                    const elements = [];
+                    elements.push(
+                      <span
+                        key="date"
+                        className="text-gray-900 font-semibold text-lg"
+                      >
+                        {formattedDate}
+                      </span>,
+                    );
+                    elements.push(
+                      <span key="sep1" className="text-gray-400 text-lg">
+                        {" "}
+                        |{" "}
+                      </span>,
+                    );
+                    elements.push(
+                      <span
+                        key="time"
+                        className="text-gray-900 font-semibold text-lg"
+                      >
+                        {formattedTime}
+                      </span>,
+                    );
+                    elements.push(
+                      <span key="sep2" className="text-gray-400 text-lg">
+                        {" "}
+                        |{" "}
+                      </span>,
+                    );
+                    elements.push(
+                      <span
+                        key="duration"
+                        className="text-blue-600 font-medium text-lg"
+                      >
+                        {formatDuration(call.duration_minutes)}
+                      </span>,
+                    );
+                    if (call.employee_name) {
+                      elements.push(
+                        <span key="sep4" className="text-gray-400 text-lg">
+                          {" "}
+                          |{" "}
+                        </span>,
+                      );
+                      elements.push(
+                        <span
+                          key="employee"
+                          className="text-indigo-600 font-medium text-lg"
+                        >
+                          {call.employee_name}
+                        </span>,
+                      );
+                    }
+                    if (call.order_placed === "Yes") {
+                      elements.push(
+                        <span key="sep5" className="text-gray-400 text-lg">
+                          {" "}
+                          |{" "}
+                        </span>,
+                      );
+                      elements.push(
+                        <span
+                          key="order"
+                          className="text-emerald-600 font-medium text-lg"
+                        >
+                          Order Placed
+                        </span>,
+                      );
+                    }
+                    if (
+                      call.assumption_names &&
+                      call.assumption_names.length > 0
+                    ) {
+                      elements.push(
+                        <span key="sep6" className="text-gray-400 text-lg">
+                          {" "}
+                          |{" "}
+                        </span>,
+                      );
+                      call.assumption_names.forEach((name, index) => {
+                        if (index > 0) {
+                          elements.push(
+                            <span
+                              key={`assumption-sep-${index}`}
+                              className="text-gray-400 text-lg"
+                            >
+                              ,{" "}
+                            </span>,
+                          );
+                        }
+                        elements.push(
+                          <span
+                            key={`assumption-${index}`}
+                            className="text-red-600 font-medium text-lg"
+                          >
+                            {name}
+                          </span>,
+                        );
+                      });
+                    }
+                    if (
+                      call.assumption2_names &&
+                      call.assumption2_names.length > 0
+                    ) {
+                      elements.push(
+                        <span key="sep7" className="text-gray-400 text-lg">
+                          {" "}
+                          |{" "}
+                        </span>,
+                      );
+                      call.assumption2_names.forEach((name, index) => {
+                        if (index > 0) {
+                          elements.push(
+                            <span
+                              key={`assumption2-sep-${index}`}
+                              className="text-gray-400 text-lg"
+                            >
+                              ,{" "}
+                            </span>,
+                          );
+                        }
+                        elements.push(
+                          <span
+                            key={`assumption2-${index}`}
+                            className="text-purple-600 font-medium text-lg"
+                          >
+                            {name}
+                          </span>,
+                        );
+                      });
+                    }
+                    if (
+                      call.assumption3_names &&
+                      call.assumption3_names.length > 0
+                    ) {
+                      elements.push(
+                        <span key="sep8" className="text-gray-400 text-lg">
+                          {" "}
+                          |{" "}
+                        </span>,
+                      );
+                      call.assumption3_names.forEach((name, index) => {
+                        if (index > 0) {
+                          elements.push(
+                            <span
+                              key={`assumption3-sep-${index}`}
+                              className="text-gray-400 text-lg"
+                            >
+                              ,{" "}
+                            </span>,
+                          );
+                        }
+                        elements.push(
+                          <span
+                            key={`assumption3-${index}`}
+                            className="text-green-600 font-medium text-lg"
+                          >
+                            {name}
+                          </span>,
+                        );
+                      });
+                    }
+                    elements.push(
+                      <span key="sep9" className="text-gray-400 text-lg">
+                        {" "}
+                        |{" "}
+                      </span>,
+                    );
+                    elements.push(
+                      <span key="notes" className="text-gray-700 text-lg">
+                        {call.note || "No notes provided"}
+                      </span>,
+                    );
+                    elements.push(
+                      <span key="sep10" className="text-gray-400 text-lg">
+                        {" "}
+                        |{" "}
+                      </span>,
+                    );
+
+                    return elements;
+                  })
+                  .reduce((acc, curr, index) => {
+                    if (index === 0) return [curr];
+                    return [
+                      ...acc,
+                      <span
+                        key={`space-${index}`}
+                        className="text-gray-300 text-lg"
+                      >
+                        {" "}
+                      </span>,
+                      ...curr,
+                    ];
+                  }, [])}
+              </div>
+            )}
+          </div>
+
+          {/* Right container - Order History (40%) */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
+            {/* Order History Section */}
+            <div className="flex-none">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl mr-4">
+                    <svg
+                      className="w-6 h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                      />
+                    </svg>
                   </div>
-
-                  {/* Pagination for Call Logs */}
-                  {callLogs.length > itemsPerPage && (
-                    <div className="flex justify-between items-center mt-6">
-                      <button
-                        onClick={() =>
-                          setCallLogsPage(Math.max(1, callLogsPage - 1))
-                        }
-                        disabled={callLogsPage === 1}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        Page {callLogsPage} of{" "}
-                        {Math.ceil(callLogs.length / itemsPerPage)}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setCallLogsPage(
-                            Math.min(
-                              Math.ceil(callLogs.length / itemsPerPage),
-                              callLogsPage + 1,
-                            ),
-                          )
-                        }
-                        disabled={
-                          callLogsPage ===
-                          Math.ceil(callLogs.length / itemsPerPage)
-                        }
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Order History
+                  </h2>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {orders.length} order{orders.length !== 1 ? "s" : ""}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Orders */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-          <button
-            onClick={() => setOrderHistoryOpen(!orderHistoryOpen)}
-            className="w-full flex justify-between items-center text-left"
-          >
-            <h2 className="text-2xl font-bold text-gray-900">Order History</h2>
-            <svg
-              className={`w-6 h-6 transform transition-transform ${
-                orderHistoryOpen ? "rotate-180" : ""
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-
-          {orderHistoryOpen && (
-            <div className="mt-6">
-              {orders.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
+            {orders.length === 0 ? (
+              <div className="flex-1 flex flex-col justify-center items-center py-4">
+                <svg
+                  className="w-12 h-12 text-gray-300 mb-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-sm">
                   No orders found for this customer.
                 </p>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Order ID
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Agent
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Payment Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Total Amount
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {orders
-                          .slice(
-                            (ordersPage - 1) * itemsPerPage,
-                            ordersPage * itemsPerPage,
-                          )
-                          .map((order) => (
-                            <tr key={order.id} className="hover:bg-gray-50">
-                              {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {order.order_id}
-                          </td> */}
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <Link
-                                  to={`/orders/${order.id}`}
-                                  className="text-blue-600 hover:text-blue-900 font-medium"
-                                >
-                                  {order.order_id || `ORD-${order.id}`}
-                                </Link>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {new Date(
-                                  order.order_date,
-                                ).toLocaleDateString()}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {order.agent}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    order.status === "Delivered"
-                                      ? "bg-green-100 text-green-800"
-                                      : order.status === "Dispatched"
-                                        ? "bg-blue-100 text-blue-800"
-                                        : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {order.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    order.payment_status === "Paid"
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {order.payment_status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                ₹{order.total_amount}
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col mb-4">
+                <div className="flex-1 overflow-y-auto mb-2">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Order ID
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {orders
+                        .slice(
+                          (ordersPage - 1) * itemsPerPage,
+                          ordersPage * itemsPerPage,
+                        )
+                        .map((order) => (
+                          <tr key={order.id} className="hover:bg-gray-50">
+                            <td className="px-2 py-1 whitespace-nowrap">
+                              <Link
+                                to={`/orders/${order.id}`}
+                                className="text-blue-600 hover:text-blue-900 font-medium text-xs"
+                              >
+                                {order.order_id || `ORD-${order.id}`}
+                              </Link>
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                              {new Date(order.order_date).toLocaleDateString()}
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap">
+                              <span
+                                className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
+                                  order.status === "Delivered"
+                                    ? "bg-green-100 text-green-800"
+                                    : order.status === "Dispatched"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {order.status}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                              ₹{order.total_amount}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                  {/* Pagination for Orders */}
-                  {orders.length > itemsPerPage && (
-                    <div className="flex justify-between items-center mt-6">
-                      <button
-                        onClick={() =>
-                          setOrdersPage(Math.max(1, ordersPage - 1))
-                        }
-                        disabled={ordersPage === 1}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        Page {ordersPage} of{" "}
-                        {Math.ceil(orders.length / itemsPerPage)}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setOrdersPage(
-                            Math.min(
-                              Math.ceil(orders.length / itemsPerPage),
-                              ordersPage + 1,
-                            ),
-                          )
-                        }
-                        disabled={
-                          ordersPage === Math.ceil(orders.length / itemsPerPage)
-                        }
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
+                {/* Pagination for Orders */}
+                {orders.length > itemsPerPage && (
+                  <div className="flex-none flex justify-between items-center mt-2">
+                    <button
+                      onClick={() => setOrdersPage(Math.max(1, ordersPage - 1))}
+                      disabled={ordersPage === 1}
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs text-gray-600">
+                      Page {ordersPage} of{" "}
+                      {Math.ceil(orders.length / itemsPerPage)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setOrdersPage(
+                          Math.min(
+                            Math.ceil(orders.length / itemsPerPage),
+                            ordersPage + 1,
+                          ),
+                        )
+                      }
+                      disabled={
+                        ordersPage === Math.ceil(orders.length / itemsPerPage)
+                      }
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className="flex-none border-t border-gray-200 my-4"></div>
+
+            {/* Call History Section */}
+            <div className="flex-none">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
+                    <svg
+                      className="w-6 h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Call History
+                  </h2>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {callLogs.length} call{callLogs.length !== 1 ? "s" : ""}
+                </div>
+              </div>
             </div>
-          )}
+
+            {callLogs.length === 0 ? (
+              <div className="flex-1 flex flex-col justify-center items-center py-4">
+                <svg
+                  className="w-12 h-12 text-gray-300 mb-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-sm">
+                  No call logs found for this customer.
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1 overflow-y-auto mb-2">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Employee
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Duration
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {callLogs
+                        .slice(
+                          (callLogsPage - 1) * itemsPerPage,
+                          callLogsPage * itemsPerPage,
+                        )
+                        .map((call) => (
+                          <tr key={call.id} className="hover:bg-gray-50">
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                              {new Date(call.date).toLocaleDateString()}
+                              <br />
+                              <span className="text-gray-500 text-xs">
+                                {new Date(call.date).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                              {call.employee_name || "Unknown"}
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                              {formatDuration(call.duration_minutes)}
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap">
+                              <span
+                                className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
+                                  call.status === "Completed"
+                                    ? "bg-green-100 text-green-800"
+                                    : call.status === "Follow-up"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {call.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination for Call Logs */}
+                {callLogs.length > itemsPerPage && (
+                  <div className="flex-none flex justify-between items-center mt-2">
+                    <button
+                      onClick={() =>
+                        setCallLogsPage(Math.max(1, callLogsPage - 1))
+                      }
+                      disabled={callLogsPage === 1}
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs text-gray-600">
+                      Page {callLogsPage} of{" "}
+                      {Math.ceil(callLogs.length / itemsPerPage)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCallLogsPage(
+                          Math.min(
+                            Math.ceil(callLogs.length / itemsPerPage),
+                            callLogsPage + 1,
+                          ),
+                        )
+                      }
+                      disabled={
+                        callLogsPage ===
+                        Math.ceil(callLogs.length / itemsPerPage)
+                      }
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
