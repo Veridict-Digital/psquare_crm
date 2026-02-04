@@ -50,7 +50,7 @@ const CallPopup = () => {
 
   if (!isVisible && !isEmbedded) return null;
 
-  const [position, setPosition] = useState({ x: 100, y: 100 });
+  const [position, setPosition] = useState({ x: 1400, y: 200 });
   const [size, setSize] = useState({ width: 400, height: 500 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);

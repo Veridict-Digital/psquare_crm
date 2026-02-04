@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "apexcharts": "^5.3.6",
-    "react-apexcharts": "^1.9.0"
+    "react-apexcharts": "^1.9.0",
+    "xlsx": "^0.18.5"
   }
 }

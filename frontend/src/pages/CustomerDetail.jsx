@@ -1418,6 +1418,22 @@ const CustomerDetail = () => {
                         </span>,
                       );
                     }
+                    if (call.order_id) {
+                      elements.push(
+                        <span key="sep3" className="text-gray-400 text-lg">
+                          {" "}
+                          |{" "}
+                        </span>,
+                      );
+                      elements.push(
+                        <span
+                          key="order-text"
+                          className="text-blue-600 font-medium text-lg underline"
+                        >
+                          {call.order_id}
+                        </span>,
+                      );
+                    }
                     if (
                       call.assumption_names &&
                       call.assumption_names.length > 0
@@ -1614,7 +1630,19 @@ const CustomerDetail = () => {
                           Status
                         </th>
                         <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Notes
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          PayStatus
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Total
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Paid
+                        </th>
+                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Due
                         </th>
                       </tr>
                     </thead>
@@ -1650,8 +1678,37 @@ const CustomerDetail = () => {
                                 {order.status}
                               </span>
                             </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                              {(() => {
+                                // Find the call log where the order was placed
+                                const matchingCall = callLogs.find(
+                                  (call) =>
+                                    call.order_id == order.order_id &&
+                                    call.order_placed === "Yes",
+                                );
+                                if (
+                                  matchingCall &&
+                                  matchingCall.assumption3_names &&
+                                  matchingCall.assumption3_names.length > 0
+                                ) {
+                                  return matchingCall.assumption3_names.join(
+                                    ", ",
+                                  );
+                                }
+                                return "-";
+                              })()}
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                              {order.payment_status}
+                            </td>
                             <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
                               ₹{order.total_amount}
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                              ₹{order.paid_amount}
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                              ₹{(order.total_amount - order.paid_amount)}
                             </td>
                           </tr>
                         ))}

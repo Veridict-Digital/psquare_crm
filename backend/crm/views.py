@@ -25,6 +25,11 @@ class LeadPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+class OrderPagination(PageNumberPagination):
+    page_size = 15
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -264,7 +269,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         if self.request.user.role != 'Admin':
             queryset = queryset.filter(agent=self.request.user)
 
-        if self.action == 'list':
+        if self.action in ['list', 'export_excel']:
             # Get date filters from query parameters
             date_from = self.request.query_params.get('date_from')
             date_to = self.request.query_params.get('date_to')
@@ -355,7 +360,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         call_logs = CallLog.objects.filter(customer=customer).select_related('employee').order_by('-date')
 
         # Get orders for this customer
-        orders = Order.objects.filter(customer=customer).select_related('agent').order_by('-order_date')
+        orders = Order.objects.filter(customer=customer).select_related('agent').order_by('-id')
 
         # Calculate summary statistics
         total_calls = call_logs.count()
@@ -507,15 +512,64 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'updated_count': updated_count
         }, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get'])
+    def export_excel(self, request):
+        # Get the same queryset as list view but remove pagination for export
+        queryset = self.get_queryset()
+        queryset = self.filter_queryset(queryset)  # Apply filters but not pagination
+
+        # Prepare data for export
+        customers_data = []
+        for customer in queryset:
+            try:
+                customer_dict = {
+                    'ID': customer.id,
+                    'Name': customer.name or '',
+                    'Surname': customer.surname or '',
+                    'Phone': customer.phone or '',
+                    'Email': customer.email or '',
+                    'Company Name': customer.company_name or '',
+                    'Company Type': getattr(customer, 'company_type_display', '') or '',
+                    'Customer Type': getattr(customer, 'customer_type_display', '') or '',
+                    'Contact Type': customer.contact_type or '',
+                    'Pincode': customer.pincode or '',
+                    'House/Flat No': customer.house_flat_no or '',
+                    'Wing/Lane': customer.wing_lane or '',
+                    'Society/Colony': customer.society_colony or '',
+                    'Landmark': customer.landmark or '',
+                    'Area': customer.area or '',
+                    'City': customer.city or '',
+                    'District': customer.district or '',
+                    'State': customer.state or '',
+                    'Tahsil': customer.tahsil or '',
+                    'Agent': getattr(customer, 'agent_name', '') or '',
+                    'Total Order Value': float(getattr(customer, 'total_order_value', 0) or 0),
+                    'Outstanding Amount': float(getattr(customer, 'outstanding_amount', 0) or 0),
+                    'Created At': customer.created_at.strftime('%Y-%m-%d %H:%M:%S') if customer.created_at else '',
+                    'Appointment Date': customer.appointment_date.strftime('%Y-%m-%d') if customer.appointment_date else '',
+                    'Appointment Time': str(customer.appointment_time) if customer.appointment_time else '',
+                }
+                customers_data.append(customer_dict)
+            except Exception as e:
+                # Log the error and skip this customer
+                print(f"Error processing customer {customer.id}: {str(e)}")
+                continue
+
+        return Response({
+            'customers': customers_data,
+            'total_count': len(customers_data)
+        })
+
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all()
+    queryset = Order.objects.all().order_by('-id')
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = OrderPagination
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -622,6 +676,16 @@ class CallLogViewSet(viewsets.ModelViewSet):
                 serializer.is_valid(raise_exception=True)
             else:
                 raise
+
+        # Set order if order_id is provided
+        order_id = data.get('order_id')
+        if order_id:
+            try:
+                order = Order.objects.get(order_id=order_id)
+                serializer.validated_data['order'] = order
+            except Order.DoesNotExist:
+                pass
+
         call_log = serializer.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)

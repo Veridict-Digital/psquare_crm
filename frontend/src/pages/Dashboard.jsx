@@ -36,6 +36,9 @@ const Dashboard = () => {
     queryFn: () => axios.get('api/orders/').then(res => res.data),
   });
 
+  // Handle both paginated and non-paginated responses
+  const ordersArray = ordersData?.results || ordersData || [];
+
   const { data: productsData } = useQuery({
     queryKey: ['products'],
     queryFn: () => axios.get('api/products/').then(res => res.data),
@@ -53,7 +56,7 @@ const Dashboard = () => {
 
   // Calculate KPIs
   const totalCustomers = customersData?.length || 0;
-  const totalOrders = ordersData?.length || 0;
+  const totalOrders = ordersArray?.length || 0;
   const totalRevenue = dashboardData?.total_revenue || 0;
   const totalProfit = dashboardData?.total_profit || 0;
   const totalProducts = productsData?.length || 0;
@@ -61,8 +64,8 @@ const Dashboard = () => {
   const totalUsers = usersData?.length || 0;
 
   // Calculate additional metrics
-  const completedOrders = ordersData?.filter(order => order.status === 'Completed').length || 0;
-  const pendingOrders = ordersData?.filter(order => order.status === 'Pending').length || 0;
+  const completedOrders = ordersArray?.filter(order => order.status === 'Completed').length || 0;
+  const pendingOrders = ordersArray?.filter(order => order.status === 'Pending').length || 0;
   const completedCalls = callLogsData?.filter(call => call.status === 'Completed').length || 0;
   const pendingCalls = callLogsData?.filter(call => call.status === 'Pending').length || 0;
 
@@ -628,7 +631,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Orders</h3>
           <div className="space-y-3">
-            {ordersData?.slice(0, 5).map((order, index) => (
+            {ordersArray?.slice(0, 5).map((order, index) => (
               <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium text-gray-900">Order #{order.order_id}</p>

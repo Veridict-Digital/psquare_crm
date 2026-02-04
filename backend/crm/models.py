@@ -200,8 +200,7 @@ class Order(models.Model):
     order_date = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if self.payment_status == 'Credit' and not self.followup_date:
-            raise ValidationError("Followup date is required for credit payments.")
+        pass  # No validation for followup_date; it is now optional for all payment statuses
 
     def save(self, *args, **kwargs):
         if not self.order_id:

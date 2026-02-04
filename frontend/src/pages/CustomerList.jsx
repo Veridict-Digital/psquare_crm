@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { fetchCustomerTypes, addCustomerType } from "../api/customerTypes";
 import { useCallPopup } from "../context/CallPopupContext";
 import { useAuth } from "../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 import {
   Search,
   Plus,
@@ -29,6 +30,7 @@ import {
   Check,
   X,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 
 const CustomerList = () => {
@@ -109,6 +111,7 @@ const CustomerList = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const phoneInputRef = useRef(null);
 
   const {
     data: customersData,
@@ -233,6 +236,13 @@ const CustomerList = () => {
       }
     }
   }, [newContact.phone, phoneCheckData, phoneCheckLoading]);
+
+  // Focus phone input when form is shown
+  useEffect(() => {
+    if (showAddForm && phoneInputRef.current) {
+      phoneInputRef.current.focus();
+    }
+  }, [showAddForm]);
 
   // Use paginated data from server
   const customers = data?.results || [];
@@ -388,6 +398,13 @@ const CustomerList = () => {
       });
       setShowNewOrgTypeInput(false);
       setNewOrgType("");
+      // Focus and select phone input after successful addition
+      setTimeout(() => {
+        if (phoneInputRef.current) {
+          phoneInputRef.current.focus();
+          phoneInputRef.current.select();
+        }
+      }, 100);
     },
     onError: (error) => {
       console.error("Error adding customer:", error);
@@ -474,6 +491,39 @@ const CustomerList = () => {
     setShowAssignmentModal(true);
   };
 
+  // Excel export handler
+  const handleExportExcel = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("date_from", dateFrom);
+      if (dateTo) params.append("date_to", dateTo);
+      if (search) params.append("search", search);
+      if (filterAgent) params.append("agent", filterAgent);
+      if (viewType === "customers") params.append("contact_type", "Customer");
+      if (viewType === "leads") params.append("contact_type", "Lead");
+
+      const response = await axios.get(`/api/customers/export_excel/?${params.toString()}`);
+      const { customers: customersData } = response.data;
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(customersData);
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Customers");
+
+      // Generate filename with current date
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `customers_export_${date}.xlsx`;
+
+      // Save file
+      XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      alert("Failed to export customers data");
+    }
+  };
+
   if (isLoading)
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -510,6 +560,14 @@ const CustomerList = () => {
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Customers</h1>
         <div className="flex gap-2">
+          <button
+            onClick={handleExportExcel}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+            title="Download Excel"
+          >
+            <Download className="h-4 w-4" />
+            Excel
+          </button>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
@@ -767,6 +825,7 @@ const CustomerList = () => {
                 Phone *
               </label>
               <input
+                ref={phoneInputRef}
                 type="text"
                 value={newContact.phone}
                 onChange={(e) => {

@@ -101,9 +101,16 @@ class OrderItemSerializer(serializers.ModelSerializer):
         }
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True)
+    items = OrderItemSerializer(many=True, required=False)
     customer_name = serializers.CharField(source='customer.name', read_only=True)
     agent_name = serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        view = self.context.get('view')
+        if request and (request.method in ['PUT', 'PATCH'] or (view and getattr(view, 'action', None) == 'list')):
+            self.fields['items'].read_only = True
 
     def get_agent_name(self, obj):
         return obj.agent.username if obj.agent else 'Unknown'
@@ -119,6 +126,23 @@ class OrderSerializer(serializers.ModelSerializer):
             product.stock_qty -= quantity
             product.save()
         return order
+
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop('items', None)
+        # Update order fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update items if provided
+        if items_data is not None:
+            # Delete existing items
+            instance.items.all().delete()
+            # Create new items
+            for item_data in items_data:
+                OrderItem.objects.create(order=instance, **item_data)
+
+        return instance
 
     class Meta:
         model = Order

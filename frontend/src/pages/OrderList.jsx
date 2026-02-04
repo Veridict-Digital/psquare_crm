@@ -11,18 +11,22 @@ const OrderList = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: orders, isLoading, error, refetch } = useQuery({
-    queryKey: ['orders', filterAgent, filterDate, filterStatus, filterPaymentStatus],
+    queryKey: ['orders', filterAgent, filterDate, filterStatus, filterPaymentStatus, currentPage, pageSize],
     queryFn: async () => {
-      const params = {};
-      if (filterAgent) params.agent = filterAgent;
-      if (filterDate) params.order_date = filterDate;
-      if (filterStatus) params.status = filterStatus;
-      if (filterPaymentStatus) params.payment_status = filterPaymentStatus;
-      const response = await axios.get('api/orders/', { params });
+      const params = new URLSearchParams();
+      params.append('page', currentPage);
+      params.append('page_size', pageSize);
+      if (filterAgent) params.append('agent', filterAgent);
+      if (filterDate) params.append('order_date', filterDate);
+      if (filterStatus) params.append('status', filterStatus);
+      if (filterPaymentStatus) params.append('payment_status', filterPaymentStatus);
+      const response = await axios.get(`api/orders/?${params.toString()}`);
       return response.data;
     },
   });
@@ -36,20 +40,24 @@ const OrderList = () => {
     },
   });
 
+  // Use paginated data from server
+  const ordersData = orders?.results || orders || [];
+  const totalOrders = orders?.count || ordersData.length;
+  const totalPages = Math.ceil(totalOrders / pageSize);
+
   // Calculate KPIs
-  const totalOrders = orders?.length || 0;
-  const totalRevenue = orders?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0;
-  const deliveredOrders = orders?.filter(order => order.status === 'Delivered').length || 0;
-  const pendingOrders = orders?.filter(order => order.status === 'Pending').length || 0;
-  const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : 0;
-  const paidOrders = orders?.filter(order => order.payment_status === 'Paid').length || 0;
-  const paymentRate = totalOrders > 0 ? ((paidOrders / totalOrders) * 100).toFixed(1) : 0;
+  const totalRevenue = ordersData?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0;
+  const deliveredOrders = ordersData?.filter(order => order.status === 'Delivered').length || 0;
+  const pendingOrders = ordersData?.filter(order => order.status === 'Pending').length || 0;
+  const avgOrderValue = ordersData.length > 0 ? (totalRevenue / ordersData.length).toFixed(2) : 0;
+  const paidOrders = ordersData?.filter(order => order.payment_status === 'Paid').length || 0;
+  const paymentRate = ordersData.length > 0 ? ((paidOrders / ordersData.length) * 100).toFixed(1) : 0;
 
   // Get unique agents for filter
-  const uniqueAgents = [...new Set(orders?.map(order => order.agent_name).filter(Boolean))];
+  const uniqueAgents = [...new Set(ordersData?.map(order => order.agent_name).filter(Boolean))];
 
   // Apply all filters
-  const finalFilteredOrders = orders?.filter(order => {
+  const finalFilteredOrders = ordersData?.filter(order => {
     const matchesSearch = !search ||
       (order.customer_name && order.customer_name.toLowerCase().includes(search.toLowerCase())) ||
       (order.order_id && order.order_id.toLowerCase().includes(search.toLowerCase())) ||
@@ -247,20 +255,26 @@ const OrderList = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Follow-up Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivery Address</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {finalFilteredOrders?.length > 0 ? (
                     finalFilteredOrders.map(order => (
                       <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-200">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <Link
                             to={`/orders/${order.id}`}
                             className="font-mono text-sm text-blue-600 hover:text-blue-900 font-medium transition-colors duration-200"
@@ -268,17 +282,31 @@ const OrderList = () => {
                             {order.order_id || `ORD-${order.id}`}
                           </Link>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.order_date ? new Date(order.order_date).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center">
                             <Users className="w-4 h-4 text-gray-400 mr-2" />
                             <span className="text-sm font-medium text-gray-900">{order.customer_name}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.agent_name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-semibold text-green-600">₹{parseFloat(order.total_amount).toLocaleString()}</span>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{order.agent_name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm font-semibold text-green-600">₹{parseFloat(order.total_amount || 0).toLocaleString()}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm font-medium text-blue-600">₹{parseFloat(order.paid_amount || 0).toLocaleString()}</span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm font-medium text-red-600">
+                            ₹{(parseFloat(order.total_amount || 0) - parseFloat(order.paid_amount || 0)).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.items ? order.items.length : 0} items
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             order.status === 'Delivered'
                               ? 'bg-green-100 text-green-800'
@@ -291,18 +319,26 @@ const OrderList = () => {
                             {order.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             order.payment_status === 'Paid'
                               ? 'bg-green-100 text-green-800'
-                              : order.payment_status === 'Failed'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              : order.payment_status === 'Partial'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : order.payment_status === 'Credit'
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-red-100 text-red-800'
                           }`}>
                             {order.payment_status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.followup_date ? new Date(order.followup_date).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-xs truncate" title={order.delivery_address}>
+                          {order.delivery_address || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => navigate(`/orders/${order.id}`)}
@@ -335,7 +371,7 @@ const OrderList = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center">
+                      <td colSpan="13" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center">
                           <ShoppingCart className="w-12 h-12 text-gray-400 mb-4" />
                           <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
@@ -347,6 +383,106 @@ const OrderList = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div className="flex-1 flex justify-between sm:hidden">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing{" "}
+                      <span className="font-medium">
+                        {(currentPage - 1) * pageSize + 1}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-medium">
+                        {Math.min(currentPage * pageSize, totalOrders)}
+                      </span>{" "}
+                      of <span className="font-medium">{totalOrders}</span>{" "}
+                      results
+                    </p>
+                  </div>
+                  <div>
+                    <nav
+                      className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+                      aria-label="Pagination"
+                    >
+                      <button
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Previous</span>
+                        <svg
+                          className="h-5 w-5"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (page) => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              page === currentPage
+                                ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ),
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Next</span>
+                        <svg
+                          className="h-5 w-5"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

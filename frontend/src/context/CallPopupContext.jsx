@@ -139,10 +139,11 @@ export const CallPopupProvider = ({ children }) => {
           callLogData.lead = lead.id;
         }
 
-        // If order ID is provided, include it
-        if (orderId.trim()) {
-          callLogData.order_id = orderId.trim();
-        }
+      // If order ID is provided, include it and set order_placed to Yes
+      if (orderId.trim()) {
+        callLogData.order_id = orderId.trim();
+        callLogData.order_placed = "Yes";
+      }
 
         // If assumption is selected, include it
         if (selectedAssumption) {
@@ -305,9 +306,10 @@ export const CallPopupProvider = ({ children }) => {
         callLogData.lead = lead.id;
       }
 
-      // If order ID is provided, include it
+      // If order ID is provided, include it and set order_placed to Yes
       if (orderId.trim()) {
         callLogData.order_id = orderId.trim();
+        callLogData.order_placed = "Yes";
       }
 
       // If assumption is selected, include it

@@ -296,16 +296,19 @@ const ProductList = () => {
                     Product Details
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Category
+                    Category & GST
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Stock
+                    Stock & Status
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Pricing
+                    Pricing Details
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Margin
+                    Profit Margin
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Description
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Actions
@@ -318,7 +321,7 @@ const ProductList = () => {
                     {/* Product Details */}
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center overflow-hidden">
+                        <div className="h-12 w-12 flex-shrink-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center overflow-hidden">
                           {product.image ? (
                             <img
                               src={product.image}
@@ -330,7 +333,7 @@ const ProductList = () => {
                               }}
                             />
                           ) : null}
-                          <Package className="h-5 w-5 text-blue-600" style={{ display: product.image ? 'none' : 'block' }} />
+                          <Package className="h-6 w-6 text-blue-600" style={{ display: product.image ? 'none' : 'block' }} />
                         </div>
                         <div className="ml-4">
                           <Link
@@ -342,93 +345,125 @@ const ProductList = () => {
                           <div className="flex items-center gap-3 mt-1">
                             <span className="text-xs text-gray-500 flex items-center">
                               <Hash className="h-3 w-3 mr-1" />
-                              {product.pid || product.id}
+                              PID: {product.pid || product.id}
                             </span>
-                            <span className="text-xs text-gray-500">{product.sku}</span>
+                            <span className="text-xs text-gray-500">SKU: {product.sku}</span>
+                            <span className="text-xs text-gray-500">HSN: {product.hsn || 'N/A'}</span>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            Unit: {product.unit || 'N/A'} | Volume: {product.volume || 'N/A'}
                           </div>
                         </div>
                       </div>
                     </td>
 
-                    {/* Category */}
+                    {/* Category & GST */}
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <Tag className="h-3 w-3 mr-1" />
-                        {product.category_display || 'Uncategorized'}
-                      </span>
-                    </td>
-
-                    {/* Stock with inline edit */}
-                    <td className="px-6 py-4">
-                      {editingStock === product.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={stockValue}
-                            onChange={(e) => setStockValue(e.target.value)}
-                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                            autoFocus
-                          />
-                          <button
-                            onClick={handleStockSave}
-                            disabled={updateStockMutation.isLoading}
-                            className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={handleStockCancel}
-                            className="p-1 text-red-600 hover:text-red-800"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <span className={`text-sm font-medium ${product.stock_qty < 10 ? 'text-red-600' : 'text-gray-900'}`}>
-                              {product.stock_qty}
-                            </span>
-                            {product.stock_qty < 10 && (
-                              <AlertCircle className="h-4 w-4 text-red-500 ml-1" />
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleStockEdit(product.id, product.stock_qty)}
-                            className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition duration-200"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Pricing */}
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-gray-900">
-                          {formatCurrency(product.price || 0)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Cost: {formatCurrency(product.purchase_price || 0)}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Margin */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span className={`text-sm font-semibold ${calculateProfit(product) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {calculateProfit(product)}%
+                      <div className="space-y-2">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <Tag className="h-3 w-3 mr-1" />
+                          {product.category_display || 'Uncategorized'}
                         </span>
-                        {calculateProfit(product) > 0 ? (
-                          <TrendingUp className="h-4 w-4 text-green-500 ml-1" />
+                        <div className="text-xs text-gray-600">
+                          <span className="font-medium">GST:</span> {product.gst_rate_display || 'N/A'}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Stock & Status */}
+                    <td className="px-6 py-4">
+                      <div className="space-y-2">
+                        {editingStock === product.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={stockValue}
+                              onChange={(e) => setStockValue(e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleStockSave}
+                              disabled={updateStockMutation.isLoading}
+                              className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={handleStockCancel}
+                              className="p-1 text-red-600 hover:text-red-800"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
                         ) : (
-                          <TrendingDown className="h-4 w-4 text-red-500 ml-1" />
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <span className={`text-sm font-medium ${product.stock_qty < 10 ? 'text-red-600' : product.stock_qty < 50 ? 'text-yellow-600' : 'text-gray-900'}`}>
+                                {product.stock_qty} units
+                              </span>
+                              {product.stock_qty < 10 && (
+                                <AlertCircle className="h-4 w-4 text-red-500 ml-1" />
+                              )}
+                              {product.stock_qty >= 10 && product.stock_qty < 50 && (
+                                <AlertCircle className="h-4 w-4 text-yellow-500 ml-1" />
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleStockEdit(product.id, product.stock_qty)}
+                              className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition duration-200"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
 
+                    {/* Pricing Details */}
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold text-gray-900">
+                          MRP: {formatCurrency(product.mrp || 0)}
+                        </div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          price: {formatCurrency(product.price || 0)}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Profit Margin */}
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center">
+                          <span className={`text-sm font-semibold ${calculateProfit(product) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {calculateProfit(product)}%
+                          </span>
+                          {calculateProfit(product) > 0 ? (
+                            <TrendingUp className="h-4 w-4 text-green-500 ml-1" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4 text-red-500 ml-1" />
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Profit: {formatCurrency((product.price - product.purchase_price) * product.stock_qty)}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Description */}
+                    <td className="px-6 py-4">
+                      <div className="max-w-xs">
+                        <p className="text-sm text-gray-900 truncate" title={product.description}>
+                          {product.description || 'No description'}
+                        </p>
+                        {product.brand && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Brand: {product.brand}
+                          </p>
+                        )}
+                      </div>
+                    </td>
                     {/* Actions */}
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
