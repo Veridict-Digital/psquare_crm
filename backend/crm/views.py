@@ -30,6 +30,11 @@ class OrderPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+class CallLogPagination(PageNumberPagination):
+    page_size = 15
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -297,12 +302,26 @@ class CustomerViewSet(viewsets.ModelViewSet):
             if agent:
                 queryset = queryset.filter(agent=int(agent))
             if search:
+                from django.db.models import Q
                 queryset = queryset.filter(
                     Q(name__icontains=search) |
-                    Q(email__icontains=search) |
+                    Q(surname__icontains=search) |
                     Q(phone__icontains=search) |
-                    Q(id__icontains=search)
-                )
+                    Q(company_name__icontains=search) |
+                    Q(company_type__name__icontains=search) |
+                    Q(pincode__icontains=search) |
+                    Q(house_flat_no__icontains=search) |
+                    Q(wing_lane__icontains=search) |
+                    Q(society_colony__icontains=search) |
+                    Q(landmark__icontains=search) |
+                    Q(area__icontains=search) |
+                    Q(state__icontains=search) |
+                    Q(district__icontains=search) |
+                    Q(tahsil__icontains=search) |
+                    Q(city__icontains=search) |
+                    Q(email__icontains=search) |
+                    Q(phones__phone__icontains=search)
+                ).distinct()
 
         return queryset.order_by('appointment_date')
 
@@ -566,10 +585,20 @@ class ProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all().order_by('-id')
+    queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = OrderPagination
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        if getattr(instance, '_prefetched_objects_cache', None):
+            instance._prefetched_objects_cache = {}
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -619,6 +648,7 @@ class CallLogViewSet(viewsets.ModelViewSet):
     queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'lead')
     serializer_class = CallLogSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = CallLogPagination
 
     def perform_create(self, serializer):
         # Check if there's an order_id provided

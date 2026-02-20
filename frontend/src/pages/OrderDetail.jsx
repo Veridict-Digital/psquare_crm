@@ -272,20 +272,30 @@ const OrderDetail = () => {
                   <User className="h-6 w-6 text-green-600 mr-3" />
                   <h2 className="text-xl font-bold text-gray-900">Customer Information</h2>
                 </div>
-                
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="space-y-6">
                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6">
-                      <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                        <User className="h-4 w-4 mr-2 text-green-600" />
-                        Customer Details
-                      </h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-gray-900 flex items-center">
+                          <User className="h-4 w-4 mr-2 text-green-600" />
+                          Customer Details
+                        </h3>
+                        {order.customer_details?.id && (
+                          <Link
+                            to={`/customers/${order.customer_details.id}`}
+                            className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition duration-200"
+                          >
+                            Show Customer Details
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Link>
+                        )}
+                      </div>
                       <div className="space-y-4">
                         <div className="flex items-center">
                           <User className="h-4 w-4 text-gray-400 mr-3" />
                           <div>
                             <p className="text-sm text-gray-600">Name</p>
-                            <p className="font-semibold text-gray-900">{order.customer_name}</p>
+                            <p className="font-semibold text-gray-900">{order.customer_details?.name || order.customer_name}</p>
                           </div>
                         </div>
                         {order.customer?.phone && (
@@ -293,7 +303,7 @@ const OrderDetail = () => {
                             <Phone className="h-4 w-4 text-gray-400 mr-3" />
                             <div>
                               <p className="text-sm text-gray-600">Phone</p>
-                              <p className="font-semibold text-gray-900">{order.customer.phone}</p>
+                              <p className="font-semibold text-gray-900">{order.customer_details?.phone}</p>
                             </div>
                           </div>
                         )}
@@ -302,7 +312,7 @@ const OrderDetail = () => {
                             <Mail className="h-4 w-4 text-gray-400 mr-3" />
                             <div>
                               <p className="text-sm text-gray-600">Email</p>
-                              <p className="font-semibold text-gray-900">{order.customer.email}</p>
+                              <p className="font-semibold text-gray-900">{order.customer_details?.email}</p>
                             </div>
                           </div>
                         )}
@@ -319,12 +329,12 @@ const OrderDetail = () => {
                       <div className="space-y-4">
                         <div>
                           <p className="text-sm text-gray-600 mb-2">Address</p>
-                          <p className="font-medium text-gray-900 leading-relaxed">{order.customer?.address || 'No address provided'}</p>
+                          <p className="font-medium text-gray-900 leading-relaxed">{order.customer_details?.address || 'No address provided'}</p>
                         </div>
-                        {order.customer?.pincode && (
+                        {order.customer_details?.pincode && (
                           <div>
                             <p className="text-sm text-gray-600">Pincode</p>
-                            <p className="font-semibold text-gray-900">{order.customer.pincode}</p>
+                            <p className="font-semibold text-gray-900">{order.customer_details.pincode}</p>
                           </div>
                         )}
                       </div>

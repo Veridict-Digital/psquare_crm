@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from '../api/axios';
 import ReactApexChart from 'react-apexcharts';
@@ -36,9 +36,6 @@ const Dashboard = () => {
     queryFn: () => axios.get('api/orders/').then(res => res.data),
   });
 
-  // Handle both paginated and non-paginated responses
-  const ordersArray = ordersData?.results || ordersData || [];
-
   const { data: productsData } = useQuery({
     queryKey: ['products'],
     queryFn: () => axios.get('api/products/').then(res => res.data),
@@ -54,20 +51,24 @@ const Dashboard = () => {
     queryFn: () => axios.get('api/users/').then(res => res.data),
   });
 
+  // Handle both paginated and non-paginated responses
+  const ordersArray = ordersData?.results || ordersData || [];
+  const callLogsArray = callLogsData?.results || callLogsData || [];
+
   // Calculate KPIs
   const totalCustomers = customersData?.length || 0;
   const totalOrders = ordersArray?.length || 0;
   const totalRevenue = dashboardData?.total_revenue || 0;
   const totalProfit = dashboardData?.total_profit || 0;
   const totalProducts = productsData?.length || 0;
-  const totalCallLogs = callLogsData?.length || 0;
+  const totalCallLogs = callLogsArray?.length || 0;
   const totalUsers = usersData?.length || 0;
 
   // Calculate additional metrics
   const completedOrders = ordersArray?.filter(order => order.status === 'Completed').length || 0;
   const pendingOrders = ordersArray?.filter(order => order.status === 'Pending').length || 0;
-  const completedCalls = callLogsData?.filter(call => call.status === 'Completed').length || 0;
-  const pendingCalls = callLogsData?.filter(call => call.status === 'Pending').length || 0;
+  const completedCalls = callLogsArray?.filter(call => call.status === 'Completed').length || 0;
+  const pendingCalls = callLogsArray?.filter(call => call.status === 'Pending').length || 0;
 
   const conversionRate = totalOrders > 0 ? Math.min(((totalOrders / totalCallLogs) * 100), 100).toFixed(1) : 0;
   const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : 0;
@@ -631,7 +632,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Orders</h3>
           <div className="space-y-3">
-            {ordersArray?.slice(0, 5).map((order, index) => (
+            {ordersArray?.slice(0, 5).map((order) => (
               <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium text-gray-900">Order #{order.order_id}</p>
@@ -656,7 +657,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Top Products</h3>
           <div className="space-y-3">
-            {productsData?.slice(0, 5).map((product, index) => (
+            {productsData?.slice(0, 5).map((product) => (
               <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
                   <img

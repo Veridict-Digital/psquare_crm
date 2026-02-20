@@ -62,6 +62,8 @@ const OrderEdit = () => {
     partial_amount: 0,
     delivery_address: '',
     delivery_option: 'primary',
+    order_date: '',
+    created_at: '',
   });
 
   const [customerSearch, setCustomerSearch] = useState('');
@@ -89,6 +91,8 @@ const OrderEdit = () => {
         partial_amount: (order.payment_status === 'Partial' ? order.paid_amount : 0) || 0,
         delivery_address: order.delivery_address || '',
         delivery_option: order.delivery_address ? 'custom' : 'primary',
+        order_date: order.order_date || '',
+        created_at: order.created_at ? order.created_at.split('T')[0] : '',
       });
     }
   }, [order]);
@@ -226,7 +230,24 @@ const OrderEdit = () => {
           : formData.payment_status === 'Partial'
             ? parseFloat(formData.partial_amount)
             : 0,
+      order_date: formData.order_date,
+      created_at: formData.created_at,
     };
+            {/* Created At Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                <Calendar className="w-4 h-4 mr-2 text-green-500" />
+                Created At
+              </label>
+              <input
+                type="date"
+                name="created_at"
+                value={formData.created_at}
+                onChange={handleFormChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white hover:bg-gray-50"
+                required
+              />
+            </div>
 
     mutation.mutate(orderData);
   };
@@ -261,6 +282,8 @@ const OrderEdit = () => {
         {/* Order Details Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+                        {/* Order Date Field */}
+                        
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
                 <User className="w-4 h-4 mr-2 text-blue-500" />
@@ -460,6 +483,20 @@ const OrderEdit = () => {
 
           {/* Conditional Fields */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                            Order Date
+                          </label>
+                          <input
+                            type="date"
+                            name="order_date"
+                            value={formData.order_date}
+                            onChange={handleFormChange}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50"
+                            required
+                          />
+                        </div>
             {formData.payment_status === 'Credit' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">

@@ -37,11 +37,10 @@ const CustomerList = () => {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [filterAgent, setFilterAgent] = useState("");
-
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState("table"); // 'table' or 'card'
-  const [viewType, setViewType] = useState("customers"); // 'customers' or 'leads'
+  const [viewType, setViewType] = useState("customers"); // Default to 'customers' instead of 'all'
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -75,6 +74,9 @@ const CustomerList = () => {
   const [customerTypes, setCustomerTypes] = useState([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const searchTimeoutRef = useRef(null);
+  const searchInputRef = useRef(null);
+
   // Fetch customer types from backend
   useEffect(() => {
     fetchCustomerTypes()
@@ -136,8 +138,16 @@ const CustomerList = () => {
       if (dateTo) params.append("date_to", dateTo);
       if (search) params.append("search", search);
       if (filterAgent) params.append("agent", filterAgent);
-      if (viewType === "customers") params.append("contact_type", "Customer");
-      if (viewType === "leads") params.append("contact_type", "Lead");
+
+      // Only add contact_type filter when NOT searching
+      if (!search) {
+        if (viewType === "customers") {
+          params.append("contact_type", "Customer");
+        } else if (viewType === "leads") {
+          params.append("contact_type", "Lead");
+        }
+      }
+      // If searching, do NOT add contact_type (show both)
 
       const response = await axios.get(`api/customers/?${params.toString()}`);
       return response.data;
@@ -244,11 +254,94 @@ const CustomerList = () => {
     }
   }, [showAddForm]);
 
+  // Handle search with debounce
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchInput(value);
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearch(value);
+      // Keep focus on search input after debounce
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    }, 500); // Wait 500ms after user stops typing before searching
+  };
+
+  // Handle search on Enter key
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      // Clear any pending timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      // Search immediately
+      setSearch(searchInput);
+    }
+  };
+
   // Use paginated data from server
-  const customers = data?.results || [];
+  let customers = data?.results || [];
+  // Sort customers by appointment_date ascending, then by appointment_time:
+  // For the same date, customers with a set time come first (ascending), then those with no time.
+  customers = customers.slice().sort((a, b) => {
+    const dateA = a.appointment_date || '';
+    const dateB = b.appointment_date || '';
+    if (dateA < dateB) return -1;
+    if (dateA > dateB) return 1;
+    // If dates are equal, sort by time: set times first, then unset
+    const timeA = a.appointment_time;
+    const timeB = b.appointment_time;
+    if (timeA && timeB) {
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+      return 0;
+    }
+    if (timeA && !timeB) return -1; // a has time, b does not
+    if (!timeA && timeB) return 1;  // b has time, a does not
+    return 0;
+  });
+  // Enhanced search: filter on name, surname, phone, company_name, company_type, all address fields, and pincode
+  const lowerSearch = search.toLowerCase();
+  const customersFiltered = customers.filter((customer) => {
+    // List all fields to search, and include all phone numbers (primary and additional)
+    const allPhones = [customer.phone, ...(customer.phones ? customer.phones.map(p => p.phone) : [])];
+    const fieldsToSearch = [
+      customer.name,
+      customer.surname,
+      customer.company_name,
+      customer.company_type,
+      customer.company_type_name,
+      customer.pincode,
+      customer.house_flat_no,
+      customer.wing_lane,
+      customer.society_colony,
+      customer.landmark,
+      customer.area,
+      customer.state,
+      customer.district,
+      customer.tahsil,
+      customer.city,
+      customer.email,
+      // Do not include customer.phone here, as allPhones covers it
+    ];
+    // Check if any field matches, or any phone matches
+    return (
+      fieldsToSearch.some(
+        (field) => field && field.toString().toLowerCase().includes(lowerSearch)
+      ) ||
+      allPhones.some(
+        (phone) => phone && phone.toString().toLowerCase().includes(lowerSearch)
+      )
+    );
+  });
   const totalPages = Math.ceil((data?.count || 0) / pageSize);
 
-  // Calculate stats (simplified since we don't have all data)
+  // Calculate stats
   const totalCustomers = data?.count || 0;
   const totalOrderValue = customers.reduce(
     (sum, customer) => sum + (customer.total_order_value || 0),
@@ -260,7 +353,7 @@ const CustomerList = () => {
   const avgOrderValue =
     customers.length > 0 ? totalOrderValue / customers.length : 0;
 
-  // Calculate customers with outstanding payments (only for customers, not leads)
+  // Calculate customers with outstanding payments
   const customersWithOutstanding = customers.filter(
     (customer) =>
       customer.contact_type === "Customer" &&
@@ -558,7 +651,7 @@ const CustomerList = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Customers</h1>
+        <h1 className="text-2xl font-bold">Customers & Leads</h1>
         <div className="flex gap-2">
           <button
             onClick={handleExportExcel}
@@ -575,9 +668,6 @@ const CustomerList = () => {
             <Plus className="h-4 w-4" />
             Add Contact
           </button>
-          {/* <Link to="/customers/new" className="bg-green-500 text-white px-4 py-2 rounded">
-            Add New Customer
-          </Link> */}
         </div>
       </div>
 
@@ -615,34 +705,19 @@ const CustomerList = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
-              placeholder="Search customers by name, email, phone, or ID..."
+              placeholder="Search customers & leads by name, email, phone, or ID..."
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setSearch(searchInput);
-                }
-              }}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
             />
+            {/* Show search indicator */}
+            {searchInput !== search && searchInput && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+              </div>
+            )}
           </div>
-
-          {/* Agent Filter */}
-          {/* <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <select
-              value={filterAgent}
-              onChange={(e) => setFilterAgent(e.target.value)}
-              className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 appearance-none bg-white"
-            >
-              <option value="">All Telecallers</option>
-              {agents.map((agent) => (
-                <option key={agent} value={agent}>
-                  {agent}
-                </option>
-              ))}
-            </select>
-          </div> */}
 
           {/* Date From Filter */}
           <div className="relative">
@@ -672,6 +747,7 @@ const CustomerList = () => {
           <button
             onClick={() => {
               setSearch("");
+              setSearchInput("");
               setFilterAgent("");
               setDateFrom("");
               setDateTo("");
@@ -680,7 +756,7 @@ const CustomerList = () => {
             title="Clear all filters"
           >
             <X className="h-4 w-4" />
-          
+            Clear
           </button>
 
           {/* Page Size Dropdown */}
@@ -696,8 +772,22 @@ const CustomerList = () => {
             </select>
           </div>
 
-          {/* View Toggle */}
+          {/* View Toggle - Updated to include "All" option */}
           <div className="flex gap-2">
+            {/* <button
+              onClick={() => {
+                setViewType("all");
+                setCurrentPage(1);
+              }}
+              className={`px-4 py-2 rounded-lg transition duration-200 ${
+                viewType === "all"
+                  ? "bg-blue-500 text-white shadow-lg"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+              title="View All (Customers & Leads)"
+            >
+              All
+            </button> */}
             <button
               onClick={() => {
                 setViewType("customers");
@@ -708,7 +798,7 @@ const CustomerList = () => {
                   ? "bg-blue-500 text-white shadow-lg"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
-              title="View Customers"
+              title="View Only Customers"
             >
               Customers
             </button>
@@ -722,7 +812,7 @@ const CustomerList = () => {
                   ? "bg-blue-500 text-white shadow-lg"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
-              title="View Leads"
+              title="View Only Leads"
             >
               Leads
             </button>
@@ -756,7 +846,7 @@ const CustomerList = () => {
           <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Total Customers</p>
+                <p className="text-gray-600 text-sm">Total Contacts</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {totalCustomers}
                 </p>
@@ -1209,7 +1299,7 @@ const CustomerList = () => {
                     </th>
                   )}
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Customer
+                    Contact
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Org Name
@@ -1218,7 +1308,7 @@ const CustomerList = () => {
                     Org Type
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Contact
+                    Phone
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Address
@@ -1241,7 +1331,7 @@ const CustomerList = () => {
                     <td colSpan="10" className="px-6 py-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-blue-700">
-                          {selectedCustomers.length} customer
+                          {selectedCustomers.length} contact
                           {selectedCustomers.length > 1 ? "s" : ""} selected
                         </span>
                         <div className="flex items-center gap-2">
@@ -1265,268 +1355,268 @@ const CustomerList = () => {
                 )}
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-  {customers.map((customer) => (
-    <tr
-      key={customer.id}
-      className="hover:bg-gray-50 transition duration-150 cursor-pointer"
-      onClick={() => navigate(`/customers/${customer.id}`)}
-    >
-      {/* Add this checkbox column */}
-      {user?.role === "Admin" && (
-        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={selectedCustomers.includes(customer.id)}
-            onChange={(e) => {
-              e.stopPropagation();
-              handleSelectCustomer(customer.id);
-            }}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-      )}
-      <td className="px-6 py-4">
-        <div className="flex items-center">
-          <div className="h-10 w-10 flex-shrink-0">
-            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">
-                {customer.name?.charAt(0)?.toUpperCase() || "U"}
-              </span>
-            </div>
-          </div>
-          <div className="ml-4">
-            <Link
-              to={`/customers/${customer.id}`}
-              className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {customer.name?.charAt(0)?.toUpperCase() +
-                customer.name?.slice(1) || "Unknown"}
-            </Link>
-            <span
-              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                customer.contact_type === "Customer"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-yellow-100 text-yellow-800"
-              }`}
-            >
-              {customer.contact_type}
-            </span>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4 text-sm text-gray-900">
-        {customer.company_name || "N/A"}
-      </td>
-      <td className="px-6 py-4 text-sm text-gray-900">
-        {customer.company_type_display || "N/A"}
-      </td>
-      <td className="px-6 py-4">
-        <div className="space-y-1">
-          {customer.all_phones && customer.all_phones.length > 0 ? (
-            customer.all_phones.map((phoneObj, index) => (
-              <div
-                key={index}
-                className="flex items-center text-sm text-gray-900"
-              >
-                <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                <Link
-                  to={`/customers/${phoneObj.id}`}
-                  className={`hover:text-blue-800 transition-colors ${
-                    phoneObj.phone === customer.phone
-                      ? "font-semibold text-blue-600"
-                      : "text-gray-900"
-                  }`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {phoneObj.phone}
-                  {phoneObj.phone === customer.phone && " (Primary)"}
-                </Link>
-              </div>
-            ))
-          ) : (
-            <div className="flex items-center text-sm text-gray-900">
-              <Phone className="h-4 w-4 mr-2 text-gray-400" />
-              {customer.phone}
-            </div>
-          )}
-        </div>
-      </td>
-      <td className="px-4 py-4 group">
-        <div className="text-sm text-gray-900 max-w-36 overflow-hidden">
-          <div className="overflow-x-auto whitespace-nowrap scrollbar-hide hover:scrollbar-default transition-all duration-200">
-            {(() => {
-              const addressParts = [
-                customer.house_flat_no,
-                customer.wing_lane,
-                customer.society_colony,
-                customer.landmark,
-                customer.area,
-                customer.city,
-                customer.district,
-                customer.state,
-                customer.pincode,
-              ].filter(Boolean);
+                {customers.map((customer) => (
+                  <tr
+                    key={customer.id}
+                    className="hover:bg-gray-50 transition duration-150 cursor-pointer"
+                    onClick={() => navigate(`/customers/${customer.id}`)}
+                  >
+                    {/* Checkbox column */}
+                    {user?.role === "Admin" && (
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedCustomers.includes(customer.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleSelectCustomer(customer.id);
+                          }}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                      </td>
+                    )}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                            <span className="text-white font-semibold text-sm">
+                              {customer.name?.charAt(0)?.toUpperCase() || "U"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <Link
+                            to={`/customers/${customer.id}`}
+                            className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {customer.name?.charAt(0)?.toUpperCase() +
+                              customer.name?.slice(1) || "Unknown"}
+                          </Link>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              customer.contact_type === "Customer"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {customer.contact_type}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {customer.company_name || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {customer.company_type_display || "N/A"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        {customer.all_phones && customer.all_phones.length > 0 ? (
+                          customer.all_phones.map((phoneObj, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center text-sm text-gray-900"
+                            >
+                              <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                              <Link
+                                to={`/customers/${phoneObj.id}`}
+                                className={`hover:text-blue-800 transition-colors ${
+                                  phoneObj.phone === customer.phone
+                                    ? "font-semibold text-blue-600"
+                                    : "text-gray-900"
+                                }`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {phoneObj.phone}
+                                {phoneObj.phone === customer.phone && " (Primary)"}
+                              </Link>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                            {customer.phone}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 group">
+                      <div className="text-sm text-gray-900 max-w-36 overflow-hidden">
+                        <div className="overflow-x-auto whitespace-nowrap scrollbar-hide hover:scrollbar-default transition-all duration-200">
+                          {(() => {
+                            const addressParts = [
+                              customer.house_flat_no,
+                              customer.wing_lane,
+                              customer.society_colony,
+                              customer.landmark,
+                              customer.area,
+                              customer.city,
+                              customer.district,
+                              customer.state,
+                              customer.pincode,
+                            ].filter(Boolean);
 
-              if (addressParts.length === 0) {
-                return <span className="text-gray-500">No address</span>;
-              }
+                            if (addressParts.length === 0) {
+                              return <span className="text-gray-500">No address</span>;
+                            }
 
-              return (
-                <div className="min-w-max">
-                  {addressParts.join(", ")}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          <User className="h-3 w-3 mr-1" />
-          {customer.agent_name || "Unassigned"}
-        </span>
-      </td>
-      <td
-        className="px-6 py-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {editingAppointment === customer.id ? (
-          <div className="flex items-center space-x-2">
-            <input
-              type="date"
-              value={appointmentValue}
-              onChange={(e) => setAppointmentValue(e.target.value)}
-              className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
-            />
-            <button
-              onClick={handleSaveAppointment}
-              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
-              title="Save"
-              disabled={updateAppointmentMutation.isLoading}
-            >
-              <Check className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleCancelEdit}
-              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-              title="Cancel"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center text-sm text-gray-900">
-              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-              {customer.appointment_date
-                ? new Date(customer.appointment_date).toLocaleDateString()
-                : new Date(customer.created_at).toLocaleDateString()}
-            </div>
-            <button
-              onClick={() => handleEditAppointment(customer)}
-              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded ml-2"
-              title="Edit Appointment Date"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-      </td>
-      <td
-        className="px-6 py-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {editingTime === customer.id ? (
-          <div className="flex items-center space-x-2">
-            <input
-              type="time"
-              value={timeValue}
-              onChange={(e) => setTimeValue(e.target.value)}
-              className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
-            />
-            <button
-              onClick={handleSaveTime}
-              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
-              title="Save"
-              disabled={updateTimeMutation.isLoading}
-            >
-              <Check className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleCancelTimeEdit}
-              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-              title="Cancel"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center text-sm text-gray-900">
-              {customer.appointment_time || "No time set"}
-            </div>
-            <button
-              onClick={() => handleEditTime(customer)}
-              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded ml-2"
-              title="Edit Appointment Time"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-      </td>
-      <td className="px-6 py-4">
-        <div className="flex items-center space-x-3">
-          <Link
-            to={`/customers/${customer.id}`}
-            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition duration-200"
-            title="View Details"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Eye className="h-4 w-4" />
-          </Link>
-          <Link
-            to={`/customers/edit/${customer.id}`}
-            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition duration-200"
-            title="Edit Customer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Edit className="h-4 w-4" />
-          </Link>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCall(customer);
-            }}
-            className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition duration-200"
-            title="Call Customer"
-          >
-            <Phone className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleIndividualAssign(customer);
-            }}
-            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition duration-200"
-            title="Assign to Agent"
-          >
-            <UserCheck className="h-4 w-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
-  ))}
-</tbody>
+                            return (
+                              <div className="min-w-max">
+                                {addressParts.join(", ")}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <User className="h-3 w-3 mr-1" />
+                        {customer.agent_name || "Unassigned"}
+                      </span>
+                    </td>
+                    <td
+                      className="px-6 py-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {editingAppointment === customer.id ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="date"
+                            value={appointmentValue}
+                            onChange={(e) => setAppointmentValue(e.target.value)}
+                            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleSaveAppointment}
+                            className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+                            title="Save"
+                            disabled={updateAppointmentMutation.isLoading}
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                            title="Cancel"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                            {customer.appointment_date
+                              ? new Date(customer.appointment_date).toLocaleDateString()
+                              : new Date(customer.created_at).toLocaleDateString()}
+                          </div>
+                          <button
+                            onClick={() => handleEditAppointment(customer)}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded ml-2"
+                            title="Edit Appointment Date"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td
+                      className="px-6 py-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {editingTime === customer.id ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="time"
+                            value={timeValue}
+                            onChange={(e) => setTimeValue(e.target.value)}
+                            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleSaveTime}
+                            className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+                            title="Save"
+                            disabled={updateTimeMutation.isLoading}
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelTimeEdit}
+                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                            title="Cancel"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center text-sm text-gray-900">
+                            {customer.appointment_time || "No time set"}
+                          </div>
+                          <button
+                            onClick={() => handleEditTime(customer)}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded ml-2"
+                            title="Edit Appointment Time"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-3">
+                        <Link
+                          to={`/customers/${customer.id}`}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition duration-200"
+                          title="View Details"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                        <Link
+                          to={`/customers/edit/${customer.id}`}
+                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition duration-200"
+                          title="Edit Customer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCall(customer);
+                          }}
+                          className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition duration-200"
+                          title="Call Customer"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleIndividualAssign(customer);
+                          }}
+                          className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition duration-200"
+                          title="Assign to Agent"
+                        >
+                          <UserCheck className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 z-10 relative">
               <div className="flex-1 flex justify-between sm:hidden">
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -1587,20 +1677,39 @@ const CustomerList = () => {
                         />
                       </svg>
                     </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                      (page) => (
+                    {/* Smart pagination with ellipsis */}
+                    {totalPages > 7 ? (
+                      <>
+                        <button
+                          key={1}
+                          onClick={() => setCurrentPage(1)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === 1 ? "z-10 bg-blue-50 border-blue-500 text-blue-600" : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"}`}
+                        >1</button>
+                        {currentPage > 4 && <span className="px-2">...</span>}
+                        {Array.from({ length: 3 }, (_, i) => currentPage - 1 + i)
+                          .filter(page => page > 1 && page < totalPages)
+                          .map(page => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === currentPage ? "z-10 bg-blue-50 border-blue-500 text-blue-600" : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"}`}
+                            >{page}</button>
+                          ))}
+                        {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+                        <button
+                          key={totalPages}
+                          onClick={() => setCurrentPage(totalPages)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === totalPages ? "z-10 bg-blue-50 border-blue-500 text-blue-600" : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"}`}
+                        >{totalPages}</button>
+                      </>
+                    ) : (
+                      Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            page === currentPage
-                              ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
-                              : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ),
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === currentPage ? "z-10 bg-blue-50 border-blue-500 text-blue-600" : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"}`}
+                        >{page}</button>
+                      ))
                     )}
                     <button
                       onClick={() =>
@@ -1635,17 +1744,17 @@ const CustomerList = () => {
             <div className="py-16 text-center">
               <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No customers found
+                No contacts found
               </h3>
               <p className="text-gray-600 mb-6">
-                Try adjusting your search or filter criteria
+                {search ? "No results match your search criteria" : "Try adjusting your filters"}
               </p>
               <Link
                 to="/customers/new"
                 className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Your First Customer
+                Add Your First Contact
               </Link>
             </div>
           )}
@@ -1758,17 +1867,17 @@ const CustomerList = () => {
             <div className="col-span-full py-16 text-center">
               <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No customers found
+                No contacts found
               </h3>
               <p className="text-gray-600 mb-6">
-                Try adjusting your search or filter criteria
+                {search ? "No results match your search criteria" : "Try adjusting your filters"}
               </p>
               <Link
                 to="/customers/new"
                 className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Your First Customer
+                Add Your First Contact
               </Link>
             </div>
           )}

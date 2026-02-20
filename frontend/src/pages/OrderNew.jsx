@@ -37,24 +37,37 @@ const OrderNew = () => {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
 
+  // Get URL customer ID BEFORE initializing formData
+  const urlCustomerId = searchParams.get("customer");
+
   const customerDropdownRef = useRef(null);
   const productDropdownRef = useRef(null);
 
   // Persist formData in localStorage for cross-session persistence
+  // BUT: If there's a customer parameter in URL, prioritize that over localStorage
   const initialFormData = () => {
+    const defaultData = {
+      customer: "",
+      agent: "",
+      status: "Placed",
+      payment_status: "Credit",
+      followup_date: "",
+      partial_amount: 0,
+      delivery_address: "",
+      delivery_option: "primary",
+    };
+
+    // If there's a customer ID in the URL, use that and clear localStorage
+    // This ensures the correct customer is selected when navigating from customer detail page
+    if (urlCustomerId) {
+      // Clear localStorage when coming from URL with customer parameter
+      localStorage.removeItem("orderNewFormData");
+      return { ...defaultData, customer: urlCustomerId };
+    }
+
+    // Otherwise, check localStorage for saved data
     const saved = localStorage.getItem("orderNewFormData");
-    return saved
-      ? JSON.parse(saved)
-      : {
-          customer: "",
-          agent: "",
-          status: "Placed",
-          payment_status: "Credit",
-          followup_date: "",
-          partial_amount: 0,
-          delivery_address: "",
-          delivery_option: "primary",
-        };
+    return saved ? JSON.parse(saved) : defaultData;
   };
   const [formData, setFormData] = useState(initialFormData);
 
@@ -146,6 +159,7 @@ const OrderNew = () => {
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [selectedCombo, setSelectedCombo] = useState(null);
   const [showComboSelection, setShowComboSelection] = useState(false);
+  const [isCustomerLoaded, setIsCustomerLoaded] = useState(false);
 
   // Form persistence across navigation
   const [isFormDirty, setIsFormDirty] = useState(false);
@@ -220,9 +234,10 @@ const OrderNew = () => {
   }, [isFormDirty]);
 
   // Fetch customers, products, and combinations
-  const { data: customers } = useQuery({
-    queryKey: ["customers"],
-    queryFn: () => axios.get("/api/customers/").then((res) => res.data),
+  // Fetch ALL customers including Leads (no contact_type filter)
+  const { data: customers, isLoading: customersLoading } = useQuery({
+    queryKey: ["customers", "all"],
+    queryFn: () => axios.get("/api/customers/?page_size=1000").then((res) => res.data),
   });
 
   const { data: products } = useQuery({
@@ -237,12 +252,12 @@ const OrderNew = () => {
   });
 
   // Filtered customers and products based on search
-  const filteredCustomers =
-    (customers?.results || customers || []).filter(
-      (customer) =>
-        customer.name?.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        customer.phone?.includes(customerSearch),
-    ) || [];
+  const allCustomers = customers?.results || customers || [];
+  const filteredCustomers = allCustomers.filter(
+    (customer) =>
+      customer.name?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      customer.phone?.includes(customerSearch),
+  ) || [];
 
   const filteredProducts =
     products?.filter(
@@ -279,6 +294,7 @@ const OrderNew = () => {
       setSelectedProducts([]);
       setAppliedCombos([]);
       setCustomerKPIs(null);
+      setIsCustomerLoaded(false);
       setIsFormDirty(false); // Reset form dirty state after successful submission
       // Remove persisted form state
       localStorage.removeItem("orderNewFormData");
@@ -424,30 +440,37 @@ const OrderNew = () => {
 
   const totals = calculateTotals();
 
-  // Set customer from URL parameter on component mount
-  useEffect(() => {
-    const customerId = searchParams.get("customer");
-    if (customerId && customers) {
-      const customerExists = customers?.results?.find(
-        (c) => c.id.toString() === customerId.toString(),
-      );
-      if (customerExists) {
-        setFormData((prev) => ({ ...prev, customer: customerId }));
-      }
-    }
-  }, [searchParams, customers]);
-
-  // Auto-assign agent based on customer selection
+  // Auto-assign agent and set address based on customer selection
   useEffect(() => {
     if (formData.customer && customers) {
-      const selectedCustomer = customers?.results?.find(
+      const selectedCustomer = allCustomers.find(
         (c) => c.id.toString() === formData.customer.toString(),
       );
-      if (selectedCustomer && selectedCustomer.agent) {
-        setFormData((prev) => ({ ...prev, agent: selectedCustomer.agent }));
-      } else {
-        // Clear agent - backend will auto-assign to admin
-        setFormData((prev) => ({ ...prev, agent: "" }));
+      if (selectedCustomer) {
+        // Set agent
+        if (selectedCustomer.agent) {
+          setFormData((prev) => ({ ...prev, agent: selectedCustomer.agent }));
+        } else {
+          // Clear agent - backend will auto-assign to admin
+          setFormData((prev) => ({ ...prev, agent: "" }));
+        }
+        
+        // Set delivery address from primary address if delivery_option is 'primary'
+        if (formData.delivery_option === "primary") {
+          const fullAddress = [
+            selectedCustomer.house_flat_no,
+            selectedCustomer.wing_lane,
+            selectedCustomer.society_colony,
+            selectedCustomer.area,
+            selectedCustomer.city,
+            selectedCustomer.district,
+            selectedCustomer.state,
+            selectedCustomer.pincode,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          setFormData((prev) => ({ ...prev, delivery_address: fullAddress }));
+        }
       }
     }
   }, [formData.customer, customers]);
@@ -506,7 +529,7 @@ const OrderNew = () => {
     // Handle delivery option change
     if (name === "delivery_option") {
       if (value === "primary" && formData.customer) {
-        const customer = customers?.results?.find(
+        const customer = allCustomers.find(
           (c) => c.id.toString() === formData.customer.toString(),
         );
         if (customer) {
@@ -726,7 +749,7 @@ const OrderNew = () => {
   // Fetch customer KPIs when customer is selected
   useEffect(() => {
     if (formData.customer && customers) {
-      const customer = customers?.results?.find(
+      const customer = allCustomers.find(
         (c) => c.id.toString() === formData.customer.toString(),
       );
       if (customer) {
@@ -743,6 +766,7 @@ const OrderNew = () => {
           customerType: customer.contact_type,
           loyaltyScore: Math.floor(Math.random() * 100) + 1,
         });
+        setIsCustomerLoaded(true);
       }
     }
   }, [formData.customer, customers]);
@@ -771,7 +795,6 @@ const OrderNew = () => {
     const finalItems = totals.itemsWithCombinations;
 
     const orderData = {
-      customer: formData.customer,
       agent: formData.agent || undefined,
       status: formData.status,
       payment_status: formData.payment_status,
@@ -794,8 +817,54 @@ const OrderNew = () => {
         })),
       applied_combos: appliedCombos,
     };
+    // Only add customer if valid
+    if (formData.customer && Number(formData.customer) > 0) {
+      orderData.customer = Number(formData.customer);
+    }
+    console.log('Submitting orderData:', orderData);
 
+    // Debug: log orderData before submit
+    console.log('Submitting orderData:', orderData);
     mutation.mutate(orderData);
+  };
+
+  // Helper functions to get customer details
+  const getSelectedCustomerName = () => {
+    if (!formData.customer) return "Select Customer";
+    if (!customers) return "Loading...";
+    
+    const customer = allCustomers.find(
+      (c) => c.id.toString() === formData.customer.toString()
+    );
+    return customer ? customer.name : "Select Customer";
+  };
+
+  const getSelectedCustomerAddress = () => {
+    if (!formData.customer || !customers) return "";
+    const customer = allCustomers.find(
+      (c) => c.id.toString() === formData.customer.toString()
+    );
+    if (!customer) return "";
+    return [
+      customer.house_flat_no,
+      customer.wing_lane,
+      customer.society_colony,
+      customer.area,
+      customer.city,
+      customer.district,
+      customer.state,
+      customer.pincode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  const getSelectedCustomerAgent = () => {
+    if (!formData.customer || !customers) return "";
+    const customer = allCustomers.find(
+      (c) => c.id.toString() === formData.customer.toString()
+    );
+    return customer?.agent_name || "";
   };
 
   return (
@@ -805,34 +874,34 @@ const OrderNew = () => {
     >
       <div className="container mx-auto px-4 max-w-full">
         <div className="flex justify-between items-center mb-2">
-                  {/* Selected Products List */}
-                  {selectedProducts.length > 0 && products && (
-                    <div className="mb-4">
-                      <div className="font-semibold text-gray-700 mb-1 flex items-center">
-                        <Package className="w-4 h-4 mr-2 text-purple-600" />
-                        Selected Products
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedProducts.map((pid) => {
-                          const prod = products.find((p) => p.id.toString() === pid.toString());
-                          if (!prod) return null;
-                          return (
-                            <span key={pid} className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm border border-purple-200">
-                              {prod.title}
-                              <button
-                                type="button"
-                                className="ml-2 text-purple-400 hover:text-red-500 focus:outline-none"
-                                onClick={() => setSelectedProducts((prev) => prev.filter((id) => id !== pid))}
-                                title="Remove"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+          {/* Selected Products List */}
+          {selectedProducts.length > 0 && products && (
+            <div className="mb-4">
+              <div className="font-semibold text-gray-700 mb-1 flex items-center">
+                <Package className="w-4 h-4 mr-2 text-purple-600" />
+                Selected Products
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedProducts.map((pid) => {
+                  const prod = products.find((p) => p.id.toString() === pid.toString());
+                  if (!prod) return null;
+                  return (
+                    <span key={pid} className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm border border-purple-200">
+                      {prod.title}
+                      <button
+                        type="button"
+                        className="ml-2 text-purple-400 hover:text-red-500 focus:outline-none"
+                        onClick={() => setSelectedProducts((prev) => prev.filter((id) => id !== pid))}
+                        title="Remove"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="flex items-center space-x-3 mr-4">
             <ShoppingCart className="w-5 h-5 text-blue-600" />
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -849,9 +918,16 @@ const OrderNew = () => {
                 <div className="relative" ref={customerDropdownRef}>
                   <button
                     type="button"
-                    onClick={() =>
-                      setCustomerDropdownOpen(!customerDropdownOpen)
-                    }
+                    onClick={() => {
+                      setCustomerDropdownOpen(!customerDropdownOpen);
+                      // Auto-focus search input when opening dropdown
+                      if (!customerDropdownOpen) {
+                        setTimeout(() => {
+                          const searchInput = document.getElementById('customer-search-input');
+                          if (searchInput) searchInput.focus();
+                        }, 100);
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between"
                   >
                     <span
@@ -859,12 +935,7 @@ const OrderNew = () => {
                         formData.customer ? "text-gray-900" : "text-gray-500"
                       }
                     >
-                      {formData.customer
-                        ? customers?.results?.find(
-                            (c) =>
-                              c.id.toString() === formData.customer.toString(),
-                          )?.name
-                        : "Select Customer"}
+                      {getSelectedCustomerName()}
                     </span>
                     <svg
                       className={`w-5 h-5 text-gray-400 transition-transform ${
@@ -888,17 +959,21 @@ const OrderNew = () => {
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                           <input
+                            id="customer-search-input"
                             type="text"
                             placeholder="Search customers..."
                             value={customerSearch}
                             onChange={(e) => setCustomerSearch(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             onClick={(e) => e.stopPropagation()}
+                            autoFocus
                           />
                         </div>
                       </div>
                       <div className="py-1">
-                        {filteredCustomers.length > 0 ? (
+                        {customersLoading ? (
+                          <div className="px-4 py-2 text-gray-500">Loading...</div>
+                        ) : filteredCustomers.length > 0 ? (
                           filteredCustomers.map((customer) => (
                             <button
                               key={customer.id}
@@ -910,10 +985,27 @@ const OrderNew = () => {
                                 }));
                                 setCustomerDropdownOpen(false);
                                 setCustomerSearch("");
+                                setIsCustomerLoaded(true);
+                                // Debug: log selected customer id
+                                console.log('Selected customer id:', customer.id);
                               }}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                              className={`w-full px-4 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none ${
+                                formData.customer === customer.id ? 'bg-blue-50' : ''
+                              }`}
                             >
-                              {customer.name} - {customer.phone}
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-gray-900">{customer.name}</div>
+                                  <div className="text-sm text-gray-500">{customer.phone}</div>
+                                </div>
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  customer.contact_type === 'Customer'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {customer.contact_type}
+                                </span>
+                              </div>
                             </button>
                           ))
                         ) : (
@@ -933,11 +1025,7 @@ const OrderNew = () => {
                 </label>
                 <input
                   type="text"
-                  value={
-                    customers?.results?.find(
-                      (c) => c.id.toString() === formData.customer?.toString(),
-                    )?.agent_name || ""
-                  }
+                  value={getSelectedCustomerAgent()}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 transition-all duration-200"
                   readOnly
                 />
@@ -949,30 +1037,7 @@ const OrderNew = () => {
                 </label>
                 <input
                   type="text"
-                  value={
-                    formData.customer
-                      ? (() => {
-                          const customer = customers?.results?.find(
-                            (c) =>
-                              c.id.toString() === formData.customer.toString(),
-                          );
-                          return customer
-                            ? [
-                                customer.house_flat_no,
-                                customer.wing_lane,
-                                customer.society_colony,
-                                customer.area,
-                                customer.city,
-                                customer.district,
-                                customer.state,
-                                customer.pincode,
-                              ]
-                                .filter(Boolean)
-                                .join(", ")
-                            : "";
-                        })()
-                      : ""
-                  }
+                  value={getSelectedCustomerAddress()}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 transition-all duration-200"
                   readOnly
                 />
@@ -1046,44 +1111,6 @@ const OrderNew = () => {
                   readOnly={formData.delivery_option === "primary"}
                 />
               </div>
-
-              {/* Conditional Fields */}
-              {/* <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                {formData.payment_status === "Credit" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                      <Calendar className="w-4 h-4 mr-2 text-orange-500" />
-                      Follow-up Date
-                    </label>
-                    <input
-                      type="date"
-                      name="followup_date"
-                      value={formData.followup_date}
-                      onChange={handleFormChange}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50"
-                    />
-                  </div>
-                )}
-
-                {formData.payment_status === "Partial" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                      <IndianRupee className="w-4 h-4 mr-2 text-yellow-500" />
-                      Partial Payment Amount
-                    </label>
-                    <input
-                      type="number"
-                      name="partial_amount"
-                      value={formData.partial_amount}
-                      onChange={handleFormChange}
-                      min="0"
-                      step="0.01"
-                      className="w-full px-2 py-1 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50"
-                      required
-                    />
-                  </div>
-                )}
-              </div> */}
             </div>
           </div>
         </div>

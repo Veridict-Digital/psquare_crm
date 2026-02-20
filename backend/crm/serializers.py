@@ -103,6 +103,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, required=False)
     customer_name = serializers.CharField(source='customer.name', read_only=True)
+    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+    customer_details = CustomerSerializer(source='customer', read_only=True)
     agent_name = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
@@ -146,7 +148,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['id', 'order_id', 'customer', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'order_date', 'customer_name', 'agent_name', 'items']
+        fields = ['id', 'order_id', 'customer', 'customer_details', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'order_date', 'created_at', 'customer_name', 'agent_name', 'items']
         extra_kwargs = {
             'agent': {'required': False}
         }

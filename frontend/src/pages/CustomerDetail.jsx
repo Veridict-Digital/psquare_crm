@@ -54,6 +54,17 @@ const CustomerDetail = () => {
   const [customerTypes, setCustomerTypes] = useState([]);
   const itemsPerPage = 5;
 
+  // Mutation for editing a call log (conversation)
+  const editCallLogMutation = useMutation(
+    (data) => axios.put(`/api/calllogs/${data.id}/`, data),
+    {
+      onSuccess: () => {
+        // Invalidate customer details to refresh call logs after edit
+        queryClient.invalidateQueries(["customer-details", id]);
+      },
+    }
+  );
+
   const startEditingName = () => {
     setTempName("");
     setEditingField("name");

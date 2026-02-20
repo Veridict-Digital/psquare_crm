@@ -329,7 +329,6 @@ export const CallPopupProvider = ({ children }) => {
       // Invalidate queries to refresh the UI with the new call log
       queryClient.invalidateQueries(['call-logs']);
       queryClient.invalidateQueries(['customer-details']);
-      alert('Info saved successfully! You can edit it within 24 hours.');
       // Optionally, set a timer to end the call after 24 hours
       setTimeout(() => {
         if (isRunning) {

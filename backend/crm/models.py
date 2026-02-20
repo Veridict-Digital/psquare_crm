@@ -83,15 +83,9 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        # Determine contact type based on provided information
-        if not self.pk:  # Only on creation
-            # If only phone is provided (minimal info), it's a Lead
-            has_full_info = (
-                self.name and self.name.strip() and
-                self.pincode and self.pincode != '000000' and
-                (self.house_flat_no or self.area or self.city)
-            )
-            self.contact_type = 'Customer' if has_full_info else 'Lead'
+        # Always set contact_type to 'Lead' on creation
+        if not self.pk:
+            self.contact_type = 'Lead'
 
         # Convert Lead to Customer when appointment_date is set
         if self.contact_type == 'Lead' and self.appointment_date:
@@ -197,16 +191,21 @@ class Order(models.Model):
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='Paid')
     followup_date = models.DateField(blank=True, null=True)
     delivery_address = models.TextField(blank=True, null=True)
-    order_date = models.DateField(auto_now_add=True)
+    order_date = models.DateField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
 
     def clean(self):
         pass  # No validation for followup_date; it is now optional for all payment statuses
 
     def save(self, *args, **kwargs):
         if not self.order_id:
-            # Generate unique Order ID
-            import uuid
-            self.order_id = f"ORD{uuid.uuid4().hex[:8].upper()}"
+            # Generate sequential Order ID
+            last_order = Order.objects.order_by('-id').first()
+            if last_order and last_order.id:
+                next_id = last_order.id + 1
+            else:
+                next_id = 1
+            self.order_id = f"ORD{next_id:06d}"  # Zero-padded to 6 digits
         self.full_clean()
         super().save(*args, **kwargs)
 
