@@ -323,7 +323,19 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     Q(phones__phone__icontains=search)
                 ).distinct()
 
-        return queryset.order_by('appointment_date')
+        # Server-side sorting: appointment_date ascending, then time ascending, with set time first
+        # Null/empty times should come last for each date
+        from django.db.models import Case, When, Value, IntegerField
+        queryset = queryset.order_by(
+            'appointment_date',
+            Case(
+                When(appointment_time__isnull=False, appointment_time__gt='', then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField()
+            ),
+            'appointment_time'
+        )
+        return queryset
 
     def create(self, request, *args, **kwargs):
         # Handle contact creation with automatic type determination

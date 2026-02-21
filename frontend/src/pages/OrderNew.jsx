@@ -154,12 +154,15 @@ const OrderNew = () => {
   const [generatedOrderId, setGeneratedOrderId] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [customerSearchResults, setCustomerSearchResults] = useState([]);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [selectedCombo, setSelectedCombo] = useState(null);
   const [showComboSelection, setShowComboSelection] = useState(false);
   const [isCustomerLoaded, setIsCustomerLoaded] = useState(false);
+  const [fallbackCustomer, setFallbackCustomer] = useState(null); // For fallback fetch
 
   // Form persistence across navigation
   const [isFormDirty, setIsFormDirty] = useState(false);
@@ -240,6 +243,39 @@ const OrderNew = () => {
     queryFn: () => axios.get("/api/customers/?page_size=1000").then((res) => res.data),
   });
 
+  // Server-side search for customers
+  useEffect(() => {
+    if (customerDropdownOpen && customerSearch.length > 0) {
+      setCustomerSearchLoading(true);
+      axios.get(`/api/customers/?search=${encodeURIComponent(customerSearch)}&page_size=20`)
+        .then(res => {
+          setCustomerSearchResults(res.data.results || res.data || []);
+        })
+        .catch(() => setCustomerSearchResults([]))
+        .finally(() => setCustomerSearchLoading(false));
+    } else {
+      setCustomerSearchResults([]);
+    }
+  }, [customerSearch, customerDropdownOpen]);
+
+  // Fallback fetch for customer if not found in customers list
+  useEffect(() => {
+    if (formData.customer && customers) {
+      const allCustomers = customers?.results || customers || [];
+      const found = allCustomers.find(
+        (c) => c.id.toString() === formData.customer.toString()
+      );
+      if (!found) {
+        // Fetch customer by ID
+        axios.get(`/api/customers/${formData.customer}/`).then((res) => {
+          setFallbackCustomer(res.data);
+        }).catch(() => setFallbackCustomer(null));
+      } else {
+        setFallbackCustomer(null);
+      }
+    }
+  }, [formData.customer, customers]);
+
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: () => axios.get("/api/products/").then((res) => res.data),
@@ -253,11 +289,10 @@ const OrderNew = () => {
 
   // Filtered customers and products based on search
   const allCustomers = customers?.results || customers || [];
-  const filteredCustomers = allCustomers.filter(
-    (customer) =>
-      customer.name?.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      customer.phone?.includes(customerSearch),
-  ) || [];
+  // Use server-side search results if searching, else show all customers
+  const filteredCustomers = (customerDropdownOpen && customerSearch.length > 0)
+    ? customerSearchResults
+    : allCustomers;
 
   const filteredProducts =
     products?.filter(
@@ -831,19 +866,18 @@ const OrderNew = () => {
   // Helper functions to get customer details
   const getSelectedCustomerName = () => {
     if (!formData.customer) return "Select Customer";
-    if (!customers) return "Loading...";
-    
+    if (!customers && !fallbackCustomer) return "Loading...";
     const customer = allCustomers.find(
       (c) => c.id.toString() === formData.customer.toString()
-    );
+    ) || fallbackCustomer;
     return customer ? customer.name : "Select Customer";
   };
 
   const getSelectedCustomerAddress = () => {
-    if (!formData.customer || !customers) return "";
+    if (!formData.customer || (!customers && !fallbackCustomer)) return "";
     const customer = allCustomers.find(
       (c) => c.id.toString() === formData.customer.toString()
-    );
+    ) || fallbackCustomer;
     if (!customer) return "";
     return [
       customer.house_flat_no,
@@ -860,10 +894,10 @@ const OrderNew = () => {
   };
 
   const getSelectedCustomerAgent = () => {
-    if (!formData.customer || !customers) return "";
+    if (!formData.customer || (!customers && !fallbackCustomer)) return "";
     const customer = allCustomers.find(
       (c) => c.id.toString() === formData.customer.toString()
-    );
+    ) || fallbackCustomer;
     return customer?.agent_name || "";
   };
 
@@ -971,7 +1005,7 @@ const OrderNew = () => {
                         </div>
                       </div>
                       <div className="py-1">
-                        {customersLoading ? (
+                        {customerSearchLoading || customersLoading ? (
                           <div className="px-4 py-2 text-gray-500">Loading...</div>
                         ) : filteredCustomers.length > 0 ? (
                           filteredCustomers.map((customer) => (
@@ -1116,7 +1150,7 @@ const OrderNew = () => {
         </div>
 
         {/* Customer Insights Section */}
-        {formData.customer && customerKPIs && (
+        {/* {formData.customer && customerKPIs && (
           <div className="mb-2 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-2 hover:shadow-2xl transition-all duration-300">
             <div className="flex items-center space-x-3 mb-2">
               <Eye className="w-6 h-6 text-blue-600" />
@@ -1167,7 +1201,7 @@ const OrderNew = () => {
               </div>
             )}
           </div>
-        )}
+        )} */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Product Selection */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300">

@@ -254,6 +254,13 @@ const CustomerList = () => {
     }
   }, [showAddForm]);
 
+  // Auto-focus search input after page refresh/mount
+  useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
   // Handle search with debounce
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -269,7 +276,7 @@ const CustomerList = () => {
       if (searchInputRef.current) {
         searchInputRef.current.focus();
       }
-    }, 500); // Wait 500ms after user stops typing before searching
+    }, 2000); // Wait 500ms after user stops typing before searching
   };
 
   // Handle search on Enter key
@@ -704,6 +711,8 @@ const CustomerList = () => {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
+              ref={searchInputRef}
+              autoFocus
               type="text"
               placeholder="Search customers & leads by name, email, phone, or ID..."
               value={searchInput}
