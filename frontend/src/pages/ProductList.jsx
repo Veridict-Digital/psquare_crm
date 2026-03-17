@@ -27,6 +27,12 @@ import {
 import { toast } from 'react-hot-toast';
 
 const ProductList = () => {
+    // Helper to get absolute image URL
+    const getImageUrl = (image) => {
+      if (!image) return null;
+      if (image.startsWith('http')) return image;
+      return `${axios.defaults.baseURL?.replace(/\/$/, '')}${image.startsWith('/') ? image : '/' + image}`;
+    };
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [editingStock, setEditingStock] = useState(null);
@@ -324,7 +330,7 @@ const ProductList = () => {
                         <div className="h-12 w-12 flex-shrink-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center overflow-hidden">
                           {product.image ? (
                             <img
-                              src={product.image}
+                              src={getImageUrl(product.image)}
                               alt={product.title}
                               className="h-full w-full object-cover"
                               onError={(e) => {

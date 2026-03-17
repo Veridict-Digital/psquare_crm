@@ -17,10 +17,19 @@ const UserManagement = () => {
     },
   });
 
-  const filteredUsers = users?.filter(user =>
-    user.username.toLowerCase().includes(search.toLowerCase()) ||
-    user.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const roleOrder = { 'Admin': 0, 'Employee': 1, 'Telecaller': 2 };
+  let filteredUsers = users?.filter(user => {
+    const matchesSearch = user.username.toLowerCase().includes(search.toLowerCase()) ||
+      user.email.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = filterRole ? user.role === filterRole : true;
+    return matchesSearch && matchesRole;
+  })?.slice().sort((a, b) => {
+    const aOrder = roleOrder[a.role] ?? 99;
+    const bOrder = roleOrder[b.role] ?? 99;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    // If same role, sort by username
+    return a.username.localeCompare(b.username);
+  });
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div></div>;
   if (error) return <div className="text-red-500 text-center">Error loading users: {error.message}</div>;
@@ -45,6 +54,7 @@ const UserManagement = () => {
           <option value="">All Roles</option>
           <option value="Admin">Admin</option>
           <option value="Employee">Employee</option>
+          <option value="Telecaller">Telecaller</option>
         </select>
       </div>
       <div className="overflow-x-auto">

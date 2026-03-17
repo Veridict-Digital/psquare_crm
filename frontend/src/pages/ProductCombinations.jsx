@@ -523,19 +523,19 @@ const ProductCombinations = () => {
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {combination.items?.map(item => {
                     const product = products.find(p => p.id === item.product);
-                    return product ? `${product.title} x${item.quantity_required} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'}, Purchase: ₹${product.purchase_price || '0.00'})` : 'Unknown';
+                    return product ? `${product.title} x${item.quantity_required} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'})` : 'Unknown';
                   }).join('; ') || '-'}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {combination.rewards?.map(reward => {
                     const product = products.find(p => p.id === reward.product);
-                    return product ? `${product.title} x${reward.quantity_free} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'}, Purchase: ₹${product.purchase_price || '0.00'})` : 'Unknown';
+                    return product ? `${product.title} x${reward.quantity_free} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'})` : 'Unknown';
                   }).join('; ') || '-'}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {combination.gifts?.map(gift => {
                     const product = products.find(p => p.id === gift.product);
-                    return product ? `${product.title} x${gift.quantity} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'}, Purchase: ₹${product.purchase_price || '0.00'})` : 'Unknown';
+                    return product ? `${product.title} x${gift.quantity} (MRP: ₹${product.mrp || '0.00'}, Price: ₹${product.price || '0.00'})` : 'Unknown';
                   }).join('; ') || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

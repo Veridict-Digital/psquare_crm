@@ -7,7 +7,11 @@ import { Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, 
 const OrderList = () => {
   const [search, setSearch] = useState('');
   const [filterAgent, setFilterAgent] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  // Date range filter states
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [pendingDateFrom, setPendingDateFrom] = useState('');
+  const [pendingDateTo, setPendingDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
@@ -17,13 +21,14 @@ const OrderList = () => {
   const queryClient = useQueryClient();
 
   const { data: orders, isLoading, error, refetch } = useQuery({
-    queryKey: ['orders', filterAgent, filterDate, filterStatus, filterPaymentStatus, currentPage, pageSize],
+    queryKey: ['orders', filterAgent, filterDateFrom, filterDateTo, filterStatus, filterPaymentStatus, currentPage, pageSize],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('page', currentPage);
       params.append('page_size', pageSize);
       if (filterAgent) params.append('agent', filterAgent);
-      if (filterDate) params.append('order_date', filterDate);
+      if (filterDateFrom) params.append('date_from', filterDateFrom);
+      if (filterDateTo) params.append('date_to', filterDateTo);
       if (filterStatus) params.append('status', filterStatus);
       if (filterPaymentStatus) params.append('payment_status', filterPaymentStatus);
       const response = await axios.get(`api/orders/?${params.toString()}`);
@@ -56,17 +61,13 @@ const OrderList = () => {
   // Get unique agents for filter
   const uniqueAgents = [...new Set(ordersData?.map(order => order.agent_name).filter(Boolean))];
 
-  // Apply all filters
+  // Apply search filter client-side (other filters are server-side)
   const finalFilteredOrders = ordersData?.filter(order => {
     const matchesSearch = !search ||
       (order.customer_name && order.customer_name.toLowerCase().includes(search.toLowerCase())) ||
       (order.order_id && order.order_id.toLowerCase().includes(search.toLowerCase())) ||
       order.id.toString().includes(search);
-
-    const matchesStatus = !filterStatus || order.status === filterStatus;
-    const matchesPayment = !filterPaymentStatus || order.payment_status === filterPaymentStatus;
-
-    return matchesSearch && matchesStatus && matchesPayment;
+    return matchesSearch;
   });
 
   if (isLoading) return (
@@ -190,10 +191,11 @@ const OrderList = () => {
                 className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white transition-all duration-200"
               >
                 <option value="">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Processing">Processing</option>
+                <option value="Ordered">Ordered</option>
+                <option value="Preparing">Preparing</option>
                 <option value="Dispatched">Dispatched</option>
                 <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
               </select>
 
               {/* Payment Status Filter */}
@@ -203,20 +205,62 @@ const OrderList = () => {
                 className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white transition-all duration-200"
               >
                 <option value="">All Payments</option>
-                <option value="Pending">Pending</option>
-                <option value="Paid">Paid</option>
-                <option value="Failed">Failed</option>
+                <option value="credit">Credit</option>
+                <option value="paid">Paid</option>
+                <option value="partial">Partial</option>
               </select>
 
-              {/* Date Filter */}
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                />
+              {/* Date Range Filter */}
+              <div className="flex gap-2 items-center">
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="date"
+                    value={pendingDateFrom}
+                    onChange={(e) => setPendingDateFrom(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                    placeholder="From Date"
+                  />
+                </div>
+                <span className="text-gray-500">to</span>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="date"
+                    value={pendingDateTo}
+                    onChange={(e) => setPendingDateTo(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                    placeholder="To Date"
+                  />
+                </div>
+                <button
+                    onClick={() => {
+                      setFilterDateFrom(pendingDateFrom);
+                      setFilterDateTo(pendingDateTo);
+                      setTimeout(() => {
+                        refetch();
+                      }, 0);
+                    }}
+                  className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200 ml-2"
+                  title="Apply date filter"
+                >
+                  Apply
+                </button>
+                <button
+                    onClick={() => {
+                      setPendingDateFrom('');
+                      setPendingDateTo('');
+                      setFilterDateFrom('');
+                      setFilterDateTo('');
+                      setTimeout(() => {
+                        refetch();
+                      }, 0);
+                    }}
+                  className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition duration-200 ml-2"
+                  title="Clear date filter"
+                >
+                  Clear
+                </button>
               </div>
             </div>
 

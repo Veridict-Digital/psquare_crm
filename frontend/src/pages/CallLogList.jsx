@@ -17,13 +17,35 @@ const CallLogList = () => {
   const queryClient = useQueryClient();
 
   const { data: callLogsData, isLoading, error, refetch, isError } = useQuery({
-    queryKey: ['callLogs', filterStatus, currentPage],
+    queryKey: ['callLogs', filterStatus, filterEmployee, filterOrderPlaced, search, currentPage],
     queryFn: async () => {
-      const params = { page: currentPage };
+      const params = { 
+        page: currentPage,
+        search: search
+      };
       if (filterStatus) params.status = filterStatus;
+      if (filterEmployee) params.employee = filterEmployee;
+      if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
+      
       console.log('Fetching call logs with params:', params); // Debug log
       const response = await axios.get('/api/calllogs/', { params });
       console.log('API Response:', response); // Debug log
+      return response.data;
+    },
+    retry: 1,
+  });
+
+  // Fetch statistics from server for KPIs (uses all data, not paginated)
+  const { data: statisticsData } = useQuery({
+    queryKey: ['callLogsStatistics', filterStatus, filterEmployee, filterOrderPlaced, search],
+    queryFn: async () => {
+      const params = {};
+      if (filterStatus) params.status = filterStatus;
+      if (filterEmployee) params.employee = filterEmployee;
+      if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
+      if (search) params.search = search;
+      
+      const response = await axios.get('/api/calllogs/statistics/', { params });
       return response.data;
     },
     retry: 1,
@@ -93,16 +115,14 @@ const CallLogList = () => {
     </div>
   );
 
-  // Calculate KPIs
-  const totalCalls = callLogs?.length || 0;
-  const completedCalls = callLogs?.filter(call => call.status === 'Completed').length || 0;
-  const pendingCalls = callLogs?.filter(call => call.status === 'Pending').length || 0;
-  const ordersPlaced = callLogs?.filter(call => call.order_placed === 'Yes').length || 0;
-  const conversionRate = totalCalls > 0 ? ((ordersPlaced / totalCalls) * 100).toFixed(1) : 0;
-  // For average duration, show in min:sec format
-  const avgDurationSec = callLogs?.length > 0
-    ? callLogs.reduce((sum, call) => sum + ((call.duration_minutes || 0) * 60), 0) / callLogs.length
-    : 0;
+  // Calculate KPIs from server statistics (all data, not paginated)
+  const totalCalls = statisticsData?.total_calls || 0;
+  const completedCalls = statisticsData?.completed_calls || 0;
+  const pendingCalls = statisticsData?.pending_calls || 0;
+  const ordersPlaced = statisticsData?.orders_placed || 0;
+  const conversionRate = statisticsData?.conversion_rate || 0;
+  // For average duration from server, show in min:sec format
+  const avgDurationSec = statisticsData?.avg_duration_seconds || 0;
   const avgDuration = avgDurationSec >= 60
     ? `${Math.floor(avgDurationSec / 60)} min ${Math.round(avgDurationSec % 60)} sec`
     : `${Math.round(avgDurationSec)} sec`;
@@ -353,13 +373,13 @@ const CallLogList = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button
+                            {/* <button
                               onClick={() => navigate(`/calllogs/${callLog.id}/edit`)}
                               className="text-green-600 hover:text-green-900 transition-colors duration-200"
                               title="Edit"
                             >
                               Edit
-                            </button>
+                            </button> */}
                             <button
                               onClick={() => {
                                 if (window.confirm('Are you sure you want to delete this call log?')) {
@@ -611,7 +631,7 @@ const CallLogList = () => {
                   >
                     Close
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => {
                       navigate(`/calllogs/${selectedCallLog.id}/edit`);
                       setShowNotesModal(false);
@@ -620,7 +640,7 @@ const CallLogList = () => {
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
                   >
                     Edit Call Log
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </div>

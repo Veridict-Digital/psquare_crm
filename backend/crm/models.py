@@ -173,14 +173,18 @@ class Product(models.Model):
 
 class Order(models.Model):
     STATUS_CHOICES = [
+        ('ordered', 'Ordered'),
+        ('Preparing', 'Preparing'),
         ('Placed', 'Placed'),
         ('Dispatched', 'Dispatched'),
         ('Delivered', 'Delivered'),
+        ('Cancelled', 'Cancelled')
     ]
     PAYMENT_STATUS_CHOICES = [
         ('Paid', 'Full Paid'),
         ('Partial', 'Partial'),
         ('Credit', 'Credit'),
+        ('Advance', 'Advance'),
     ]
     order_id = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Order ID
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)

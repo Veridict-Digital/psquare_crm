@@ -68,22 +68,23 @@ class ProductSerializer(serializers.ModelSerializer):
     gst_rate_display = serializers.CharField(source='gst_rate.rate', read_only=True)
     gst_rate_description = serializers.CharField(source='gst_rate.description', read_only=True)
     category_display = serializers.CharField(source='category.name', read_only=True)
-    image = serializers.SerializerMethodField()
-
-    def get_image(self, obj):
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
-
+    
     class Meta:
         model = Product
         fields = '__all__'
         extra_kwargs = {
-            'cost': {'write_only': True},  # Keep cost for backward compatibility but make it write-only
+            'cost': {'write_only': True},
+            'image': {'required': False, 'allow_null': True}
         }
+
+    def to_representation(self, instance):
+        """Override to add full URL for image in GET responses"""
+        response = super().to_representation(instance)
+        if instance.image:
+            request = self.context.get('request')
+            if request:
+                response['image'] = request.build_absolute_uri(instance.image.url)
+        return response
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)

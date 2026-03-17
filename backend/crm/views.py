@@ -223,7 +223,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def employees(self, request):
-        employees = User.objects.filter(role='Employee')
+        employees = User.objects.filter(role__in=['Employee', 'Telecaller'])
         serializer = self.get_serializer(employees, many=True)
         return Response(serializer.data)
 
@@ -231,6 +231,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def me(self, request):
         user = request.user
         if request.method == 'GET':
+            # Return current user info only
             serializer = self.get_serializer(user)
             return Response(serializer.data)
         elif request.method == 'PUT':
@@ -265,32 +266,40 @@ class CustomerViewSet(viewsets.ModelViewSet):
     pagination_class = CustomerPagination
 
     def get_queryset(self):
-        queryset = Customer.objects.annotate(
-            total_order_value=models.Sum('order__total_amount')
-        ).distinct()
-
-        # Filter by agent for non-admin users
-        # Temporarily disabled to allow all users to see all customers
-        if self.request.user.role != 'Admin':
-            queryset = queryset.filter(agent=self.request.user)
-
+        queryset = Customer.objects.all()
+        queryset = queryset.select_related('company_type', 'customer_type', 'agent')
+        queryset = queryset.prefetch_related('phones')
         if self.action in ['list', 'export_excel']:
-            # Get date filters from query parameters
+            queryset = queryset.annotate(total_order_value=models.Sum('order__total_amount'))
+
+            # Filters
             date_from = self.request.query_params.get('date_from')
             date_to = self.request.query_params.get('date_to')
             contact_type = self.request.query_params.get('contact_type')
-            search = self.request.query_params.get('search')
             phone = self.request.query_params.get('phone')
+            phone_search = self.request.query_params.get('search_phone')
+            name_search = self.request.query_params.get('search_name')
             agent = self.request.query_params.get('agent')
+            address = self.request.query_params.get('address')
+            organization_name = self.request.query_params.get('organization_name')
+            organization_type = self.request.query_params.get('organization_type')
+            customer_type = self.request.query_params.get('customer_type')
+            telecaller = self.request.query_params.get('telecaller')
+            time = self.request.query_params.get('time')
+            search = self.request.query_params.get('search')
+            has_appointment = self.request.query_params.get('has_appointment')
+
+            if has_appointment == 'true':
+                queryset = queryset.filter(appointment_date__isnull=False)
+            elif has_appointment == 'false':
+                queryset = queryset.filter(appointment_date__isnull=True)
 
             if date_from:
-                # Filter by appointment_date if available, otherwise by created_at
                 queryset = queryset.filter(
                     models.Q(appointment_date__gte=date_from) |
                     (models.Q(appointment_date__isnull=True) & models.Q(created_at__gte=date_from))
                 )
             if date_to:
-                # Filter by appointment_date if available, otherwise by created_at
                 queryset = queryset.filter(
                     models.Q(appointment_date__lte=date_to) |
                     (models.Q(appointment_date__isnull=True) & models.Q(created_at__lte=date_to))
@@ -298,9 +307,45 @@ class CustomerViewSet(viewsets.ModelViewSet):
             if contact_type:
                 queryset = queryset.filter(contact_type=contact_type)
             if phone:
-                queryset = queryset.filter(phone=phone)
+                queryset = queryset.filter(
+                    models.Q(phone__icontains=phone) |
+                    models.Q(phones__phone__icontains=phone)
+                )
+            if phone_search:
+                queryset = queryset.filter(
+                    models.Q(phone__icontains=phone_search) |
+                    models.Q(phones__phone__icontains=phone_search)
+                )
+            if name_search:
+                queryset = queryset.filter(
+                    models.Q(name__icontains=name_search) |
+                    models.Q(surname__icontains=name_search)
+                )
             if agent:
                 queryset = queryset.filter(agent=int(agent))
+            if address:
+                queryset = queryset.filter(
+                    models.Q(house_flat_no__icontains=address) |
+                    models.Q(wing_lane__icontains=address) |
+                    models.Q(society_colony__icontains=address) |
+                    models.Q(landmark__icontains=address) |
+                    models.Q(area__icontains=address) |
+                    models.Q(state__icontains=address) |
+                    models.Q(district__icontains=address) |
+                    models.Q(tahsil__icontains=address) |
+                    models.Q(city__icontains=address) |
+                    models.Q(address__icontains=address)
+                )
+            if organization_name:
+                queryset = queryset.filter(company_name__icontains=organization_name)
+            if organization_type:
+                queryset = queryset.filter(company_type__name__icontains=organization_type)
+            if customer_type:
+                queryset = queryset.filter(customer_type__name__icontains=customer_type)
+            if telecaller:
+                queryset = queryset.filter(agent__username__icontains=telecaller, agent__role='Telecaller')
+            if time:
+                queryset = queryset.filter(appointment_time__icontains=time)
             if search:
                 from django.db.models import Q
                 queryset = queryset.filter(
@@ -323,43 +368,22 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     Q(phones__phone__icontains=search)
                 ).distinct()
 
-        # Server-side sorting: appointment_date ascending, then time ascending, with set time first
-        # Null/empty times should come last for each date
-        from django.db.models import Case, When, Value, IntegerField
-        queryset = queryset.order_by(
-            'appointment_date',
-            Case(
-                When(appointment_time__isnull=False, appointment_time__gt='', then=Value(0)),
-                default=Value(1),
-                output_field=IntegerField()
-            ),
-            'appointment_time'
-        )
+        from django.db.models import Case, When, Value, IntegerField, Q, F
+        from django.db.models.functions import Coalesce
+    
+        queryset = queryset.annotate(
+        # Use appointment_date if available, otherwise use created_at
+        effective_date=Coalesce('appointment_date', 'created_at', output_field=models.DateTimeField())
+        ).order_by(
+        'effective_date',  # Sort by effective date
+        Case(
+            When(Q(appointment_time__isnull=True) | Q(appointment_time=''), then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField()
+        ),
+        'appointment_time'
+    )
         return queryset
-
-    def create(self, request, *args, **kwargs):
-        # Handle contact creation with automatic type determination
-        data = request.data.copy()
-
-        # Ensure phone is provided
-        if not data.get('phone'):
-            return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if phone already exists
-        if Customer.objects.filter(phone=data['phone']).exists():
-            return Response({'error': 'Phone number already exists'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Set default values for leads
-        if not data.get('name'):
-            data['name'] = 'Unknown Contact'
-        if not data.get('pincode'):
-            data['pincode'] = '000000'
-
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -598,6 +622,33 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
+    def get_queryset(self):
+            queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
+            # Get filter params
+            agent = self.request.query_params.get('agent')
+            status = self.request.query_params.get('status')
+            payment_status = self.request.query_params.get('payment_status')
+            date_from = self.request.query_params.get('date_from')
+            date_to = self.request.query_params.get('date_to')
+            search = self.request.query_params.get('search')
+
+            if agent:
+                queryset = queryset.filter(agent__username=agent)
+            if status:
+                queryset = queryset.filter(status=status)
+            if payment_status:
+                queryset = queryset.filter(payment_status__iexact=payment_status)
+            if date_from:
+                queryset = queryset.filter(order_date__gte=date_from)
+            if date_to:
+                queryset = queryset.filter(order_date__lte=date_to)
+            if search:
+                from django.db.models import Q
+                queryset = queryset.filter(
+                    Q(order_id__icontains=search) |
+                    Q(customer__name__icontains=search)
+                )
+            return queryset
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = OrderPagination
@@ -662,6 +713,105 @@ class CallLogViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = CallLogPagination
 
+    def get_queryset(self):
+        queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'lead').all()
+        
+        # Get filter parameters from query params
+        status = self.request.query_params.get('status')
+        employee = self.request.query_params.get('employee')
+        order_placed = self.request.query_params.get('order_placed')
+        search = self.request.query_params.get('search')
+        
+        # Apply filters
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        if employee:
+            queryset = queryset.filter(employee__username=employee)
+        
+        if order_placed:
+            if order_placed == 'Yes':
+                queryset = queryset.filter(order__isnull=False)
+            elif order_placed == 'No':
+                queryset = queryset.filter(order__isnull=True)
+        
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(customer__name__icontains=search) |
+                Q(lead__name__icontains=search) |
+                Q(call_id__icontains=search) |
+                Q(note__icontains=search)
+            )
+        
+        # Default ordering by date descending
+        return queryset.order_by('-date', '-id')
+
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Get call log statistics for KPIs - returns counts from all records, not just paginated"""
+        # Base queryset without pagination
+        queryset = CallLog.objects.all()
+        
+        # Get filter parameters
+        status = request.query_params.get('status')
+        employee = request.query_params.get('employee')
+        order_placed = request.query_params.get('order_placed')
+        search = request.query_params.get('search')
+        
+        # Apply same filters as get_queryset
+        if status:
+            queryset = queryset.filter(status=status)
+        if employee:
+            queryset = queryset.filter(employee__username=employee)
+        if order_placed:
+            if order_placed == 'Yes':
+                queryset = queryset.filter(order__isnull=False)
+            elif order_placed == 'No':
+                queryset = queryset.filter(order__isnull=True)
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(customer__name__icontains=search) |
+                Q(lead__name__icontains=search) |
+                Q(call_id__icontains=search) |
+                Q(note__icontains=search)
+            )
+        
+        # Get total count
+        total_calls = queryset.count()
+        
+        # Get completed calls
+        completed_calls = queryset.filter(status='Completed').count()
+        
+        # Get pending calls
+        pending_calls = queryset.filter(status='Pending').count()
+        
+        # Get orders placed
+        orders_placed = queryset.filter(order__isnull=False).count()
+        
+        # Calculate conversion rate
+        conversion_rate = round((orders_placed / total_calls * 100), 1) if total_calls > 0 else 0
+        
+        # Calculate average duration
+        avg_duration_seconds = 0
+        calls_with_duration = queryset.exclude(duration__isnull=True)
+        if calls_with_duration.exists():
+            total_seconds = sum(call.duration.total_seconds() for call in calls_with_duration if call.duration)
+            count = calls_with_duration.count()
+            avg_duration_seconds = total_seconds / count if count > 0 else 0
+        
+        avg_duration_formatted = int(avg_duration_seconds)
+        
+        return Response({
+            'total_calls': total_calls,
+            'completed_calls': completed_calls,
+            'pending_calls': pending_calls,
+            'orders_placed': orders_placed,
+            'conversion_rate': conversion_rate,
+            'avg_duration_seconds': avg_duration_formatted
+        })
+
     def perform_create(self, serializer):
         # Check if there's an order_id provided
         order_id = self.request.data.get('order_id')
@@ -680,7 +830,9 @@ class CallLogViewSet(viewsets.ModelViewSet):
         from rest_framework import serializers
         data = request.data.copy()
         data['employee'] = request.user.id
-        data['status'] = 'In Progress'
+        # Only set status to 'In Progress' if not provided by frontend
+        if 'status' not in data or not data['status']:
+            data['status'] = 'In Progress'
         data['saved_at'] = timezone.now()
 
         # Convert duration from seconds to timedelta

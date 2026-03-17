@@ -8,5 +8,6 @@ urlpatterns = [
     path('', include('crm.urls')),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files in both DEBUG and production modes  
+# This ensures uploaded images are accessible at /media/products/...
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

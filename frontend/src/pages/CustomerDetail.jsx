@@ -5,22 +5,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallPopup } from "../context/CallPopupContext";
 import {
   User,
-  CheckCircle,
-  Hash,
   Phone,
-  Mail,
   ShoppingBag,
   Edit,
   Trash2,
   Save,
   X,
-  PenTool,
   Plus,
-  ArrowLeft,
   ChevronDown,
   Calendar,
+  MapPin,
 } from "lucide-react";
-import { MapPin, DollarSign, UserCheck } from "lucide-react";
 import { fetchCustomerTypes } from "../api/customerTypes";
 
 const CustomerDetail = () => {
@@ -28,77 +23,26 @@ const CustomerDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { openPopup } = useCallPopup();
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({});
   const [editingField, setEditingField] = useState(null);
   const [tempValue, setTempValue] = useState("");
-  const [callHistoryOpen, setCallHistoryOpen] = useState(false);
-  const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
   const [callLogsPage, setCallLogsPage] = useState(1);
   const [ordersPage, setOrdersPage] = useState(1);
   const [showAddPhone, setShowAddPhone] = useState(false);
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const [showOrgTypeDropdown, setShowOrgTypeDropdown] = useState(false);
-  const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] =
-    useState(false);
+  const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [tempAddress, setTempAddress] = useState({});
   const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false);
-  const [phoneError, setPhoneError] = useState("");
-  const [addressError, setAddressError] = useState("");
+  const [showAllPhones, setShowAllPhones] = useState(false);
   const [showNameEditDropdown, setShowNameEditDropdown] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempSurname, setTempSurname] = useState("");
-  const [showAllPhones, setShowAllPhones] = useState(false);
   const [customerTypes, setCustomerTypes] = useState([]);
   const itemsPerPage = 5;
 
-  // Mutation for editing a call log (conversation)
-  const editCallLogMutation = useMutation(
-    (data) => axios.put(`/api/calllogs/${data.id}/`, data),
-    {
-      onSuccess: () => {
-        // Invalidate customer details to refresh call logs after edit
-        queryClient.invalidateQueries(["customer-details", id]);
-      },
-    }
-  );
-
-  const startEditingName = () => {
-    setTempName("");
-    setEditingField("name");
-    setShowNameEditDropdown(false);
-  };
-
-  const startEditingSurname = () => {
-    setTempSurname("");
-    setEditingField("surname");
-    setShowNameEditDropdown(false);
-  };
-
-  const saveNameEdit = () => {
-    updateMutation.mutate({ name: tempName });
-    setEditingField(null);
-    setTempName("");
-  };
-
-  const saveSurnameEdit = () => {
-    updateMutation.mutate({ surname: tempSurname });
-    setEditingField(null);
-    setTempSurname("");
-  };
-
-  const cancelNameEdit = () => {
-    setEditingField(null);
-    setTempName("");
-  };
-
-  const cancelSurnameEdit = () => {
-    setEditingField(null);
-    setTempSurname("");
-  };
-
+  // Fetch customer details
   const {
     data: customerDetails,
     isLoading,
@@ -109,29 +53,43 @@ const CustomerDetail = () => {
       axios.get(`/api/customers/${id}/details/`).then((res) => res.data),
   });
 
+  // Fetch employees
   const { data: employees } = useQuery({
     queryKey: ["employees"],
     queryFn: () => axios.get("/api/users/").then((res) => res.data),
   });
 
+  // Fetch organization types
   const { data: organizationTypes } = useQuery({
     queryKey: ["organization-types"],
     queryFn: () => axios.get("/api/organizationtypes/").then((res) => res.data),
   });
 
+  // Fetch customer types
+  useEffect(() => {
+    fetchCustomerTypes()
+      .then(setCustomerTypes)
+      .catch(() => setCustomerTypes([]));
+  }, []);
+
+  // Update customer mutation
   const updateMutation = useMutation({
     mutationFn: (data) => axios.put(`/api/customers/${id}/`, data),
     onSuccess: () => {
       queryClient.invalidateQueries(["customer-details", id]);
-      setIsEditing(false);
+      setEditingField(null);
+      setEditingAddress(false);
+      setShowNameEditDropdown(false);
     },
   });
 
+  // Delete customer mutation
   const deleteMutation = useMutation({
     mutationFn: () => axios.delete(`/api/customers/${id}/`),
     onSuccess: () => navigate("/customers"),
   });
 
+  // Add phone mutation
   const addPhoneMutation = useMutation({
     mutationFn: (phoneData) =>
       axios.post(`/api/customers/${id}/add_phone/`, phoneData),
@@ -140,15 +98,9 @@ const CustomerDetail = () => {
       setShowAddPhone(false);
       setNewPhoneNumber("");
     },
-    onError: (error) => {
-      console.error("Error adding phone:", error.response?.data);
-      alert(
-        "Error adding phone: " +
-          JSON.stringify(error.response?.data || error.message),
-      );
-    },
   });
 
+  // Set primary phone mutation
   const setPrimaryPhoneMutation = useMutation({
     mutationFn: (phoneId) =>
       axios.post(`/api/customers/${id}/set_primary_phone/`, {
@@ -156,16 +108,11 @@ const CustomerDetail = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries(["customer-details", id]);
-    },
-    onError: (error) => {
-      console.error("Error setting primary phone:", error.response?.data);
-      alert(
-        "Error setting primary phone: " +
-          JSON.stringify(error.response?.data || error.message),
-      );
+      setShowPrimaryDropdown(false);
     },
   });
 
+  // Delete phone mutation
   const deletePhoneMutation = useMutation({
     mutationFn: (phoneId) =>
       axios.delete(`/api/customers/${id}/delete_phone/`, {
@@ -174,46 +121,49 @@ const CustomerDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(["customer-details", id]);
     },
-    onError: (error) => {
-      console.error("Error deleting phone:", error.response?.data);
-      alert(
-        "Error deleting phone: " +
-          JSON.stringify(error.response?.data || error.message),
-      );
+  });
+
+  // Edit call log mutation - always updates existing record
+  const editCallLogMutation = useMutation({
+    mutationFn: (data) => axios.put(`/api/calllogs/${data.id}/`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["customer-details", id]);
     },
   });
 
-  useEffect(() => {
-    if (customerDetails?.customer) setFormData(customerDetails.customer);
-  }, [customerDetails]);
+  const customer = customerDetails?.customer;
+  const summary = customerDetails?.summary;
+  const callLogs = customerDetails?.call_logs || [];
+  const orders = customerDetails?.orders || [];
 
-  useEffect(() => {
-    fetchCustomerTypes()
-      .then(setCustomerTypes)
-      .catch(() => setCustomerTypes([]));
-  }, []);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    updateMutation.mutate(formData);
+  const startEditingName = () => {
+    setTempName(customer?.name || "");
+    setEditingField("name");
+    setShowNameEditDropdown(false);
   };
 
-  const startEditing = (field, currentValue) => {
-    setEditingField(field);
-    setTempValue(currentValue || "");
+  const startEditingSurname = () => {
+    setTempSurname(customer?.surname || "");
+    setEditingField("surname");
+    setShowNameEditDropdown(false);
   };
 
-  const saveEdit = () => {
-    if (editingField) {
-      updateMutation.mutate({ [editingField]: tempValue });
-      setEditingField(null);
-      setTempValue("");
-    }
+  const saveNameEdit = () => {
+    updateMutation.mutate({ name: tempName });
   };
 
-  const cancelEdit = () => {
+  const saveSurnameEdit = () => {
+    updateMutation.mutate({ surname: tempSurname });
+  };
+
+  const cancelNameEdit = () => {
     setEditingField(null);
-    setTempValue("");
+    setTempName("");
+  };
+
+  const cancelSurnameEdit = () => {
+    setEditingField(null);
+    setTempSurname("");
   };
 
   const formatDuration = (durationMinutes) => {
@@ -252,6 +202,7 @@ const CustomerDetail = () => {
       area: customer?.area || "",
       city: customer?.city || "",
       district: customer?.district || "",
+      tahsil: customer?.tahsil || "",
       state: customer?.state || "",
       pincode: customer?.pincode || "",
     });
@@ -263,13 +214,32 @@ const CustomerDetail = () => {
       return;
     }
     updateMutation.mutate(tempAddress);
-    setEditingAddress(false);
-    setTempAddress({});
   };
 
   const cancelAddressEdit = () => {
     setEditingAddress(false);
     setTempAddress({});
+  };
+
+  // Edit last call functionality - always uses call log ID for update
+  const handleEditLastCall = () => {
+    if (callLogs.length > 0) {
+      const recentCall = callLogs[0];
+      const callData = {
+        ...customer,
+        notes: recentCall.note || "",
+        selectedAssumption: recentCall.assumption || [],
+        selectedAssumption2: recentCall.assumption2 || [],
+        selectedAssumption3: recentCall.assumption3 || [],
+        orderId: recentCall.order_id || "",
+        callId: recentCall.call_id,
+        id: recentCall.id, // Always use the call log ID for editing
+        timer: Math.round(recentCall.duration_minutes * 60) || 0,
+        isEditing: true,
+        isRunning: false,
+      };
+      openPopup(callData);
+    }
   };
 
   if (isLoading)
@@ -290,11 +260,6 @@ const CustomerDetail = () => {
       </div>
     );
 
-  const customer = customerDetails?.customer;
-  const summary = customerDetails?.summary;
-  const callLogs = customerDetails?.call_logs || [];
-  const orders = customerDetails?.orders || [];
-
   return (
     <>
       <style>{`
@@ -308,7 +273,7 @@ const CustomerDetail = () => {
       `}</style>
       <div className="container mx-auto px-4 max-w-full min-h-screen overflow-y-auto">
         {/* Header */}
-        <div className="mb-4 ">
+        <div className="mb-4">
           <div className="flex justify-between items-center py-2">
             {/* Left side: Avatar + Name + Verified */}
             <div className="flex items-center space-x-4">
@@ -425,13 +390,19 @@ const CustomerDetail = () => {
                                 autoFocus
                               />
                               <button
-                                onClick={saveEdit}
+                                onClick={() => {
+                                  updateMutation.mutate({ phone: tempValue });
+                                  setEditingField(null);
+                                }}
                                 className="text-green-600 hover:text-green-800"
                               >
                                 <Save className="h-4 w-4" />
                               </button>
                               <button
-                                onClick={cancelEdit}
+                                onClick={() => {
+                                  setEditingField(null);
+                                  setTempValue("");
+                                }}
                                 className="text-red-600 hover:text-red-800"
                               >
                                 <X className="h-4 w-4" />
@@ -532,7 +503,7 @@ const CustomerDetail = () => {
                             <div className="text-xs text-gray-500 mb-2 px-2">
                               All phone numbers:
                             </div>
-                            {customer.all_phones.map((phone, idx) => (
+                            {customer.all_phones.slice(2).map((phone, idx) => (
                               <div
                                 key={phone.id || idx}
                                 className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded"
@@ -540,7 +511,11 @@ const CustomerDetail = () => {
                                 <div className="flex items-center">
                                   <Phone className="h-3.5 w-3.5 mr-2 text-gray-400" />
                                   <span
-                                    className={`text-sm ${phone.is_primary ? "font-semibold text-blue-600" : "text-gray-700"}`}
+                                    className={`text-sm ${
+                                      phone.is_primary
+                                        ? "font-semibold text-blue-600"
+                                        : "text-gray-700"
+                                    }`}
                                   >
                                     {phone.phone}
                                   </span>
@@ -615,7 +590,9 @@ const CustomerDetail = () => {
                     </p>
                   </div>
                   <ChevronDown
-                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transform ${showAgentDropdown ? "rotate-180" : ""}`}
+                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transform ${
+                      showAgentDropdown ? "rotate-180" : ""
+                    }`}
                   />
                 </div>
                 {showAgentDropdown && (
@@ -632,7 +609,7 @@ const CustomerDetail = () => {
                           key={employee.id}
                           onClick={() => handleAgentSelect(employee.id)}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700 truncate"
-                          title={employee.username} // Tooltip for full name
+                          title={employee.username}
                         >
                           {employee.username}
                         </button>
@@ -660,36 +637,20 @@ const CustomerDetail = () => {
                       type="text"
                       value={newPhoneNumber}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, ""); // Only allow digits
+                        const value = e.target.value.replace(/\D/g, "");
                         if (value.length <= 10) {
                           setNewPhoneNumber(value);
-                          if (value.length === 10) {
-                            setPhoneError("");
-                          } else if (value.length > 0) {
-                            setPhoneError(
-                              "Phone number must be exactly 10 digits.",
-                            );
-                          } else {
-                            setPhoneError("");
-                          }
                         }
                       }}
                       placeholder="Enter new phone number"
                       className="px-2 py-1 border border-gray-300 rounded text-sm"
                       autoFocus
+                      maxLength={10}
                     />
                     <button
                       onClick={() => {
-                        if (newPhoneNumber.length < 10) {
-                          alert(
-                            "Phone number must be at least 10 digits long.",
-                          );
-                          return;
-                        }
-                        if (newPhoneNumber.length > 10) {
-                          alert(
-                            "Phone number cannot be more than 10 digits long.",
-                          );
+                        if (newPhoneNumber.length !== 10) {
+                          alert("Phone number must be exactly 10 digits.");
                           return;
                         }
                         addPhoneMutation.mutate({
@@ -710,11 +671,6 @@ const CustomerDetail = () => {
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  {phoneError && (
-                    <p className="text-red-500 text-xs mt-1 ml-1">
-                      {phoneError}
-                    </p>
-                  )}
                 </div>
               )}
               <button
@@ -725,7 +681,7 @@ const CustomerDetail = () => {
                 Call Now
               </button>
               <button
-                onClick={() => navigate(`/orders/new?customer=${customer.id}`)}
+                onClick={() => navigate(`/orders/new?customer=${customer?.id}`)}
                 className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25"
               >
                 <ShoppingBag className="h-4 w-4 mr-2" />
@@ -764,13 +720,19 @@ const CustomerDetail = () => {
                     autoFocus
                   />
                   <button
-                    onClick={saveEdit}
+                    onClick={() => {
+                      updateMutation.mutate({ company_name: tempValue });
+                      setEditingField(null);
+                    }}
                     className="text-green-600 hover:text-green-800"
                   >
                     <Save className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={cancelEdit}
+                    onClick={() => {
+                      setEditingField(null);
+                      setTempValue("");
+                    }}
                     className="text-red-600 hover:text-red-800"
                   >
                     <X className="h-4 w-4" />
@@ -782,9 +744,10 @@ const CustomerDetail = () => {
                     {customer?.company_name || "Not set"}
                   </span>
                   <button
-                    onClick={() =>
-                      startEditing("company_name", customer?.company_name)
-                    }
+                    onClick={() => {
+                      setEditingField("company_name");
+                      setTempValue(customer?.company_name || "");
+                    }}
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <Edit className="h-4 w-4" />
@@ -844,7 +807,9 @@ const CustomerDetail = () => {
                     ?.name || "Not set"}
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-gray-400 transform transition-transform ${showCustomerTypeDropdown ? "rotate-180" : ""}`}
+                  className={`w-4 h-4 text-gray-400 transform transition-transform ${
+                    showCustomerTypeDropdown ? "rotate-180" : ""
+                  }`}
                 />
               </div>
               {showCustomerTypeDropdown && (
@@ -882,13 +847,19 @@ const CustomerDetail = () => {
                     autoFocus
                   />
                   <button
-                    onClick={saveEdit}
+                    onClick={() => {
+                      updateMutation.mutate({ appointment_date: tempValue });
+                      setEditingField(null);
+                    }}
                     className="text-green-600 hover:text-green-800"
                   >
                     <Save className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={cancelEdit}
+                    onClick={() => {
+                      setEditingField(null);
+                      setTempValue("");
+                    }}
                     className="text-red-600 hover:text-red-800"
                   >
                     <X className="h-4 w-4" />
@@ -899,15 +870,13 @@ const CustomerDetail = () => {
                   <span className="font-semibold text-gray-900">
                     {customer?.appointment_date
                       ? new Date(customer.appointment_date).toLocaleDateString()
-                      : new Date(customer.created_at).toLocaleDateString()}
+                      : new Date(customer?.created_at).toLocaleDateString()}
                   </span>
                   <button
-                    onClick={() =>
-                      startEditing(
-                        "appointment_date",
-                        customer?.appointment_date || "",
-                      )
-                    }
+                    onClick={() => {
+                      setEditingField("appointment_date");
+                      setTempValue(customer?.appointment_date || "");
+                    }}
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <Edit className="h-4 w-4" />
@@ -940,13 +909,19 @@ const CustomerDetail = () => {
                     autoFocus
                   />
                   <button
-                    onClick={saveEdit}
+                    onClick={() => {
+                      updateMutation.mutate({ appointment_time: tempValue });
+                      setEditingField(null);
+                    }}
                     className="text-green-600 hover:text-green-800"
                   >
                     <Save className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={cancelEdit}
+                    onClick={() => {
+                      setEditingField(null);
+                      setTempValue("");
+                    }}
                     className="text-red-600 hover:text-red-800"
                   >
                     <X className="h-4 w-4" />
@@ -958,12 +933,10 @@ const CustomerDetail = () => {
                     {customer?.appointment_time || "Not set"}
                   </span>
                   <button
-                    onClick={() =>
-                      startEditing(
-                        "appointment_time",
-                        customer?.appointment_time || "",
-                      )
-                    }
+                    onClick={() => {
+                      setEditingField("appointment_time");
+                      setTempValue(customer?.appointment_time || "");
+                    }}
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <Edit className="h-4 w-4" />
@@ -972,6 +945,8 @@ const CustomerDetail = () => {
               )}
             </div>
           </div>
+
+          {/* Address Section */}
           {(customer?.house_flat_no ||
             customer?.wing_lane ||
             customer?.society_colony ||
@@ -980,6 +955,7 @@ const CustomerDetail = () => {
             customer?.pincode ||
             customer?.city ||
             customer?.district ||
+            customer?.tahsil ||
             customer?.state) && (
             <div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
               <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -1089,13 +1065,6 @@ const CustomerDetail = () => {
                                 ...tempAddress,
                                 pincode: value,
                               });
-                              if (value.length < 6 && value.length > 0) {
-                                setAddressError(
-                                  "Pincode must be exactly 6 digits.",
-                                );
-                              } else {
-                                setAddressError("");
-                              }
                             }}
                             className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
                             maxLength={6}
@@ -1130,6 +1099,23 @@ const CustomerDetail = () => {
                               setTempAddress({
                                 ...tempAddress,
                                 district: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Tahsil
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Tahsil"
+                            value={tempAddress.tahsil}
+                            onChange={(e) =>
+                              setTempAddress({
+                                ...tempAddress,
+                                tahsil: e.target.value,
                               })
                             }
                             className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
@@ -1174,7 +1160,7 @@ const CustomerDetail = () => {
                 ) : (
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="grid grid-cols-9 gap-1">
+                      <div className="grid grid-cols-10 gap-1">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             House No
@@ -1241,6 +1227,14 @@ const CustomerDetail = () => {
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Tahsil
+                          </label>
+                          <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                            {customer?.tahsil || "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
                             State
                           </label>
                           <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
@@ -1265,7 +1259,7 @@ const CustomerDetail = () => {
           )}
         </div>
 
-        {/* Conversation history*/}
+        {/* Conversation history - EXACTLY as you had it, just fixed the logic */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
           {/* Left container - Conversation History (60%) */}
           <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-2 h-96 lg:h-[600px] xl:h-[700px] overflow-y-auto">
@@ -1292,30 +1286,13 @@ const CustomerDetail = () => {
                   </h2>
                 </div>
               </div>
+              {/* FIXED: Edit Last Call button - Now properly works */}
               {callLogs.length > 0 &&
                 callLogs[0]?.date &&
                 new Date() - new Date(callLogs[0].date) <
                   24 * 60 * 60 * 1000 && (
                   <button
-                    onClick={() => {
-                      // Use the most recent call log (already sorted by date descending)
-                      const recentCall = callLogs[0];
-                      // Open popup with pre-populated data for editing
-                      const callData = {
-                        ...customer,
-                        // Pre-populate with existing call data
-                        notes: recentCall.note || "",
-                        selectedAssumption: recentCall.assumption || [],
-                        selectedAssumption2: recentCall.assumption2 || [],
-                        selectedAssumption3: recentCall.assumption3 || [],
-                        orderId: recentCall.order_id || "",
-                        callId: recentCall.call_id,
-                        id: recentCall.id,
-                        timer:
-                          Math.round(recentCall.duration_minutes * 60) || 0,
-                      };
-                      openPopup(callData);
-                    }}
+                    onClick={handleEditLastCall}
                     className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25 text-sm"
                   >
                     <Edit className="h-4 w-4 mr-2" />
@@ -1568,14 +1545,14 @@ const CustomerDetail = () => {
                       >
                         {" "}
                       </span>,
-                      ...curr,
+                      curr,
                     ];
                   }, [])}
               </div>
             )}
           </div>
 
-          {/* Right container - Order History (40%) */}
+          {/* Right container - Order History (40%) - Keep exactly as you had */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
             {/* Order History Section */}
             <div className="flex-none">
@@ -1691,7 +1668,6 @@ const CustomerDetail = () => {
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
                               {(() => {
-                                // Find the call log where the order was placed
                                 const matchingCall = callLogs.find(
                                   (call) =>
                                     call.order_id == order.order_id &&
