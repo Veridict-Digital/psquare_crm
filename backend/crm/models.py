@@ -122,6 +122,7 @@ class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
 
     def __str__(self):
         return self.name
@@ -149,6 +150,9 @@ class Product(models.Model):
     hsn = models.CharField(max_length=20, unique=True, blank=True, null=True)    
     title = models.CharField(max_length=100)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    category1 = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_cat1')
+    category2 = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_cat2')
+    category3 = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_cat3')
     stock_qty = models.IntegerField()
     mrp = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # MRP
     b2c_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # B2C Price
@@ -162,6 +166,16 @@ class Product(models.Model):
     gst_calculated_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # GST Calculated Amount
     use_case = models.TextField(blank=True, null=True)  # Use Case
     image = models.ImageField(upload_to='products/', blank=True, null=True)
+    image1 = models.ImageField(upload_to='products/gallery/', blank=True, null=True)
+    image2 = models.ImageField(upload_to='products/gallery/', blank=True, null=True)
+    image3 = models.ImageField(upload_to='products/gallery/', blank=True, null=True)
+    image4 = models.ImageField(upload_to='products/gallery/', blank=True, null=True)
+    video_link = models.URLField(max_length=500, blank=True, null=True)
+    brand_name = models.CharField(max_length=100, blank=True, null=True)
+    brand_category = models.CharField(max_length=100, blank=True, null=True)
+    flavour = models.CharField(max_length=100, blank=True, null=True)
+    residual = models.CharField(max_length=100, blank=True, null=True)
+
 
     def save(self, *args, **kwargs):
         if not self.pid:
@@ -194,9 +208,21 @@ class Order(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Placed')
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='Paid')
     followup_date = models.DateField(blank=True, null=True)
-    delivery_address = models.TextField(blank=True, null=True)
+    delivery_address = models.TextField(blank=True, null=True)  # Legacy - use structured fields
+    # Structured delivery fields matching Customer model
+    delivery_house_flat_no = models.CharField(max_length=50, blank=True, null=True)
+    delivery_wing_lane = models.CharField(max_length=100, blank=True, null=True)
+    delivery_society_colony = models.CharField(max_length=100, blank=True, null=True)
+    delivery_landmark = models.CharField(max_length=100, blank=True, null=True)
+    delivery_area = models.CharField(max_length=100, blank=True, null=True)
+    delivery_pincode = models.CharField(max_length=10, blank=True, null=True)
+    delivery_state = models.CharField(max_length=50, blank=True, null=True)
+    delivery_district = models.CharField(max_length=50, blank=True, null=True)
+    delivery_tahsil = models.CharField(max_length=50, blank=True, null=True)
+    delivery_city = models.CharField(max_length=50, blank=True, null=True)
     order_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
+    applied_combos = models.JSONField(default=list, blank=True)
 
     def clean(self):
         pass  # No validation for followup_date; it is now optional for all payment statuses
@@ -213,6 +239,22 @@ class Order(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
+    def get_full_delivery_address(self):
+        """Concatenate structured delivery fields for display."""
+        fields = [
+            self.delivery_house_flat_no,
+            self.delivery_wing_lane,
+            self.delivery_society_colony,
+            self.delivery_landmark,
+            self.delivery_area,
+            self.delivery_city,
+            self.delivery_district,
+            self.delivery_state,
+            self.delivery_tahsil,
+            self.delivery_pincode,
+        ]
+        return ', '.join(filter(None, fields))
+
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -220,8 +262,12 @@ class OrderItem(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    is_free = models.BooleanField(default=False)
+    is_gift = models.BooleanField(default=False)
+    combo = models.ForeignKey('ProductCombination', on_delete=models.SET_NULL, null=True, blank=True, related_name='order_items')
 
     def save(self, *args, **kwargs):
+
         # Calculate total price with inclusive GST
         # For inclusive GST: GST Amount = (unit_price * quantity * gst_rate) / (100 + gst_rate)
         # Total Price = unit_price * quantity (which already includes GST)

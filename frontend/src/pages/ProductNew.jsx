@@ -14,6 +14,8 @@ import {
   Image as ImageIcon,
   Save,
   ArrowLeft,
+  Edit,
+  Trash2,
 } from "lucide-react";
 
 const ProductNew = () => {
@@ -24,7 +26,10 @@ const ProductNew = () => {
     sku: "",
     hsn: "",
     title: "",
-    category: "",
+    category: null,
+    category1: null,
+    category2: null,
+    category3: null,
     stock_qty: 0,
     mrp: 0,
     b2c_price: 0,
@@ -37,11 +42,17 @@ const ProductNew = () => {
     gst_rate: "",
     gst_calculated_amount: 0,
     use_case: "",
+    brand_name: "",
+    brand_category: "",
+    flavour: "",
+    residual: "",
     image: null,
   });
 
   const [imagePreview, setImagePreview] = useState(null);
   const [showNewGSTRateForm, setShowNewGSTRateForm] = useState(false);
+  const [showEditGSTRateForm, setShowEditGSTRateForm] = useState(false);
+  const [selectedGSTRate, setSelectedGSTRate] = useState(null);
   const [newGSTRate, setNewGSTRate] = useState({
     name: "",
     rate: "",
@@ -49,12 +60,29 @@ const ProductNew = () => {
   });
 
   const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
-  const [newCategory, setNewCategory] = useState({ name: "", description: "" });
+  const [showNewCategory1Form, setShowNewCategory1Form] = useState(false);
+  const [showNewCategory2Form, setShowNewCategory2Form] = useState(false);
+  const [showNewCategory3Form, setShowNewCategory3Form] = useState(false);
+  
+  const [showEditCategoryForm, setShowEditCategoryForm] = useState(false);
+  const [showEditCategory1Form, setShowEditCategory1Form] = useState(false);
+  const [showEditCategory2Form, setShowEditCategory2Form] = useState(false);
+  const [showEditCategory3Form, setShowEditCategory3Form] = useState(false);
+  
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategoryLevel, setSelectedCategoryLevel] = useState(null);
+  
+  const [newCategory, setNewCategory] = useState({ name: "", description: "", parent: null });
+  const [newCategory1, setNewCategory1] = useState({ name: "", description: "", parent: null });
+  const [newCategory2, setNewCategory2] = useState({ name: "", description: "", parent: null });
+  const [newCategory3, setNewCategory3] = useState({ name: "", description: "", parent: null });
 
   const [showNewUnitForm, setShowNewUnitForm] = useState(false);
+  const [showEditUnitForm, setShowEditUnitForm] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState(null);
   const [newUnit, setNewUnit] = useState({ name: "", description: "" });
 
-  const { data: gstRates } = useQuery({
+  const { data: gstRates, refetch: refetchGSTRates } = useQuery({
     queryKey: ["gstRates"],
     queryFn: async () => {
       const response = await axios.get("/api/gstrates/");
@@ -62,7 +90,7 @@ const ProductNew = () => {
     },
   });
 
-  const { data: categories } = useQuery({
+  const { data: categories, refetch: refetchCategories } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
       const response = await axios.get("/api/categories/");
@@ -70,10 +98,40 @@ const ProductNew = () => {
     },
   });
 
-  const { data: units } = useQuery({
+  const { data: units, refetch: refetchUnits } = useQuery({
     queryKey: ["units"],
     queryFn: async () => {
       const response = await axios.get("/api/units/");
+      return response.data;
+    },
+  });
+
+  const { data: categories1, refetch: refetchCategories1, isError: categories1Error, error: categories1ErrorMsg } = useQuery({
+    enabled: !!parseInt(formData.category),
+    queryKey: ["categories1", parseInt(formData.category) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(formData.category);
+      const response = await axios.get(`/api/categories/?parent_id=${parentId}`);
+      return response.data;
+    },
+  });
+
+  const { data: categories2, refetch: refetchCategories2, isError: categories2Error, error: categories2ErrorMsg } = useQuery({
+    enabled: !!parseInt(formData.category1),
+    queryKey: ["categories2", parseInt(formData.category1) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(formData.category1);
+      const response = await axios.get(`/api/categories/?parent_id=${parentId}`);
+      return response.data;
+    },
+  });
+
+  const { data: categories3, refetch: refetchCategories3, isError: categories3Error, error: categories3ErrorMsg } = useQuery({
+    enabled: !!parseInt(formData.category2),
+    queryKey: ["categories3", parseInt(formData.category2) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(formData.category2);
+      const response = await axios.get(`/api/categories/?parent_id=${parentId}`);
       return response.data;
     },
   });
@@ -90,8 +148,6 @@ const ProductNew = () => {
       
       const formDataToSend = new FormData();
       
-      // IMPORTANT: Append fields in a specific order
-      // First append all non-file fields
       Object.keys(data).forEach((key) => {
         const value = data[key];
         
@@ -101,7 +157,6 @@ const ProductNew = () => {
         }
       });
       
-      // Then append the image file LAST (important!)
       if (data.image instanceof File) {
         console.log("✅ Appending image file:", {
           name: data.image.name,
@@ -113,7 +168,6 @@ const ProductNew = () => {
         console.log("❌ No valid image file to append");
       }
       
-      // Log final FormData contents
       console.log("===== FINAL FORMDATA CONTENTS =====");
       for (let pair of formDataToSend.entries()) {
         if (pair[0] === 'image') {
@@ -127,7 +181,6 @@ const ProductNew = () => {
       try {
         console.log("===== SENDING REQUEST =====");
         
-        // Create a new axios instance for this request to avoid any interceptors issues
         const response = await axios({
           method: 'post',
           url: '/api/products/',
@@ -160,54 +213,120 @@ const ProductNew = () => {
     },
   });
 
+  // GST Rate CRUD operations
   const gstRateMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await axios.post("/api/gstrates/", data);
-      return response.data;
+    mutationFn: async ({ id, data, method }) => {
+      if (method === 'POST') {
+        const response = await axios.post("/api/gstrates/", data);
+        return response.data;
+      } else if (method === 'PUT') {
+        const response = await axios.put(`/api/gstrates/${id}/`, data);
+        return response.data;
+      } else if (method === 'DELETE') {
+        const response = await axios.delete(`/api/gstrates/${id}/`);
+        return response.data;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["gstRates"]);
+    onSuccess: (data, variables) => {
+      refetchGSTRates();
       setShowNewGSTRateForm(false);
+      setShowEditGSTRateForm(false);
       setNewGSTRate({ name: "", rate: "", description: "" });
-      toast.success("GST Rate added successfully");
+      setSelectedGSTRate(null);
+      if (variables.method === 'POST') {
+        toast.success("GST Rate added successfully");
+      } else if (variables.method === 'PUT') {
+        toast.success("GST Rate updated successfully");
+      } else if (variables.method === 'DELETE') {
+        toast.success("GST Rate deleted successfully");
+      }
     },
     onError: (error) => {
-      toast.error("Failed to add GST Rate");
-      console.error("Error adding GST Rate:", error);
+      toast.error("Failed to process GST Rate");
+      console.error("Error processing GST Rate:", error);
     },
   });
 
+  // Category CRUD operations
   const categoryMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await axios.post("/api/categories/", data);
-      return response.data;
+    mutationFn: async ({ id, data, method, categoryType }) => {
+      if (method === 'POST') {
+        const response = await axios.post("/api/categories/", data);
+        return response.data;
+      } else if (method === 'PUT') {
+        const response = await axios.put(`/api/categories/${id}/`, data);
+        return response.data;
+      } else if (method === 'DELETE') {
+        const response = await axios.delete(`/api/categories/${id}/`);
+        return response.data;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["categories"]);
+    onSuccess: (data, variables) => {
+      refetchCategories();
+      refetchCategories1();
+      refetchCategories2();
+      refetchCategories3();
+      
       setShowNewCategoryForm(false);
-      setNewCategory({ name: "", description: "" });
-      toast.success("Category added successfully");
+      setShowNewCategory1Form(false);
+      setShowNewCategory2Form(false);
+      setShowNewCategory3Form(false);
+      setShowEditCategoryForm(false);
+      setShowEditCategory1Form(false);
+      setShowEditCategory2Form(false);
+      setShowEditCategory3Form(false);
+      
+      setNewCategory({ name: "", description: "", parent: null });
+      setNewCategory1({ name: "", description: "", parent: null });
+      setNewCategory2({ name: "", description: "", parent: null });
+      setNewCategory3({ name: "", description: "", parent: null });
+      setSelectedCategory(null);
+      
+      if (variables.method === 'POST') {
+        toast.success("Category added successfully");
+      } else if (variables.method === 'PUT') {
+        toast.success("Category updated successfully");
+      } else if (variables.method === 'DELETE') {
+        toast.success("Category deleted successfully");
+      }
     },
     onError: (error) => {
-      toast.error("Failed to add Category");
-      console.error("Error adding Category:", error);
+      toast.error("Failed to process Category");
+      console.error("Error processing Category:", error);
     },
   });
 
+  // Unit CRUD operations
   const unitMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await axios.post("/api/units/", data);
-      return response.data;
+    mutationFn: async ({ id, data, method }) => {
+      if (method === 'POST') {
+        const response = await axios.post("/api/units/", data);
+        return response.data;
+      } else if (method === 'PUT') {
+        const response = await axios.put(`/api/units/${id}/`, data);
+        return response.data;
+      } else if (method === 'DELETE') {
+        const response = await axios.delete(`/api/units/${id}/`);
+        return response.data;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["units"]);
+    onSuccess: (data, variables) => {
+      refetchUnits();
       setShowNewUnitForm(false);
+      setShowEditUnitForm(false);
       setNewUnit({ name: "", description: "" });
-      toast.success("Unit added successfully");
+      setSelectedUnit(null);
+      if (variables.method === 'POST') {
+        toast.success("Unit added successfully");
+      } else if (variables.method === 'PUT') {
+        toast.success("Unit updated successfully");
+      } else if (variables.method === 'DELETE') {
+        toast.success("Unit deleted successfully");
+      }
     },
     onError: (error) => {
-      toast.error("Failed to add Unit");
-      console.error("Error adding Unit:", error);
+      toast.error("Failed to process Unit");
+      console.error("Error processing Unit:", error);
     },
   });
 
@@ -217,7 +336,6 @@ const ProductNew = () => {
     console.log(`handleChange - ${name}:`, { type, value, files: files?.length });
     
     if (type === "file") {
-      // Handle file input
       if (files && files.length > 0) {
         const file = files[0];
         console.log("File selected details:", {
@@ -227,7 +345,6 @@ const ProductNew = () => {
           lastModified: new Date(file.lastModified).toISOString()
         });
         
-        // IMPORTANT: Create a new File object to ensure it's preserved
         const fileObj = new File([file], file.name, { type: file.type });
         
         setFormData(prev => ({ 
@@ -235,7 +352,6 @@ const ProductNew = () => {
           [name]: fileObj 
         }));
         
-        // Create image preview
         const reader = new FileReader();
         reader.onloadend = () => {
           console.log("Image preview created");
@@ -248,13 +364,11 @@ const ProductNew = () => {
         setImagePreview(null);
       }
     } else if (type === "number") {
-      // Handle number inputs
       setFormData(prev => ({ 
         ...prev, 
         [name]: value === "" ? "" : parseFloat(value) || 0 
       }));
     } else {
-      // Handle text inputs
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
@@ -262,7 +376,6 @@ const ProductNew = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Validate required fields
     if (!formData.sku || !formData.hsn || !formData.title || !formData.category || !formData.gst_rate) {
       toast.error("Please fill in all required fields");
       return;
@@ -285,16 +398,109 @@ const ProductNew = () => {
 
   const handleGSTRateSubmit = (e) => {
     e.preventDefault();
-    gstRateMutation.mutate(newGSTRate);
+    gstRateMutation.mutate({ data: newGSTRate, method: 'POST' });
   };
 
-  const handleCategoryChange = (e) => {
-    setNewCategory({ ...newCategory, [e.target.name]: e.target.value });
+  const handleEditGSTRate = (rate) => {
+    setSelectedGSTRate(rate);
+    setNewGSTRate({
+      name: rate.name,
+      rate: rate.rate,
+      description: rate.description || "",
+    });
+    setShowEditGSTRateForm(true);
   };
 
-  const handleCategorySubmit = (e) => {
+  const handleUpdateGSTRate = (e) => {
     e.preventDefault();
-    categoryMutation.mutate(newCategory);
+    gstRateMutation.mutate({ 
+      id: selectedGSTRate.id, 
+      data: newGSTRate, 
+      method: 'PUT' 
+    });
+  };
+
+  const handleDeleteGSTRate = (id) => {
+    if (window.confirm("Are you sure you want to delete this GST Rate?")) {
+      gstRateMutation.mutate({ id, method: 'DELETE' });
+    }
+  };
+
+  const handleCategoryChange = (e, categoryType) => {
+    const { name, value } = e.target;
+    if (categoryType === 'main') {
+      setNewCategory({ ...newCategory, [name]: value });
+    } else if (categoryType === 'level1') {
+      setNewCategory1({ ...newCategory1, [name]: value });
+    } else if (categoryType === 'level2') {
+      setNewCategory2({ ...newCategory2, [name]: value });
+    } else if (categoryType === 'level3') {
+      setNewCategory3({ ...newCategory3, [name]: value });
+    }
+  };
+
+  const handleCategorySubmit = (e, categoryType) => {
+    e.preventDefault();
+    let dataToSubmit = {};
+    
+    if (categoryType === 'main') {
+      dataToSubmit = newCategory;
+    } else if (categoryType === 'level1') {
+      dataToSubmit = { ...newCategory1, parent: formData.category };
+    } else if (categoryType === 'level2') {
+      dataToSubmit = { ...newCategory2, parent: formData.category1 };
+    } else if (categoryType === 'level3') {
+      dataToSubmit = { ...newCategory3, parent: formData.category2 };
+    }
+    
+    categoryMutation.mutate({ data: dataToSubmit, method: 'POST', categoryType });
+  };
+
+  const handleEditCategory = (category, level) => {
+    setSelectedCategory(category);
+    setSelectedCategoryLevel(level);
+    
+    if (level === 'main') {
+      setNewCategory({ name: category.name, description: category.description || "", parent: category.parent });
+      setShowEditCategoryForm(true);
+    } else if (level === 'level1') {
+      setNewCategory1({ name: category.name, description: category.description || "", parent: category.parent });
+      setShowEditCategory1Form(true);
+    } else if (level === 'level2') {
+      setNewCategory2({ name: category.name, description: category.description || "", parent: category.parent });
+      setShowEditCategory2Form(true);
+    } else if (level === 'level3') {
+      setNewCategory3({ name: category.name, description: category.description || "", parent: category.parent });
+      setShowEditCategory3Form(true);
+    }
+  };
+
+  const handleUpdateCategory = (e, level) => {
+    e.preventDefault();
+    let dataToSubmit = {};
+    
+    if (level === 'main') {
+      dataToSubmit = newCategory;
+    } else if (level === 'level1') {
+      dataToSubmit = { ...newCategory1, parent: formData.category };
+    } else if (level === 'level2') {
+      dataToSubmit = { ...newCategory2, parent: formData.category1 };
+    } else if (level === 'level3') {
+      dataToSubmit = { ...newCategory3, parent: formData.category2 };
+    }
+    
+    categoryMutation.mutate({ 
+      id: selectedCategory.id, 
+      data: dataToSubmit, 
+      method: 'PUT',
+      categoryType: level
+    });
+  };
+
+  const handleDeleteCategory = (id) => {
+    if (window.confirm("Are you sure you want to delete this Category? This will also delete all sub-categories.")) {
+      categoryMutation.mutate({ id, method: 'DELETE' });
+    }
   };
 
   const handleUnitChange = (e) => {
@@ -303,19 +509,102 @@ const ProductNew = () => {
 
   const handleUnitSubmit = (e) => {
     e.preventDefault();
-    unitMutation.mutate(newUnit);
+    unitMutation.mutate({ data: newUnit, method: 'POST' });
+  };
+
+  const handleEditUnit = (unit) => {
+    setSelectedUnit(unit);
+    setNewUnit({ name: unit.name, description: unit.description || "" });
+    setShowEditUnitForm(true);
+  };
+
+  const handleUpdateUnit = (e) => {
+    e.preventDefault();
+    unitMutation.mutate({ 
+      id: selectedUnit.id, 
+      data: newUnit, 
+      method: 'PUT' 
+    });
+  };
+
+  const handleDeleteUnit = (id) => {
+    if (window.confirm("Are you sure you want to delete this Unit?")) {
+      unitMutation.mutate({ id, method: 'DELETE' });
+    }
   };
 
   const removeImage = () => {
     console.log("Removing image");
     setFormData(prev => ({ ...prev, image: null }));
     setImagePreview(null);
-    // Reset file input
     const fileInput = document.getElementById('image-upload');
     if (fileInput) {
       fileInput.value = '';
     }
   };
+
+  // Helper component for select with edit/delete buttons
+  const SelectWithActions = ({ label, name, value, options, onChange, required, onAdd, onEdit, onDelete, showAdd = true }) => (
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-gray-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <div className="flex gap-2">
+        <select
+          name={name}
+          value={value}
+          onChange={onChange}
+          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          required={required}
+        >
+          <option value="">Select {label}</option>
+          {options?.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name} {option.rate && `(${option.rate}%)`}
+            </option>
+          ))}
+        </select>
+        {showAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+            title={`Add New ${label}`}
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+      {value && options && (
+        <div className="flex gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              const selected = options.find(opt => opt.id === parseInt(value));
+              if (selected) onEdit(selected);
+            }}
+            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            <Edit className="w-4 h-4" />
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const selected = options.find(opt => opt.id === parseInt(value));
+              if (selected && window.confirm(`Are you sure you want to delete this ${label}?`)) {
+                onDelete(selected.id);
+              }
+            }}
+            className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 md:p-2">
@@ -335,7 +624,7 @@ const ProductNew = () => {
         </div>
 
         {/* Main Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-2 md:p-8">
+        <div className="bg-white rounded-2xl shadow-xl md:p-8">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
             <Tag className="w-6 h-6 text-blue-500" />
             <h2 className="text-xl font-bold text-gray-800">
@@ -361,22 +650,9 @@ const ProductNew = () => {
                 />
               </div>
               
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  HSN No <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="hsn"
-                  value={formData.hsn}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter HSN no"
-                  required
-                />
-              </div>
+              
 
-              <div className="space-y-2 md:col-span-3">
+              <div className="space-y-2 md:col-span-4">
                 <label className="block text-sm font-semibold text-gray-700">
                   Product Name <span className="text-red-500">*</span>
                 </label>
@@ -394,35 +670,253 @@ const ProductNew = () => {
 
             {/* Category, Stock, Unit, GST */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              {/* Main Category */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   Category <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories?.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowNewCategoryForm(true)}
-                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium mt-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add New Category
-                </button>
+                <div className="flex gap-2">
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    {categories?.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategoryForm(true)}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+                    title="Add New Category"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {formData.category && categories && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories.find(cat => cat.id === parseInt(formData.category));
+                        if (selected) handleEditCategory(selected, 'main');
+                      }}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories.find(cat => cat.id === parseInt(formData.category));
+                        if (selected && window.confirm("Are you sure you want to delete this Category? This will also delete all sub-categories.")) {
+                          handleDeleteCategory(selected.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
 
+              {/* Category 1 */}
               <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Category 1
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    name="category1"
+                    value={formData.category1 || ''}
+                    onChange={handleChange}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={!formData.category}
+                  >
+                    <option value="">Select Category 1</option>
+                    {categories1?.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategory1Form(true)}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Add New Category 1"
+                    disabled={!formData.category}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {categories1Error && (
+                  <div className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {categories1ErrorMsg?.message || 'Failed to load categories'}
+                  </div>
+                )}
+                {formData.category1 && categories1 && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories1.find(cat => cat.id === parseInt(formData.category1));
+                        if (selected) handleEditCategory(selected, 'level1');
+                      }}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories1.find(cat => cat.id === parseInt(formData.category1));
+                        if (selected && window.confirm("Are you sure you want to delete this Category?")) {
+                          handleDeleteCategory(selected.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Category 2 */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Category 2
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    name="category2"
+                    value={formData.category2}
+                    onChange={handleChange}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={!formData.category1}
+                  >
+                    <option value="">Select Category 2</option>
+                    {categories2?.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategory2Form(true)}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Add New Category 2"
+                    disabled={!formData.category1}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {formData.category2 && categories2 && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories2.find(cat => cat.id === parseInt(formData.category2));
+                        if (selected) handleEditCategory(selected, 'level2');
+                      }}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories2.find(cat => cat.id === parseInt(formData.category2));
+                        if (selected && window.confirm("Are you sure you want to delete this Category?")) {
+                          handleDeleteCategory(selected.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Category 3 */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Category 3
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    name="category3"
+                    value={formData.category3}
+                    onChange={handleChange}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={!formData.category2}
+                  >
+                    <option value="">Select Category 3</option>
+                    {categories3?.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategory3Form(true)}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Add New Category 3"
+                    disabled={!formData.category2}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {formData.category3 && categories3 && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories3.find(cat => cat.id === parseInt(formData.category3));
+                        if (selected) handleEditCategory(selected, 'level3');
+                      }}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = categories3.find(cat => cat.id === parseInt(formData.category3));
+                        if (selected && window.confirm("Are you sure you want to delete this Category?")) {
+                          handleDeleteCategory(selected.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Stock Quantity */}
+              {/* <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   Stock Quantity <span className="text-red-500">*</span>
                 </label>
@@ -435,66 +929,157 @@ const ProductNew = () => {
                   min="0"
                   required
                 />
-              </div>
+              </div> */}
 
-              <div className="space-y-2">
+              {/* Unit */}
+              {/* <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   Unit
                 </label>
-                <select
-                  name="unit"
-                  value={formData.unit}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Unit</option>
-                  {units?.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowNewUnitForm(true)}
-                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium mt-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add New Unit
-                </button>
-              </div>
+                <div className="flex gap-2">
+                  <select
+                    name="unit"
+                    value={formData.unit}
+                    onChange={handleChange}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select Unit</option>
+                    {units?.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewUnitForm(true)}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+                    title="Add New Unit"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {formData.unit && units && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = units.find(u => u.id === parseInt(formData.unit));
+                        if (selected) handleEditUnit(selected);
+                      }}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = units.find(u => u.id === parseInt(formData.unit));
+                        if (selected && window.confirm("Are you sure you want to delete this Unit?")) {
+                          handleDeleteUnit(selected.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div> */}
 
+              {/* GST Rate */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   GST Rate <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="gst_rate"
-                  value={formData.gst_rate}
+                <div className="flex gap-2">
+                  <select
+                    name="gst_rate"
+                    value={formData.gst_rate}
+                    onChange={handleChange}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select GST Rate</option>
+                    {gstRates?.map((rate) => (
+                      <option key={rate.id} value={rate.id}>
+                        {rate.name} ({rate.rate}%)
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewGSTRateForm(true)}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+                    title="Add New GST Rate"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {formData.gst_rate && gstRates && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = gstRates.find(r => r.id === parseInt(formData.gst_rate));
+                        if (selected) handleEditGSTRate(selected);
+                      }}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selected = gstRates.find(r => r.id === parseInt(formData.gst_rate));
+                        if (selected && window.confirm("Are you sure you want to delete this GST Rate?")) {
+                          handleDeleteGSTRate(selected.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  HSN No <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="hsn"
+                  value={formData.hsn}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter HSN no"
                   required
-                >
-                  <option value="">Select GST Rate</option>
-                  {gstRates?.map((rate) => (
-                    <option key={rate.id} value={rate.id}>
-                      {rate.rate}%
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowNewGSTRateForm(true)}
-                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium mt-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add New GST Rate
-                </button>
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Use Case
+                </label>
+                <textarea
+                  name="use_case"
+                  value={formData.use_case}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows="1"
+                  placeholder="Describe product usage scenarios..."
+                />
               </div>
             </div>
 
+            {/* Rest of the form remains the same */}
             {/* Pricing Section */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            {/* <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   Purchase Price
@@ -585,10 +1170,10 @@ const ProductNew = () => {
                   />
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Product Details */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   Product Volume
@@ -619,91 +1204,151 @@ const ProductNew = () => {
                   min="0"
                   placeholder="e.g., 1.5"
                 />
+              </div>              
+            </div> */}
+
+            {/* Brand & Product Details */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Brand Name
+                </label>
+                <input
+                  type="text"
+                  name="brand_name"
+                  value={formData.brand_name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Coca Cola"
+                />
               </div>
 
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
-                  Use Case
+                  Brand Category
                 </label>
-                <textarea
-                  name="use_case"
-                  value={formData.use_case}
+                <input
+                  type="text"
+                  name="brand_category"
+                  value={formData.brand_category}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  rows="1"
-                  placeholder="Describe product usage scenarios..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Soft Drinks"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Flavour
+                </label>
+                <input
+                  type="text"
+                  name="flavour"
+                  value={formData.flavour}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Classic"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Residual
+                </label>
+                <input
+                  type="text"
+                  name="residual"
+                  value={formData.residual}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Carbonated"
                 />
               </div>
             </div>
 
-            {/* Image Upload */}
+            {/* Media Gallery */}
             <div className="mb-8">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Product Image
+                Product Media Gallery
               </label>
-              <div className={`border-2 border-dashed rounded-2xl p-2 text-center transition-colors ${
-                imagePreview ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-400'
-              }`}>
-                <input
-                  type="file"
-                  id="image-upload"
-                  name="image"
-                  onChange={handleChange}
-                  className="hidden"
-                  accept="image/*"
-                />
-                
-                <div className="flex flex-col items-center justify-center gap-4">
-                  {imagePreview ? (
-                    <>
-                      <div className="w-32 h-32 rounded-lg overflow-hidden border-2 border-green-300">
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview"
-                          className="w-full h-full object-cover"
+              
+              <div className="space-y-4">
+                {/* 4 Image Uploads */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1,2,3,4].map((i) => (
+                    <div key={i} className="space-y-2">
+                      <label className="block text-xs font-semibold text-gray-700">
+                        Image {i}
+                      </label>
+                      <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors h-32 flex flex-col items-center justify-center ${
+                        formData[`image${i}`] ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                      }`}>
+                        <input
+                          type="file"
+                          id={`image${i}-upload`}
+                          name={`image${i}`}
+                          onChange={handleChange}
+                          className="hidden"
+                          accept="image/*"
                         />
+                        {formData[`image${i}`] ? (
+                          <>
+                            <img 
+                              src={URL.createObjectURL(formData[`image${i}`])} 
+                              alt={`Preview ${i}`}
+                              className="w-full h-20 object-cover rounded-lg mb-1"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData(prev => ({ ...prev, [`image${i}`]: null }));
+                                document.getElementById(`image${i}-upload`).value = '';
+                              }}
+                              className="text-xs text-red-500 hover:text-red-600"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="w-8 h-8 text-gray-400 mb-1" />
+                            <p className="text-xs text-gray-500">Upload Image {i}</p>
+                          </>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {formData.image?.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {(formData.image?.size / 1024).toFixed(2)} KB
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="w-16 h-16 text-gray-400" />
-                      <p className="text-sm text-gray-500">
-                        Click to upload product image
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        PNG, JPG, GIF up to 5MB
-                      </p>
-                    </>
-                  )}
-                  
-                  <div className="flex gap-3">
-                    <label 
-                      htmlFor="image-upload"
-                      className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-medium transition-colors inline-flex items-center gap-2"
-                    >
-                      <Upload className="w-5 h-5" />
-                      {imagePreview ? 'Change Image' : 'Choose File'}
-                    </label>
-                    
-                    {imagePreview && (
-                      <button
-                        type="button"
-                        onClick={removeImage}
-                        className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-medium transition-colors inline-flex items-center gap-2"
+                      <label 
+                        htmlFor={`image${i}-upload`}
+                        className="cursor-pointer block w-full bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 px-2 rounded-lg text-center transition-colors"
                       >
-                        <X className="w-5 h-5" />
-                        Remove
-                      </button>
-                    )}
-                  </div>
+                        Choose Image {i}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Video Link */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Video Link (YouTube etc.)
+                  </label>
+                  <input
+                    type="url"
+                    name="video_link"
+                    value={formData.video_link || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://youtube.com/watch?v=..."
+                  />
+                  {formData.video_link && (
+                    <a 
+                      href={formData.video_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-sm underline block"
+                    >
+                      🔗 Open Video Link
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -736,7 +1381,7 @@ const ProductNew = () => {
       {showNewGSTRateForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="p-2">
+            <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
@@ -828,11 +1473,109 @@ const ProductNew = () => {
         </div>
       )}
 
-      {/* Add New Category Modal */}
+      {/* Edit GST Rate Modal */}
+      {showEditGSTRateForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Percent className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Edit GST Rate</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditGSTRateForm(false);
+                    setNewGSTRate({ name: "", rate: "", description: "" });
+                    setSelectedGSTRate(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateGSTRate} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Rate Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newGSTRate.name}
+                    onChange={handleGSTRateChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Standard GST"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Rate (%) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="rate"
+                      value={newGSTRate.rate}
+                      onChange={handleGSTRateChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      placeholder="18.00"
+                      required
+                    />
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newGSTRate.description}
+                    onChange={handleGSTRateChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                    placeholder="Optional description..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditGSTRateForm(false);
+                      setNewGSTRate({ name: "", rate: "", description: "" });
+                      setSelectedGSTRate(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={gstRateMutation.isLoading}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {gstRateMutation.isLoading ? "Updating..." : "Update Rate"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Category Modal (Main Category) */}
       {showNewCategoryForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="p-2">
+            <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-green-100 rounded-lg">
@@ -843,7 +1586,7 @@ const ProductNew = () => {
                 <button
                   onClick={() => {
                     setShowNewCategoryForm(false);
-                    setNewCategory({ name: "", description: "" });
+                    setNewCategory({ name: "", description: "", parent: null });
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -851,7 +1594,7 @@ const ProductNew = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleCategorySubmit} className="space-y-4">
+              <form onSubmit={(e) => handleCategorySubmit(e, 'main')} className="space-y-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Category Name <span className="text-red-500">*</span>
@@ -860,7 +1603,7 @@ const ProductNew = () => {
                     type="text"
                     name="name"
                     value={newCategory.name}
-                    onChange={handleCategoryChange}
+                    onChange={(e) => handleCategoryChange(e, 'main')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Electronics"
                     required
@@ -873,7 +1616,7 @@ const ProductNew = () => {
                   <textarea
                     name="description"
                     value={newCategory.description}
-                    onChange={handleCategoryChange}
+                    onChange={(e) => handleCategoryChange(e, 'main')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows="3"
                     placeholder="Describe the category..."
@@ -884,7 +1627,7 @@ const ProductNew = () => {
                     type="button"
                     onClick={() => {
                       setShowNewCategoryForm(false);
-                      setNewCategory({ name: "", description: "" });
+                      setNewCategory({ name: "", description: "", parent: null });
                     }}
                     className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
                   >
@@ -904,11 +1647,543 @@ const ProductNew = () => {
         </div>
       )}
 
+      {/* Add New Category 1 Modal */}
+      {showNewCategory1Form && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Tag className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Add Category 1</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNewCategory1Form(false);
+                    setNewCategory1({ name: "", description: "", parent: null });
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => handleCategorySubmit(e, 'level1')} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newCategory1.name}
+                    onChange={(e) => handleCategoryChange(e, 'level1')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Mobile Phones"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newCategory1.description}
+                    onChange={(e) => handleCategoryChange(e, 'level1')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                    placeholder="Describe the category..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewCategory1Form(false);
+                      setNewCategory1({ name: "", description: "", parent: null });
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={categoryMutation.isLoading}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {categoryMutation.isLoading ? "Adding..." : "Add Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Category 2 Modal */}
+      {showNewCategory2Form && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Tag className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Add Category 2</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNewCategory2Form(false);
+                    setNewCategory2({ name: "", description: "", parent: null });
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => handleCategorySubmit(e, 'level2')} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newCategory2.name}
+                    onChange={(e) => handleCategoryChange(e, 'level2')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Smartphones"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newCategory2.description}
+                    onChange={(e) => handleCategoryChange(e, 'level2')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                    placeholder="Describe the category..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewCategory2Form(false);
+                      setNewCategory2({ name: "", description: "", parent: null });
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={categoryMutation.isLoading}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {categoryMutation.isLoading ? "Adding..." : "Add Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Category 3 Modal */}
+      {showNewCategory3Form && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Tag className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Add Category 3</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNewCategory3Form(false);
+                    setNewCategory3({ name: "", description: "", parent: null });
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => handleCategorySubmit(e, 'level3')} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newCategory3.name}
+                    onChange={(e) => handleCategoryChange(e, 'level3')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Android Phones"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newCategory3.description}
+                    onChange={(e) => handleCategoryChange(e, 'level3')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                    placeholder="Describe the category..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewCategory3Form(false);
+                      setNewCategory3({ name: "", description: "", parent: null });
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={categoryMutation.isLoading}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {categoryMutation.isLoading ? "Adding..." : "Add Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {showEditCategoryForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Edit className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Edit Category</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditCategoryForm(false);
+                    setNewCategory({ name: "", description: "", parent: null });
+                    setSelectedCategory(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => handleUpdateCategory(e, 'main')} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newCategory.name}
+                    onChange={(e) => handleCategoryChange(e, 'main')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newCategory.description}
+                    onChange={(e) => handleCategoryChange(e, 'main')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditCategoryForm(false);
+                      setNewCategory({ name: "", description: "", parent: null });
+                      setSelectedCategory(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={categoryMutation.isLoading}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {categoryMutation.isLoading ? "Updating..." : "Update Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category 1 Modal */}
+      {showEditCategory1Form && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Edit className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Edit Category 1</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditCategory1Form(false);
+                    setNewCategory1({ name: "", description: "", parent: null });
+                    setSelectedCategory(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => handleUpdateCategory(e, 'level1')} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newCategory1.name}
+                    onChange={(e) => handleCategoryChange(e, 'level1')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newCategory1.description}
+                    onChange={(e) => handleCategoryChange(e, 'level1')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditCategory1Form(false);
+                      setNewCategory1({ name: "", description: "", parent: null });
+                      setSelectedCategory(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={categoryMutation.isLoading}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {categoryMutation.isLoading ? "Updating..." : "Update Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category 2 Modal */}
+      {showEditCategory2Form && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Edit className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Edit Category 2</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditCategory2Form(false);
+                    setNewCategory2({ name: "", description: "", parent: null });
+                    setSelectedCategory(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => handleUpdateCategory(e, 'level2')} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newCategory2.name}
+                    onChange={(e) => handleCategoryChange(e, 'level2')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newCategory2.description}
+                    onChange={(e) => handleCategoryChange(e, 'level2')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditCategory2Form(false);
+                      setNewCategory2({ name: "", description: "", parent: null });
+                      setSelectedCategory(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={categoryMutation.isLoading}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {categoryMutation.isLoading ? "Updating..." : "Update Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category 3 Modal */}
+      {showEditCategory3Form && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Edit className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Edit Category 3</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditCategory3Form(false);
+                    setNewCategory3({ name: "", description: "", parent: null });
+                    setSelectedCategory(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => handleUpdateCategory(e, 'level3')} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newCategory3.name}
+                    onChange={(e) => handleCategoryChange(e, 'level3')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newCategory3.description}
+                    onChange={(e) => handleCategoryChange(e, 'level3')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditCategory3Form(false);
+                      setNewCategory3({ name: "", description: "", parent: null });
+                      setSelectedCategory(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={categoryMutation.isLoading}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {categoryMutation.isLoading ? "Updating..." : "Update Category"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add New Unit Modal */}
       {showNewUnitForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="p-2">
+            <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-100 rounded-lg">
@@ -972,6 +2247,82 @@ const ProductNew = () => {
                     className="flex-1 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {unitMutation.isLoading ? "Adding..." : "Add Unit"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Unit Modal */}
+      {showEditUnitForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Edit className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Edit Unit</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditUnitForm(false);
+                    setNewUnit({ name: "", description: "" });
+                    setSelectedUnit(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateUnit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Unit Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newUnit.name}
+                    onChange={handleUnitChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={newUnit.description}
+                    onChange={handleUnitChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditUnitForm(false);
+                      setNewUnit({ name: "", description: "" });
+                      setSelectedUnit(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={unitMutation.isLoading}
+                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-medium px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {unitMutation.isLoading ? "Updating..." : "Update Unit"}
                   </button>
                 </div>
               </form>

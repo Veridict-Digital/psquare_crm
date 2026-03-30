@@ -30,11 +30,14 @@ const ProductEdit = () => {
     },
   });
 
-  const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({
     sku: "",
     hsn: "",
     title: "",
     category: "",
+    category1: "",
+    category2: "",
+    category3: "",
     stock_qty: 0,
     mrp: 0,
     b2c_price: 0,
@@ -47,11 +50,22 @@ const ProductEdit = () => {
     gst_rate: "",
     gst_calculated_amount: 0,
     use_case: "",
-    image: null,
+    brand_name: "",
+    brand_category: "",
+    flavour: "",
+    residual: "",
+    image1: null,
+    image2: null,
+    image3: null,
+    image4: null,
+    video_link: "",
+    image: null, // Keep for compatibility
   });
 
+  const [imageUrls, setImageUrls] = useState({});
   const [imagePreview, setImagePreview] = useState(null);
   const [currentImageUrl, setCurrentImageUrl] = useState(null);
+
   const [showNewGSTRateForm, setShowNewGSTRateForm] = useState(false);
   const [newGSTRate, setNewGSTRate] = useState({
     name: "",
@@ -60,7 +74,14 @@ const ProductEdit = () => {
   });
 
   const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
-  const [newCategory, setNewCategory] = useState({ name: "", description: "" });
+  const [showNewCategory1Form, setShowNewCategory1Form] = useState(false);
+  const [showNewCategory2Form, setShowNewCategory2Form] = useState(false);
+  const [showNewCategory3Form, setShowNewCategory3Form] = useState(false);
+  
+  const [newCategory, setNewCategory] = useState({ name: "", description: "", parent: null });
+  const [newCategory1, setNewCategory1] = useState({ name: "", description: "", parent: null });
+  const [newCategory2, setNewCategory2] = useState({ name: "", description: "", parent: null });
+  const [newCategory3, setNewCategory3] = useState({ name: "", description: "", parent: null });
 
   const [showNewUnitForm, setShowNewUnitForm] = useState(false);
   const [newUnit, setNewUnit] = useState({ name: "", description: "" });
@@ -81,6 +102,33 @@ const ProductEdit = () => {
     },
   });
 
+  const { data: categories1 } = useQuery({
+    enabled: !!formData.category,
+    queryKey: ["categories1", formData.category],
+    queryFn: async () => {
+      const response = await axios.get(`/api/categories/?parent_id=${formData.category}`);
+      return response.data;
+    },
+  });
+
+  const { data: categories2 } = useQuery({
+    enabled: !!formData.category1,
+    queryKey: ["categories2", formData.category1],
+    queryFn: async () => {
+      const response = await axios.get(`/api/categories/?parent_id=${formData.category1}`);
+      return response.data;
+    },
+  });
+
+  const { data: categories3 } = useQuery({
+    enabled: !!formData.category2,
+    queryKey: ["categories3", formData.category2],
+    queryFn: async () => {
+      const response = await axios.get(`/api/categories/?parent_id=${formData.category2}`);
+      return response.data;
+    },
+  });
+
   const { data: units } = useQuery({
     queryKey: ["units"],
     queryFn: async () => {
@@ -89,30 +137,53 @@ const ProductEdit = () => {
     },
   });
 
+
   useEffect(() => {
     if (product) {
-      setFormData({
-        sku: product.sku || "",
-        hsn: product.hsn || "",
-        title: product.title || "",
-        category: product.category || "",
-        stock_qty: product.stock_qty || 0,
-        mrp: product.mrp || 0,
-        b2c_price: product.b2c_price || 0,
-        b2b_price: product.b2b_price || 0,
-        price: product.price || 0,
-        purchase_price: product.purchase_price || 0,
-        product_volume: product.product_volume || 0,
-        unit: product.unit || "",
-        product_weight: product.product_weight || 0,
-        gst_rate: product.gst_rate || "",
-        gst_calculated_amount: product.gst_calculated_amount || 0,
-        use_case: product.use_case || "",
-        image: null,
-      });
-      setCurrentImageUrl(product.image || null);
+      console.log('Product data loaded:', product); // Debug log
+        setFormData({
+          sku: product.sku || "",
+          hsn: product.hsn || "",
+          title: product.title || "",
+          category: String(product.category || ""),
+          category1: String(product.category1 || ""),
+          category2: String(product.category2 || ""),
+          category3: String(product.category3 || ""),
+          stock_qty: product.stock_qty || 0,
+          mrp: product.mrp || 0,
+          b2c_price: product.b2c_price || 0,
+          b2b_price: product.b2b_price || 0,
+          price: product.price || 0,
+          purchase_price: product.purchase_price || 0,
+          product_volume: product.product_volume || 0,
+          unit: String(product.unit || ""),
+          product_weight: product.product_weight || 0,
+          gst_rate: String(product.gst_rate || ""),
+          gst_calculated_amount: product.gst_calculated_amount || 0,
+          use_case: product.use_case || "",
+          brand_name: product.brand_name || "",
+          brand_category: product.brand_category || "",
+          flavour: product.flavour || "",
+          residual: product.residual || "",
+          image1: null,
+          image2: null,
+          image3: null,
+          image4: null,
+          video_link: product.video_link || "",
+          image: null, // Keep for compatibility
+        });
+        setImageUrls({
+          image1: product.image1,
+          image2: product.image2,
+          image3: product.image3,
+          image4: product.image4,
+        });
+        setCurrentImageUrl(product.image || null);
+        setImagePreview(product.image1 || null);
     }
   }, [product]);
+
+
 
   const mutation = useMutation({
     mutationFn: async (data) => {
@@ -124,14 +195,18 @@ const ProductEdit = () => {
       
       const formDataToSend = new FormData();
       
-      // Append all non-file fields first
+
       Object.keys(data).forEach((key) => {
         const value = data[key];
         
-        if (key !== 'image' && value !== null && value !== undefined && value !== '') {
+        if (key !== 'image' && key.indexOf('image') !== 0 && value !== null && value !== undefined && value !== '') {
           // Convert to string for non-file fields
           formDataToSend.append(key, String(value));
           console.log(`Appended ${key}:`, String(value));
+        } else if (key.indexOf('image') === 0 && value instanceof File) {
+          // Append raw File objects for gallery images
+          console.log(`✅ Appending gallery image ${key}:`, value.name);
+          formDataToSend.append(key, value);
         }
       });
       
@@ -216,8 +291,17 @@ const ProductEdit = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["categories"]);
+      queryClient.invalidateQueries(["categories1"]);
+      queryClient.invalidateQueries(["categories2"]);
+      queryClient.invalidateQueries(["categories3"]);
       setShowNewCategoryForm(false);
-      setNewCategory({ name: "", description: "" });
+      setShowNewCategory1Form(false);
+      setShowNewCategory2Form(false);
+      setShowNewCategory3Form(false);
+      setNewCategory({ name: "", description: "", parent: null });
+      setNewCategory1({ name: "", description: "", parent: null });
+      setNewCategory2({ name: "", description: "", parent: null });
+      setNewCategory3({ name: "", description: "", parent: null });
       toast.success("Category added successfully");
     },
     onError: (error) => {
@@ -319,13 +403,34 @@ const ProductEdit = () => {
     gstRateMutation.mutate(newGSTRate);
   };
 
-  const handleCategoryChange = (e) => {
-    setNewCategory({ ...newCategory, [e.target.name]: e.target.value });
+  const handleCategoryChange = (e, categoryType) => {
+    const { name, value } = e.target;
+    if (categoryType === 'main') {
+      setNewCategory({ ...newCategory, [name]: value });
+    } else if (categoryType === 'level1') {
+      setNewCategory1({ ...newCategory1, [name]: value });
+    } else if (categoryType === 'level2') {
+      setNewCategory2({ ...newCategory2, [name]: value });
+    } else if (categoryType === 'level3') {
+      setNewCategory3({ ...newCategory3, [name]: value });
+    }
   };
 
-  const handleCategorySubmit = (e) => {
+  const handleCategorySubmit = (e, categoryType) => {
     e.preventDefault();
-    categoryMutation.mutate(newCategory);
+    let dataToSubmit = {};
+    
+    if (categoryType === 'main') {
+      dataToSubmit = newCategory;
+    } else if (categoryType === 'level1') {
+      dataToSubmit = { ...newCategory1, parent: formData.category };
+    } else if (categoryType === 'level2') {
+      dataToSubmit = { ...newCategory2, parent: formData.category1 };
+    } else if (categoryType === 'level3') {
+      dataToSubmit = { ...newCategory3, parent: formData.category2 };
+    }
+    
+    categoryMutation.mutate(dataToSubmit);
   };
 
   const handleUnitChange = (e) => {
@@ -554,8 +659,93 @@ const ProductEdit = () => {
               </div>
             </div>
 
+            {/* Sub Categories */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Category 1
+                </label>
+                <select
+                  name="category1"
+                  value={formData.category1}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Category 1</option>
+                  {categories1?.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategory1Form(true)}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium mt-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add New Category 1
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Category 2
+                </label>
+                <select
+                  name="category2"
+                  value={formData.category2}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Category 2</option>
+                  {categories2?.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategory2Form(true)}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium mt-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add New Category 2
+                </button>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Category 3
+                </label>
+                <select
+                  name="category3"
+                  value={formData.category3}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Category 3</option>
+                  {categories3?.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategory3Form(true)}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium mt-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add New Category 3
+                </button>
+              </div>
+
+            </div>
+
             {/* Pricing Section */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   Purchase Price
@@ -697,77 +887,172 @@ const ProductEdit = () => {
               </div>
             </div>
 
-            {/* Image Upload */}
+            {/* Brand & Product Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Brand Name
+                </label>
+                <input
+                  type="text"
+                  name="brand_name"
+                  value={formData.brand_name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Coca Cola"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Brand Category
+                </label>
+                <input
+                  type="text"
+                  name="brand_category"
+                  value={formData.brand_category}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Soft Drinks"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Flavour
+                </label>
+                <input
+                  type="text"
+                  name="flavour"
+                  value={formData.flavour}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Classic"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Residual
+                </label>
+                <input
+                  type="text"
+                  name="residual"
+                  value={formData.residual}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Carbonated"
+                />
+              </div>
+            </div>
+
+            {/* Media Gallery - 4 Images + Video - Edit Version */}
             <div className="mb-8">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Product Image
+                Product Media Gallery
               </label>
-              <div className={`border-2 border-dashed rounded-2xl p-6 text-center transition-colors ${
-                imagePreview || currentImageUrl ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-400'
-              }`}>
-                <input
-                  type="file"
-                  id="image-upload"
-                  name="image"
-                  onChange={handleChange}
-                  className="hidden"
-                  accept="image/*"
-                />
-                
-                <div className="flex flex-col items-center justify-center gap-4">
-                  {imagePreview ? (
-                    <>
-                      <div className="w-32 h-32 rounded-lg overflow-hidden border-2 border-green-300">
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {formData.image?.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {(formData.image?.size / 1024).toFixed(2)} KB
-                        </p>
-                      </div>
-                    </>
-                  ) : currentImageUrl ? (
-                    <>
-                      <div className="w-32 h-32 rounded-lg overflow-hidden border-2 border-green-300">
-                        <img 
-                          src={currentImageUrl} 
-                          alt="Current"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Current Image
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="w-16 h-16 text-gray-400" />
-                      <p className="text-sm text-gray-500">
-                        Click to upload product image
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        PNG, JPG, GIF up to 5MB
-                      </p>
-                    </>
-                  )}
-                  
-                  <div className="flex gap-3">
-                    <label 
-                      htmlFor="image-upload"
-                      className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-medium transition-colors inline-flex items-center gap-2"
-                    >
-                      <Upload className="w-5 h-5" />
-                      {imagePreview || currentImageUrl ? 'Change Image' : 'Choose File'}
-                    </label>
+              
+              <div className="space-y-4">
+                {/* 4 Image Uploads */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+{[1,2,3,4].map((i) => {
+                    const hasExistingImage = imageUrls[`image${i}`];
+                    const hasNewFile = formData[`image${i}`];
+                    const previewSrc = hasNewFile 
+                      ? URL.createObjectURL(formData[`image${i}`])
+                      : hasExistingImage 
+                      ? imageUrls[`image${i}`]
+                      : null;
                     
-                  </div>
+                    return (
+                      <div key={i} className="space-y-2">
+                        <label className="block text-xs font-semibold text-gray-700">
+                          Image {i}
+                        </label>
+                        <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors h-32 flex flex-col items-center justify-center ${
+                          previewSrc ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                        }`}>
+                          <input
+                            type="file"
+                            id={`image${i}-upload`}
+                            name={`image${i}`}
+                            onChange={handleChange}
+                            className="hidden"
+                            accept="image/*"
+                          />
+                          {previewSrc ? (
+                            <>
+                              <img 
+                                src={previewSrc} 
+                                alt={`Preview ${i}`}
+                                className="w-full h-20 object-cover rounded-lg mb-1"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData(prev => ({ ...prev, [`image${i}`]: null }));
+                                    document.getElementById(`image${i}-upload`).value = '';
+                                  }}
+                                  className="text-xs text-red-500 hover:text-red-600 flex-1"
+                                >
+                                  Remove
+                                </button>
+                                {hasExistingImage && !hasNewFile && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      // To "remove" existing image, set empty string or handle in backend
+                                      setImageUrls(prev => ({ ...prev, [`image${i}`]: null }));
+                                    }}
+                                    className="text-xs text-orange-500 hover:text-orange-600 flex-1"
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="w-8 h-8 text-gray-400 mb-1" />
+                              <p className="text-xs text-gray-500">Upload Image {i}</p>
+                            </>
+                          )}
+                        </div>
+                        <label 
+                          htmlFor={`image${i}-upload`}
+                          className="cursor-pointer block w-full bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 px-2 rounded-lg text-center transition-colors"
+                        >
+                          Choose Image {i}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Video Link */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Video Link (YouTube etc.)
+                  </label>
+                  <input
+                    type="url"
+                    name="video_link"
+                    value={formData.video_link || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://youtube.com/watch?v=..."
+                  />
+                  {formData.video_link && (
+                    <a 
+                      href={formData.video_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-sm underline block"
+                    >
+                      🔗 Open Video Link
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

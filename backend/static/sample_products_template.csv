@@ -1,0 +1,6 @@
+sku,title,stock_qty,price,purchase_price,mrp,b2c_price,b2b_price,category,category1,category2,category3,unit,hsn,product_weight,gst_rate
+PROD001,Smartphone Pro,100,29999,25000,34999,29999,27999,electronics,Mobile,Smartphone,5G,piece,85171200,0.2,18
+PROD002,Laptop Gaming,50,64999,55000,74999,64999,59999,electronics,Computers,Laptop,Gaming,piece,84713000,1.8,18
+PROD003,T-Shirt Cotton,200,499,350,999,499,449,shoes,Men,T-Shirts,Casual,piece,61091000,0.2,12
+PROD004,Earbuds Wireless,150,1999,1500,2999,1999,1799,electronics,Audio,Earphones,Wireless,piece,85183000,0.05,18
+PROD005,Coffee Maker,30,4999,3500,7999,4999,4499,beauty,Kitchen,Coffee Machines,Automatic,piece,85167100,2.5,18

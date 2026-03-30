@@ -558,24 +558,69 @@ const OrderEdit = () => {
               <h2 className="text-xl font-bold text-gray-900">Order Items</h2>
               <span className="text-sm text-gray-500">(Read-only - items cannot be modified)</span>
             </div>
-            <div className="space-y-3">
-              {order.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-gray-50"
-                >
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{item.product_title}</h4>
-                    <p className="text-sm text-gray-600">SKU: {item.product_sku}</p>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <span className="text-sm text-gray-600">
-                        ₹{parseFloat(item.unit_price).toFixed(2)} × {item.quantity} = ₹{(parseFloat(item.unit_price) * item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Excel-like Table Structure copied from OrderDetail.jsx */}
+            <table className="w-full border-collapse border-t border-gray-300">
+              <thead>
+                <tr className="bg-gray-100 border-b border-gray-300">
+                  <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">Combo Offer</th>
+                  <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="4">Paid Items</th>
+                  <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="3">Free Items</th>
+                  <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="2">Gifts</th>
+                </tr>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600"></th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Offer Price</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
+                  <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Combo offers logic (if any) */}
+                {/* Fallback: show order items as in OrderDetail.jsx */}
+                {order.items && order.items.length > 0 ? (
+                  order.items.map((item, idx) => {
+                    // Determine item type
+                    let itemType = 'Paid';
+                    if (item.is_free) itemType = 'Free';
+                    if (item.is_gift) itemType = 'Gift';
+                    // Lookup original price from products array
+                    let originalPrice = 0;
+                    // Fetch products for original price lookup
+                    // Use same query as OrderDetail.jsx
+                    // ...existing code...
+                    // For now, fallback to item.unit_price if products not available
+                    // You may want to add products query here for full parity
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="border border-gray-300 px-4 py-3 font-medium text-gray-900">{itemType}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm">{item.product_title}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm text-center">{item.quantity}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm text-right">{originalPrice ? formatCurrency(originalPrice) : formatCurrency(item.unit_price)}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">{formatCurrency(item.total_price)}</td>
+                        {/* Free Items */}
+                        <td className="border border-gray-300 px-4 py-3 text-sm">{item.is_free ? item.product_title : '-'}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm text-center">{item.is_free ? item.quantity : '-'}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm text-right">{item.is_free ? (originalPrice ? formatCurrency(originalPrice) : formatCurrency(item.unit_price)) : '-'}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm">{item.is_gift ? item.product_title : '-'}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-sm text-right">{item.is_gift ? formatCurrency(item.total_price) : '-'}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                      No items found for this order
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
 

@@ -1,11 +1,18 @@
+# crm/views.py - Complete file
+
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.pagination import PageNumberPagination
 from .models import Category
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+import pandas as pd
+import io
+from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
 from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit
@@ -14,7 +21,10 @@ from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum, Count, Q
+from datetime import timedelta
+import datetime
 
+# ========== PAGINATION CLASSES ==========
 class CustomerPagination(PageNumberPagination):
     page_size = 15
     page_size_query_param = 'page_size'
@@ -35,6 +45,7 @@ class CallLogPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+# ========== DASHBOARD VIEW ==========
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -70,8 +81,6 @@ class DashboardView(APIView):
 
         # Monthly revenue data (filtered by date range or last 6 months)
         from django.db.models.functions import TruncMonth
-        from django.utils import timezone
-        import datetime
 
         if date_from and date_to:
             # Use the provided date range
@@ -94,8 +103,6 @@ class DashboardView(APIView):
                 'month': item['month'].strftime('%b'),
                 'revenue': float(item['revenue'])
             })
-
-        # If no data, leave empty
 
         # Order status over time (filtered by date range or last 7 months)
         if date_from and date_to:
@@ -124,9 +131,6 @@ class DashboardView(APIView):
                 status_trends[month_key]['pending'] = item['count']
             elif item['status'] == 'Dispatched':
                 status_trends[month_key]['pending'] = status_trends[month_key]['pending'] + item['count']
-            # Note: No 'Cancelled' status exists in the model, so cancelled will remain 0
-
-        # If no data, leave empty
 
         # Customer segmentation (simplified)
         total_customers = customers_queryset.count()
@@ -216,6 +220,7 @@ class DashboardView(APIView):
             'performance_trends': performance_trends,
         })
 
+# ========== USER VIEWSET ==========
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -253,16 +258,11 @@ class UserViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-class CustomerPagination(PageNumberPagination):
-    page_size = 15
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
+# ========== CUSTOMER VIEWSET ==========
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = CustomerPagination
     pagination_class = CustomerPagination
 
     def get_queryset(self):
@@ -543,6 +543,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         return Response({'message': 'Phone deleted successfully'}, status=status.HTTP_200_OK)
 
+
     @action(detail=False, methods=['post'])
     def bulk_assign(self, request):
         customer_ids = request.data.get('customer_ids', [])
@@ -615,43 +616,315 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'total_count': len(customers_data)
         })
 
+
+# ========== PRODUCT VIEWSET ==========
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
+    @action(detail=False, methods=['post'], url_path='bulk-import', parser_classes=[MultiPartParser, FormParser])
+    def bulk_import(self, request):
+        """Bulk import products from Excel/CSV file"""
+        import pandas as pd
+        from django.db import transaction
+        
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            # Read file with robust encoding
+            if file.name.endswith('.csv'):
+                try:
+                    df = pd.read_csv(file, encoding='utf-8-sig')
+                except UnicodeDecodeError:
+                    file.seek(0)
+                    df = pd.read_csv(file, encoding='latin1')
+            elif file.name.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(file)
+            else:
+                return Response({'error': 'Unsupported file type. Use CSV or Excel.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            logger.info(f"Bulk import file: {file.name}, shape: {df.shape}")
+            logger.info(f"Columns found: {list(df.columns)}")
+            logger.info(f"First 3 rows:\n{df.head(3).to_dict()}")
+            
+            if df.empty:
+                return Response({'error': 'File is empty'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Column mapping
+            column_map = {
+                'sku': 'sku',
+                'title': ['name', 'product_name', 'title'],
+                'stock_qty': ['stock', 'stock_qty', 'quantity'],
+                'price': 'price',
+                'purchase_price': ['purchase_price', 'cost', 'purchase'],
+                'mrp': 'mrp',
+                'b2c_price': 'b2c_price',
+                'b2b_price': 'b2b_price',
+                'category': 'category',
+                'category1': 'category1',
+                'category2': 'category2',
+                'category3': 'category3',
+                'unit': 'unit',
+                'hsn': 'hsn',
+                'product_weight': ['weight', 'product_weight'],
+                'gst_rate': 'gst_rate',
+                'description': 'description',
+                'brand': 'brand',
+'volume': 'volume',
+                'brand_name': 'brand_name',
+                'brand_category': 'brand_category',
+                'flavour': 'flavour',
+                'residual': 'residual'
+            }
+
+            products_data = []
+            errors = []
+            
+            # Log expected columns
+            logger.info(f"Expected columns: sku, title, price, stock_qty, etc.")
+
+            
+            for idx, row in df.iterrows():
+                product_data = {}
+                row_num = idx + 2
+                row_dict = row.to_dict()
+                logger.info(f"Processing row {row_num}: {row_dict}")
+                
+                try:
+                    # Map SKU (required) - case insensitive
+                    sku = row.get('sku') or row.get('SKU') or row.get('Sku')
+                    if pd.isna(sku) or not str(sku).strip():
+                        errors.append({'row': row_num, 'error': 'SKU is required (check column: sku/SKU)'})
+                        logger.warning(f"Row {row_num} missing SKU")
+                        continue
+                    product_data['sku'] = str(sku).strip()
+                    logger.info(f"Row {row_num} SKU: {product_data['sku']}")
+                    
+                    # Map Title (required) - case insensitive
+                    title = row.get('title') or row.get('Title') or row.get('name') or row.get('product_name') or row.get('product_name')
+                    if pd.isna(title) or not str(title).strip():
+                        errors.append({'row': row_num, 'error': 'Title is required (check column: title/Title/name)'})
+                        logger.warning(f"Row {row_num} missing Title")
+                        continue
+                    product_data['title'] = str(title).strip()
+                    logger.info(f"Row {row_num} Title: {product_data['title']}")
+                    
+                    # Stock
+                    stock_value = row.get('stock_qty') or row.get('stock') or row.get('quantity') or 0
+                    try:
+                        product_data['stock_qty'] = int(float(stock_value)) if pd.notna(stock_value) else 0
+                    except:
+                        product_data['stock_qty'] = 0
+                    
+                    # Price (required) - case insensitive
+                    price = row.get('price') or row.get('Price')
+                    if pd.isna(price):
+                        errors.append({'row': row_num, 'error': 'Price is required (check column: price/Price)'})
+                        logger.warning(f"Row {row_num} missing Price")
+                        continue
+                    try:
+                        product_data['price'] = float(price)
+                        logger.info(f"Row {row_num} Price: {product_data['price']}")
+                    except (ValueError, TypeError):
+                        errors.append({'row': row_num, 'error': f'Invalid price format: "{price}"'})
+                        logger.warning(f"Row {row_num} invalid price: {price}")
+                        continue
+                    
+                    # Optional price fields
+                    for price_key in ['purchase_price', 'mrp', 'b2c_price', 'b2b_price']:
+                        val = row.get(price_key)
+                        if pd.notna(val):
+                            try:
+                                product_data[price_key] = float(val)
+                            except:
+                                pass
+                    
+                    # Map other fields
+                    for field in ['description', 'brand', 'volume', 'hsn']:
+                        val = row.get(field)
+                        if pd.notna(val):
+                            product_data[field] = str(val) if val else None
+                    
+                    # New fields mapping
+                    new_fields = ['brand_name', 'brand_category', 'flavour', 'residual']
+                    for field in new_fields:
+                        val = row.get(field)
+                        if pd.notna(val):
+                            product_data[field] = str(val).strip()
+                            logger.info(f"Row {row_num} {field}: {product_data[field]}")
+
+                    
+                    # Categories - log attempts, continue if not found (don't block import)
+
+                    category_fields = ['category', 'category1', 'category2', 'category3']
+                    for field in category_fields:
+                        val = row.get(field) or row.get(field.capitalize())
+                        if pd.notna(val) and str(val).strip():
+                            cat_val = str(val).strip()
+                            try:
+                                if cat_val.isdigit():
+                                    cat_obj = Category.objects.filter(id=int(cat_val)).first()
+                                else:
+                                    cat_obj = Category.objects.filter(name__iexact=cat_val).first()
+                                if cat_obj:
+                                    product_data[field] = cat_obj
+                                    logger.info(f"Row {row_num} {field}: {cat_obj.name} (ID:{cat_obj.id})")
+                                else:
+                                    logger.warning(f"Row {row_num} {field} '{cat_val}' not found in DB categories")
+                                    errors.append({'row': row_num, 'error': f'{field} "{cat_val}" not found - set manually after import'})
+                            except Exception as cat_error:
+                                logger.error(f"Row {row_num} {field} error: {cat_error}")
+                                product_data[field] = None
+                        else:
+                            product_data[field] = None
+                    
+                    # Unit lookup (mirroring category approach)
+                    unit_val = row.get('unit') or row.get('Unit')
+                    if pd.notna(unit_val) and str(unit_val).strip():
+                        unit_name = str(unit_val).strip()
+                        try:
+                            unit_obj = Unit.objects.filter(name__iexact=unit_name).first()
+                            if unit_obj:
+                                product_data['unit'] = unit_obj.name
+                                logger.info(f"Row {row_num} unit: {unit_obj.name}")
+                            else:
+                                logger.warning(f"Row {row_num} unit '{unit_name}' not found in DB units")
+                                errors.append({'row': row_num, 'error': f'unit "{unit_name}" not found - set manually after import'})
+                        except Exception as unit_error:
+                            logger.error(f"Row {row_num} unit error: {unit_error}")
+                    else:
+                        product_data['unit'] = None
+                    
+                    # GST Rate lookup (mirroring category approach)
+                    gst_val = row.get('gst_rate') or row.get('GST Rate') or row.get('gst') or row.get('Gst')
+                    if pd.notna(gst_val) and str(gst_val).strip():
+                        gst_str = str(gst_val).strip()
+                        try:
+                            gst_obj = None
+                            if gst_str.replace('.', '').isdigit():
+                                # Try as rate first (e.g. "18", "18.00")
+                                gst_obj = GSTRate.objects.filter(rate__exact=float(gst_str)).first()
+                            if not gst_obj:
+                                # Then try as name
+                                gst_obj = GSTRate.objects.filter(name__iexact=gst_str).first()
+                            if gst_obj:
+                                product_data['gst_rate'] = gst_obj
+                                logger.info(f"Row {row_num} gst_rate: {gst_obj.name} ({gst_obj.rate}%)")
+                            else:
+                                logger.warning(f"Row {row_num} gst_rate '{gst_str}' not found in DB GST rates")
+                                errors.append({'row': row_num, 'error': f'gst_rate "{gst_str}" not found - set manually after import'})
+                        except Exception as gst_error:
+                            logger.error(f"Row {row_num} gst_rate error: {gst_error}")
+                    else:
+                        product_data['gst_rate'] = None
+                    
+                    products_data.append(product_data)
+                    logger.info(f"Row {row_num} prepared: {list(product_data.keys())}")
+
+                    
+                except Exception as e:
+                    errors.append({'row': row_num, 'error': str(e)})
+                    import traceback
+                    traceback.print_exc()
+
+            logger.info(f"Valid products found: {len(products_data)}, errors: {len(errors)}")
+            if not products_data:
+                debug_info = {
+                    'file_name': file.name,
+                    'shape': df.shape,
+                    'columns': list(df.columns),
+                    'sample_data': df.head(3).to_dict('records'),
+                    'expected_columns': ['sku', 'title', 'price', 'stock_qty'],
+                    'available_categories': list(Category.objects.filter(is_active=True).values_list('id', 'name'))
+                }
+                return Response({
+                    'error': 'No valid products found in file',
+                    'debug': debug_info,
+                    'errors': errors[:10],
+                    'hint': 'Check column names (case-sensitive), ensure sku/title/price exist, verify categories match DB'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create or update products
+            created_count = 0
+            updated_count = 0
+            
+            with transaction.atomic():
+                for product_data in products_data:
+                    sku = product_data.pop('sku')
+                    
+                    # Check if product exists
+                    product, created = Product.objects.update_or_create(
+                        sku=sku,
+                        defaults=product_data
+                    )
+                    
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+            response_data = {
+                'success': True,
+                'created_count': created_count,
+                'updated_count': updated_count,
+                'total_processed': len(products_data),
+                'error_count': len(errors),
+                'errors': errors[:20] if errors else []
+            }
+            
+            if errors:
+                response_data['message'] = f'Imported {created_count} new products, updated {updated_count} products. {len(errors)} rows had errors.'
+                return Response(response_data, status=status.HTTP_207_MULTI_STATUS)
+            else:
+                response_data['message'] = f'Successfully imported {created_count} new products and updated {updated_count} existing products.'
+                return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': f'Processing failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# ========== ORDER VIEWSET ==========
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
-    def get_queryset(self):
-            queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
-            # Get filter params
-            agent = self.request.query_params.get('agent')
-            status = self.request.query_params.get('status')
-            payment_status = self.request.query_params.get('payment_status')
-            date_from = self.request.query_params.get('date_from')
-            date_to = self.request.query_params.get('date_to')
-            search = self.request.query_params.get('search')
-
-            if agent:
-                queryset = queryset.filter(agent__username=agent)
-            if status:
-                queryset = queryset.filter(status=status)
-            if payment_status:
-                queryset = queryset.filter(payment_status__iexact=payment_status)
-            if date_from:
-                queryset = queryset.filter(order_date__gte=date_from)
-            if date_to:
-                queryset = queryset.filter(order_date__lte=date_to)
-            if search:
-                from django.db.models import Q
-                queryset = queryset.filter(
-                    Q(order_id__icontains=search) |
-                    Q(customer__name__icontains=search)
-                )
-            return queryset
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = OrderPagination
+
+    def get_queryset(self):
+        queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
+        # Get filter params
+        agent = self.request.query_params.get('agent')
+        status = self.request.query_params.get('status')
+        payment_status = self.request.query_params.get('payment_status')
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        search = self.request.query_params.get('search')
+
+        if agent:
+            queryset = queryset.filter(agent__username=agent)
+        if status:
+            queryset = queryset.filter(status=status)
+        if payment_status:
+            queryset = queryset.filter(payment_status__iexact=payment_status)
+        if date_from:
+            queryset = queryset.filter(order_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(order_date__lte=date_to)
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(order_id__icontains=search) |
+                Q(customer__name__icontains=search)
+            )
+        return queryset
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -675,15 +948,22 @@ class OrderViewSet(viewsets.ModelViewSet):
                     if customer.agent:
                         data['agent'] = customer.agent.id
                     else:
-                        # Auto-assign to admin if no agent found
                         admin_user = User.objects.filter(role='Admin').first()
                         if admin_user:
                             data['agent'] = admin_user.id
                 except Customer.DoesNotExist:
-                    # If customer doesn't exist, still assign to admin
                     admin_user = User.objects.filter(role='Admin').first()
                     if admin_user:
                         data['agent'] = admin_user.id
+
+        # Ensure delivery_address is passed as dict if structured fields are present
+        delivery_fields = [
+            'house_flat_no', 'wing_lane', 'society_colony', 'landmark', 'area', 'pincode',
+            'state', 'district', 'tahsil', 'city'
+        ]
+        if any([data.get(f'delivery_{field}') for field in delivery_fields]):
+            delivery_address_dict = {field: data.get(f'delivery_{field}', '') for field in delivery_fields}
+            data['delivery_address'] = delivery_address_dict
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -692,6 +972,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+# ========== CUSTOMER ASSUMPTION VIEWSETS ==========
 class CustomerAssumptionViewSet(viewsets.ModelViewSet):
     queryset = CustomerAssumption.objects.filter(is_active=True)
     serializer_class = CustomerAssumptionSerializer
@@ -707,6 +988,7 @@ class CustomerAssumption3ViewSet(viewsets.ModelViewSet):
     serializer_class = CustomerAssumption3Serializer
     permission_classes = [IsAuthenticated]
 
+# ========== CALL LOG VIEWSET ==========
 class CallLogViewSet(viewsets.ModelViewSet):
     queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'lead')
     serializer_class = CallLogSerializer
@@ -884,6 +1166,7 @@ class CallLogViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+# ========== LEAD VIEWSET ==========
 class LeadViewSet(viewsets.ModelViewSet):
     queryset = Lead.objects.all()
     serializer_class = LeadSerializer
@@ -907,7 +1190,6 @@ class LeadViewSet(viewsets.ModelViewSet):
         # Create customer from lead data
         customer_data = {
             'name': lead.name or 'Unknown',
-
             'phone': lead.phone,
             'email': lead.email,
             'pincode': '000000',  # Default pincode, can be updated later
@@ -930,39 +1212,78 @@ class LeadViewSet(viewsets.ModelViewSet):
         else:
             return Response(customer_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# ========== CATEGORY VIEWSET ==========
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.filter(is_active=True)
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = Category.objects.filter(is_active=True)
+        parent_id_str = self.request.query_params.get('parent_id', '').strip()
+        if parent_id_str:
+            try:
+                parent_id = int(parent_id_str)
+                queryset = queryset.filter(parent_id=parent_id)
+            except ValueError:
+                # Invalid parent_id (non-integer) - return empty queryset
+                queryset = Category.objects.none()
+        else:
+            # No parent_id or empty → top-level categories
+            queryset = queryset.filter(parent__isnull=True)
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        # Soft delete: set is_active=False instead of hard delete
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+# ========== ORGANIZATION TYPE VIEWSET ==========
 class OrganizationTypeViewSet(viewsets.ModelViewSet):
     queryset = OrganizationType.objects.filter(is_active=True)
     serializer_class = OrganizationTypeSerializer
     permission_classes = [IsAuthenticated]
 
+# ========== GST RATE VIEWSET ==========
 class GSTRateViewSet(viewsets.ModelViewSet):
     queryset = GSTRate.objects.filter(is_active=True)
     serializer_class = GSTRateSerializer
     permission_classes = [IsAuthenticated]
 
+# ========== PRODUCT COMBINATION VIEWSET ==========
 class ProductCombinationViewSet(viewsets.ModelViewSet):
     queryset = ProductCombination.objects.filter(is_active=True)
     serializer_class = ProductCombinationSerializer
     permission_classes = [IsAuthenticated]
 
+# ========== UNIT VIEWSET ==========
 class UnitViewSet(viewsets.ModelViewSet):
     queryset = Unit.objects.filter(is_active=True)
     serializer_class = UnitSerializer
     permission_classes = [IsAuthenticated]
 
+# ========== CUSTOMER TYPE VIEWSET ==========
 class CustomerTypeViewSet(viewsets.ModelViewSet):
     queryset = CustomerType.objects.filter(is_active=True)
     serializer_class = CustomerTypeSerializer
     permission_classes = [IsAuthenticated]
 
-from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
+
+# ========== AUTHENTICATION VIEWS ==========
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -970,7 +1291,7 @@ class RegisterView(APIView):
         username = request.data.get('username')
         password = request.data.get('password')
         email = request.data.get('email')
-        role = request.data.get('role', 'employee')  # Default to employee
+        role = request.data.get('role', 'employee')
 
         if not username or not password:
             return Response({'error': 'Username and password are required'}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -38,6 +38,14 @@ import {
 import { toast } from 'react-hot-toast';
 
 const OrderDetail = () => {
+    // Fetch products for original price lookup
+    const { data: products } = useQuery({
+      queryKey: ['products'],
+      queryFn: async () => {
+        const response = await axios.get('/api/products/');
+        return response.data;
+      },
+    });
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -108,6 +116,70 @@ const OrderDetail = () => {
       ? 'bg-emerald-100 text-emerald-800'
       : 'bg-rose-100 text-rose-800';
   };
+
+  // Helper: Get delivery address from order
+  const getDeliveryAddress = () => {
+    // If custom address, use order.delivery_address (string or object)
+    if (order && order.delivery_address) {
+      if (typeof order.delivery_address === 'string' && order.delivery_address.length > 0) {
+        // Try to parse if it looks like a JSON object
+        try {
+          const parsed = JSON.parse(order.delivery_address);
+          if (typeof parsed === 'object' && parsed !== null) {
+            const addressParts = Object.values(parsed).filter(Boolean);
+            return addressParts.length > 0 ? addressParts.join(', ') : null;
+          }
+        } catch (e) {
+          // Not a JSON string, just return as is
+          return order.delivery_address;
+        }
+        return order.delivery_address;
+      }
+      if (typeof order.delivery_address === 'object' && order.delivery_address !== null) {
+        // Only show the values, not the keys
+        const addressParts = Object.values(order.delivery_address).filter(Boolean);
+        return addressParts.length > 0 ? addressParts.join(', ') : null;
+      }
+    }
+    // Fallback: use customer primary address
+    if (order && order.customer_details) {
+      const addressParts = [
+        order.customer_details.house_flat_no,
+        order.customer_details.wing_lane,
+        order.customer_details.society_colony,
+        order.customer_details.landmark,
+        order.customer_details.area,
+        order.customer_details.city,
+        order.customer_details.district,
+        order.customer_details.state,
+        order.customer_details.pincode,
+      ].filter(Boolean);
+      return addressParts.length > 0 ? addressParts.join(', ') : null;
+    }
+    return null;
+  };
+
+  // Helper: Fetch combos for applied_combos
+  const [comboDetails, setComboDetails] = useState([]);
+  useEffect(() => {
+    async function fetchCombos() {
+      if (!order || !order.applied_combos || order.applied_combos.length === 0) {
+        setComboDetails([]);
+        return;
+      }
+      try {
+        // Fetch all combos by their IDs
+        const comboIds = order.applied_combos.map(c => c.combo_id);
+        const res = await axios.get('/api/productcombinations/');
+        const allCombos = res.data || [];
+        const matchedCombos = allCombos.filter(c => comboIds.includes(c.id));
+        setComboDetails(matchedCombos);
+      } catch (err) {
+        setComboDetails([]);
+      }
+    }
+    fetchCombos();
+  }, [order]);
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -288,38 +360,20 @@ const OrderDetail = () => {
 
               {/* Row 4: Delivery Address */}
               <tr className="border-b border-gray-200 hover:bg-gray-50">
-  <td className="px-6 py-4 text-sm font-medium text-gray-600 bg-gray-50 border-r border-gray-200">
-    <div className="flex items-center">
-      <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-      Delivery Address
-    </div>
-  </td>
-  <td colSpan="3" className="px-6 py-4 text-sm text-gray-900">
-    {(() => {
-      const addressParts = [
-        order.customer_details?.house_flat_no,
-        order.customer_details?.wing_lane,
-        order.customer_details?.society_colony,
-        order.customer_details?.landmark,
-        order.customer_details?.area,
-        order.customer_details?.city,
-        order.customer_details?.district,
-        order.customer_details?.state,
-        order.customer_details?.pincode,
-      ].filter(Boolean);
-
-      if (addressParts.length === 0) {
-        return <span className="text-gray-500">No address provided</span>;
-      }
-
-      return (
-        <div className="break-words">
-          {addressParts.join(", ")}
-        </div>
-      );
-    })()}
-  </td>
-</tr>
+                <td className="px-6 py-4 text-sm font-medium text-gray-600 bg-gray-50 border-r border-gray-200">
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                    Delivery Address
+                  </div>
+                </td>
+                <td colSpan="3" className="px-6 py-4 text-sm text-gray-900">
+                  {getDeliveryAddress() ? (
+                    <div className="break-words">{getDeliveryAddress()}</div>
+                  ) : (
+                    <span className="text-gray-500">No address provided</span>
+                  )}
+                </td>
+              </tr>
             </tbody>
           </table>
 
@@ -327,33 +381,139 @@ const OrderDetail = () => {
           <table className="w-full border-collapse border-t border-gray-300">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-300">
-                <th colSpan="6" className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  <div className="flex items-center">
-                    <ShoppingBag className="h-4 w-4 mr-2 text-blue-600" />
-                    ORDER ITEMS
-                  </div>
-                </th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">Combo Offer</th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="4">Paid Items</th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="3">Free Items</th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="2">Gifts</th>
               </tr>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600"></th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Offer Price</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
+                
               </tr>
             </thead>
             <tbody>
-              {order.items?.map((item, index) => (
-                <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-500">{index + 1}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{item.product_title}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{item.product_sku}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{item.quantity}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{formatCurrency(item.unit_price)}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{formatCurrency(item.total_price)}</td>
-                </tr>
-              ))}
+              {comboDetails.length > 0 ? (
+                comboDetails.map((combo, idx) => {
+                  // Find applied quantity
+                  const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
+                  const appliedQuantity = appliedCombo?.quantity || 1;
+                  // Paid Items
+                  const paidItems = combo.items || [];
+                  // Free Items
+                  const freeItems = combo.rewards || [];
+                  // Gifts
+                  const giftItems = combo.gifts || [];
+
+                  // Lookup original price for paid/free/gift items
+                  const getOriginalPrice = (productId) => {
+                    const productObj = products && products.find(p => p.id === productId);
+                    return productObj && productObj.price ? parseFloat(productObj.price) : 0;
+                  };
+
+                  return (
+                    <tr key={combo.id} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-4 py-3">
+                        <div className="font-medium text-gray-900">{combo.name}</div>
+                        <div className="text-xs text-green-600 mt-1">Qty: {appliedQuantity}</div>
+                      </td>
+                      {/* Paid Items */}
+                      <td className="border border-gray-300 px-4 py-3 text-sm">
+                        {paidItems.length > 0 ? paidItems[0].product_title || '-' : '-'}
+                        {paidItems.length > 1 && (
+                          <span className="ml-1 text-xs text-gray-500">+{paidItems.length - 1} more</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                        {paidItems.length > 0 ? paidItems[0].quantity_required : '-'}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                        {paidItems.length > 0 ? formatCurrency(getOriginalPrice(paidItems[0].product)) : '-'}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
+                        {paidItems.length > 0 ? formatCurrency(paidItems[0].offer_price || 0) : '-'}
+                      </td>
+                      {/* Free Items */}
+                      <td className="border border-gray-300 px-4 py-3 text-sm">
+                        {freeItems.length > 0 ? freeItems[0].product_title || '-' : '-'}
+                        {freeItems.length > 1 && (
+                          <span className="ml-1 text-xs text-gray-500">+{freeItems.length - 1} more</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                        {freeItems.length > 0 ? freeItems[0].quantity_free : '-'}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                        {freeItems.length > 0 ? formatCurrency(getOriginalPrice(freeItems[0].product)) : '-'}
+                      </td>
+                      {/* Gifts */}
+                      <td className="border border-gray-300 px-4 py-3 text-sm">
+                        {giftItems.length > 0 ? giftItems[0].product_title || '-' : '-'}
+                        {giftItems.length > 1 && (
+                          <span className="ml-1 text-xs text-gray-500">+{giftItems.length - 1} more</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                        {giftItems.length > 0 ? formatCurrency(getOriginalPrice(giftItems[0].product)) : '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                (!products || !Array.isArray(products)) ? (
+                  <tr>
+                    <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                      Loading product data...
+                    </td>
+                  </tr>
+                ) : (
+                  order.items && order.items.length > 0 ? (
+                    order.items.map((item, idx) => {
+                      // Determine item type
+                      let itemType = 'Paid';
+                      if (item.is_free) itemType = 'Free';
+                      if (item.is_gift) itemType = 'Gift';
+                      // Lookup original price from products array
+                      let originalPrice = 0;
+                      const productObj = products && products.find(p => p.id === item.product);
+                      if (productObj && productObj.price) {
+                        originalPrice = parseFloat(productObj.price);
+                      }
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="border border-gray-300 px-4 py-3 font-medium text-gray-900">{itemType}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm">{item.product_title}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-center">{item.quantity}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-right">{formatCurrency(originalPrice)}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">{formatCurrency(item.total_price)}</td>
+                          {/* Free Items */}
+                          <td className="border border-gray-300 px-4 py-3 text-sm">{item.is_free ? item.product_title : '-'}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-center">{item.is_free ? item.quantity : '-'}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-right">{item.is_free ? formatCurrency(originalPrice) : '-'}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">{item.is_free ? formatCurrency(item.total_price) : '-'}</td>
+                          {/* Gifts */}
+                          <td className="border border-gray-300 px-4 py-3 text-sm">{item.is_gift ? item.product_title : '-'}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-right">{item.is_gift ? formatCurrency(item.total_price) : '-'}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                        No items found for this order
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
             </tbody>
           </table>
 

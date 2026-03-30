@@ -1,7 +1,12 @@
-Django==4.2.7
-djangorestframework==3.14.0
-django-filter==23.5
-django-cors-headers==4.3.1
-pymysql==1.1.0
-psycopg2-binary==2.9.7
+Django==5.0.4
+djangorestframework==3.15.1
+django-filter==24.2
+django-cors-headers==4.4.0
+pymysql==1.1.1
+
+psycopg[binary]==3.3.3   # ✅ replace psycopg2
+
 gunicorn==21.2.0
+
+pandas==2.2.2             # ✅ supports Python 3.13
+openpyxl==3.1.5

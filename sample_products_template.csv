@@ -1,0 +1,4 @@
+sku,title,stock_qty,price,purchase_price,mrp,b2c_price,b2b_price,category,category1,category2,category3,unit,hsn,gst_rate,product_weight,image_url
+SKU001,Sample Laptop,50,45000.00,38000.00,50000.00,45000.00,42000.00,Laptops, Gaming, Dell, Inspiron,pcs,8471,18.00,2.5,https://example.com/laptop.jpg
+SKU002,Office Chair,25,3500.00,2800.00,4000.00,3500.00,3200.00,Furniture,Office,Ergonomic,Adjustable,unit,9403,12.00,5.0,https://example.com/chair.jpg
+SKU003,Wireless Mouse,100,800.00,600.00,950.00,800.00,750.00,Accessories,Wireless,Logitech,Basic,pcs,8471,18.00,0.1,

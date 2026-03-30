@@ -16,10 +16,10 @@ import {
   AlertCircle,
   Check,
   X,
-  MoreVertical,
+  Upload,
+  Download,
   ChevronLeft,
   ChevronRight,
-  Download,
   TrendingUp,
   TrendingDown,
   Hash
@@ -39,8 +39,59 @@ const ProductList = () => {
   const [stockValue, setStockValue] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
   
   const queryClient = useQueryClient();
+
+  // Import mutation
+  const importMutation = useMutation({
+    mutationFn: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await axios.post(
+        '/api/products/bulk-import/',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        }
+      );
+      console.log('Bulk import response:', response.status, response.data);
+      return response.data;
+
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Imported ${data.created_count || 0} products successfully! ${data.skipped || 0} skipped.`);
+      queryClient.invalidateQueries(['products']);
+      setShowImportModal(false);
+      setImportFile(null);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.error || 'Import failed');
+    },
+  });
+
+  const handleImport = () => {
+    if (!importFile) return;
+    setImporting(true);
+    importMutation.mutate(importFile);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+      setImportFile(file);
+      toast.success(`${file.name} selected for import`);
+    } else {
+      toast.error('Please select a CSV or Excel file');
+      e.target.value = '';
+    }
+  };
 
   // Fetch products
   const { 
@@ -185,13 +236,22 @@ const ProductList = () => {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Product Inventory</h1>
               <p className="text-gray-600">Manage and track your products efficiently</p>
             </div>
-            <Link 
-              to="/products/new"
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 transition duration-200 shadow-lg shadow-green-500/25"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add New Product
-            </Link>
+            <div className="flex gap-3">
+              <Link 
+                to="/products/new"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 transition duration-200 shadow-lg shadow-green-500/25"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Add New Product
+              </Link>
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-600 hover:to-purple-700 transition duration-200 shadow-lg shadow-indigo-500/25"
+              >
+                <Upload className="h-5 w-5 mr-2" />
+                Import Bulk
+              </button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -365,16 +425,32 @@ const ProductList = () => {
 
                     {/* Category & GST */}
                     <td className="px-6 py-4">
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           <Tag className="h-3 w-3 mr-1" />
                           {product.category_display || 'Uncategorized'}
                         </span>
-                        <div className="text-xs text-gray-600">
+                        {product.category1_display && (
+                          <span className="inline-block text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                            {product.category1_display}
+                          </span>
+                        )}
+                        {product.category2_display && (
+                          <span className="inline-block text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
+                            {product.category2_display}
+                          </span>
+                        )}
+                        {product.category3_display && (
+                          <span className="inline-block text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
+                            {product.category3_display}
+                          </span>
+                        )}
+                        <div className="text-xs text-gray-600 mt-1">
                           <span className="font-medium">GST:</span> {product.gst_rate_display || 'N/A'}
                         </div>
                       </div>
                     </td>
+
 
                     {/* Stock & Status */}
                     <td className="px-6 py-4">
@@ -561,6 +637,93 @@ const ProductList = () => {
             </div>
           )}
         </div>
+
+        {/* Import Modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Import Products</h2>
+                <button
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportFile(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
+                >
+                  <X className="h-6 w-6 text-gray-500" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select CSV or Excel file
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-400 transition duration-200">
+                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg text-sm font-medium text-indigo-700 border border-indigo-200 inline-block transition duration-200"
+                    >
+                      Choose File
+                    </label>
+                    {importFile && (
+                      <p className="mt-4 text-sm text-gray-600 truncate max-w-[250px]">
+                        {importFile.name}
+                      </p>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 text-center">
+                    Supports CSV/Excel. Columns: sku (required), title (required), stock_qty, price, category, category1,2,3, etc.
+                  </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportFile(null);
+                    }}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-lg transition duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    disabled={!importFile || importing}
+                    className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {importing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5" />
+                        Import File
+                      </>
+                    )}
+                  </button>
+                  <a
+                    href="/static/sample_products_template.csv"
+                    download="sample_products_template.csv"
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2"
+                  >
+                    <Download className="h-5 w-5" />
+                    Download Template
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

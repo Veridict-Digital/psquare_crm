@@ -68,6 +68,9 @@ class ProductSerializer(serializers.ModelSerializer):
     gst_rate_display = serializers.CharField(source='gst_rate.rate', read_only=True)
     gst_rate_description = serializers.CharField(source='gst_rate.description', read_only=True)
     category_display = serializers.CharField(source='category.name', read_only=True)
+    category1_display = serializers.CharField(source='category1.name', read_only=True, allow_null=True)
+    category2_display = serializers.CharField(source='category2.name', read_only=True, allow_null=True)
+    category3_display = serializers.CharField(source='category3.name', read_only=True, allow_null=True)
     
     class Meta:
         model = Product
@@ -76,6 +79,8 @@ class ProductSerializer(serializers.ModelSerializer):
             'cost': {'write_only': True},
             'image': {'required': False, 'allow_null': True}
         }
+
+
 
     def to_representation(self, instance):
         """Override to add full URL for image in GET responses"""
@@ -90,15 +95,20 @@ class OrderItemSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     gst_rate_display = serializers.CharField(source='gst_rate.rate', read_only=True)
+    combo_name = serializers.CharField(source='combo.name', read_only=True, allow_null=True)
+    combo_id = serializers.IntegerField(source='combo.id', read_only=True, allow_null=True)
 
     class Meta:
         model = OrderItem
-        fields = ['product', 'quantity', 'unit_price', 'gst_rate', 'total_price', 'product_title', 'product_sku', 'gst_rate_display']
+        fields = ['product', 'quantity', 'unit_price', 'gst_rate', 'total_price', 'product_title', 'product_sku', 'gst_rate_display', 'is_free', 'is_gift', 'combo', 'combo_name', 'combo_id']
         extra_kwargs = {
             'total_price': {'read_only': True},
             'product_title': {'read_only': True},
             'product_sku': {'read_only': True},
-            'gst_rate_display': {'read_only': True}
+            'gst_rate_display': {'read_only': True},
+            'combo_name': {'read_only': True},
+            'combo_id': {'read_only': True},
+            'original_price': {'read_only': True}
         }
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -107,6 +117,7 @@ class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     customer_details = CustomerSerializer(source='customer', read_only=True)
     agent_name = serializers.SerializerMethodField()
+    delivery_address = serializers.JSONField(required=False, allow_null=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -119,39 +130,95 @@ class OrderSerializer(serializers.ModelSerializer):
         return obj.agent.username if obj.agent else 'Unknown'
 
     def create(self, validated_data):
+        from django.db import transaction
+        import logging
+        import datetime
+        logger = logging.getLogger('order_debug')
         items_data = validated_data.pop('items')
-        order = Order.objects.create(**validated_data)
-        for item_data in items_data:
-            OrderItem.objects.create(order=order, **item_data)
-            # Update product stock
-            product = item_data['product']
-            quantity = item_data['quantity']
-            product.stock_qty -= quantity
-            product.save()
-        return order
+        applied_combos = validated_data.pop('applied_combos', [])
+        # Handle delivery address (structured and legacy)
+        delivery_address = validated_data.pop('delivery_address', None)
+        logger.warning(f"Order create: delivery_address={delivery_address}, validated_data={validated_data}")
+        if isinstance(delivery_address, dict):
+            for field in [
+                'house_flat_no', 'wing_lane', 'society_colony', 'landmark', 'area', 'pincode',
+                'state', 'district', 'tahsil', 'city']:
+                validated_data[f'delivery_{field}'] = delivery_address.get(field, '')
+            validated_data['delivery_address'] = ', '.join([delivery_address.get(f, '') for f in [
+                'house_flat_no', 'wing_lane', 'society_colony', 'landmark', 'area', 'city', 'district', 'state', 'pincode'] if delivery_address.get(f)])
+        elif isinstance(delivery_address, str):
+            validated_data['delivery_address'] = delivery_address
+        logger.warning(f"Order create after mapping: validated_data={validated_data}")
+        if not validated_data.get('customer'):
+            raise serializers.ValidationError('Customer is required.')
+        if not items_data or len(items_data) == 0:
+            raise serializers.ValidationError('At least one order item is required.')
+        # Set order_date to today if not provided
+        if not validated_data.get('order_date'):
+            validated_data['order_date'] = datetime.date.today()
+        with transaction.atomic():
+            order = Order.objects.create(**validated_data, applied_combos=applied_combos)
+            for item_data in items_data:
+                order_item = OrderItem.objects.create(order=order, **item_data)
+                if not item_data.get('is_free') and not item_data.get('is_gift'):
+                    product = item_data['product']
+                    quantity = item_data['quantity']
+                    product.stock_qty -= quantity
+                    product.save()
+            logger.warning(f"Order created: {order}")
+            return order
 
     def update(self, instance, validated_data):
+        import datetime
         items_data = validated_data.pop('items', None)
+        applied_combos = validated_data.pop('applied_combos', None)
+        if applied_combos is not None:
+            instance.applied_combos = applied_combos
+        # Explicit validation
+        if not validated_data.get('customer'):
+            raise serializers.ValidationError('Customer is required.')
+        if items_data is not None and len(items_data) == 0:
+            raise serializers.ValidationError('At least one order item is required.')
+        # Set order_date to today if not provided
+        if not validated_data.get('order_date'):
+            validated_data['order_date'] = datetime.date.today()
         # Update order fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # Update items if provided
+        # Safely update items if provided
         if items_data is not None:
-            # Delete existing items
-            instance.items.all().delete()
-            # Create new items
-            for item_data in items_data:
-                OrderItem.objects.create(order=instance, **item_data)
+            from django.db import transaction
+            with transaction.atomic():
+                # Delete existing items
+                instance.items.all().delete()
+                # Create new items with safe FK handling
+                for item_data in items_data:
+                    combo = None
+                    if item_data.get('combo'):
+                        try:
+                            combo = ProductCombination.objects.get(id=item_data['combo'])
+                            item_data['combo'] = combo
+                        except ProductCombination.DoesNotExist:
+                            item_data.pop('combo', None)  # Remove invalid combo
+
+                    order_item = OrderItem.objects.create(order=instance, **item_data)
+                    # Update product stock ONLY for paid items (no double deduction on update)
+                    if not item_data.get('is_free') and not item_data.get('is_gift'):
+                        product = item_data['product']
+                        quantity = item_data['quantity']
+                        # Only deduct if creating new (stock already handled on original create)
+                        # Skip stock adjustment on updates to avoid double deduction
 
         return instance
 
     class Meta:
         model = Order
-        fields = ['id', 'order_id', 'customer', 'customer_details', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'order_date', 'created_at', 'customer_name', 'agent_name', 'items']
+        fields = ['id', 'order_id', 'customer', 'customer_details', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'delivery_house_flat_no', 'delivery_wing_lane', 'delivery_society_colony', 'delivery_landmark', 'delivery_area', 'delivery_pincode', 'delivery_state', 'delivery_district', 'delivery_tahsil', 'delivery_city', 'order_date', 'created_at', 'customer_name', 'agent_name', 'items', 'applied_combos']
         extra_kwargs = {
-            'agent': {'required': False}
+            'agent': {'required': False},
+            'applied_combos': {'required': False}
         }
 
 class CustomerAssumptionSerializer(serializers.ModelSerializer):
@@ -222,6 +289,11 @@ class CallLogSerializer(serializers.ModelSerializer):
         fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'saved_at', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_names', 'assumption2', 'assumption2_names', 'assumption3', 'assumption3_names']
 
 class CategorySerializer(serializers.ModelSerializer):
+    children_count = serializers.SerializerMethodField()
+    
+    def get_children_count(self, obj):
+        return obj.children.count()
+
     class Meta:
         model = Category
         fields = '__all__'
