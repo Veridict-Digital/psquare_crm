@@ -54,7 +54,7 @@ class Customer(models.Model):
         ('Customer', 'Customer'),
         ('Lead', 'Lead'),
     ]
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, blank=True, null=True)
     surname = models.CharField(max_length=100, blank=True, null=True)
     company_name = models.CharField(max_length=100, blank=True, null=True)
     company_type = models.ForeignKey(OrganizationType, on_delete=models.SET_NULL, null=True, blank=True)
@@ -69,7 +69,7 @@ class Customer(models.Model):
     society_colony = models.CharField(max_length=100, blank=True, null=True)
     landmark = models.CharField(max_length=100, blank=True, null=True)
     area = models.CharField(max_length=100, blank=True, null=True)
-    pincode = models.CharField(max_length=10)
+    pincode = models.CharField(max_length=10, blank=True, null=True)
     state = models.CharField(max_length=50, blank=True, null=True)
     district = models.CharField(max_length=50, blank=True, null=True)
     tahsil = models.CharField(max_length=50, blank=True, null=True)
