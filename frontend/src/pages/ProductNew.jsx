@@ -185,9 +185,9 @@ const ProductNew = () => {
           method: 'post',
           url: '/api/products/',
           data: formDataToSend,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+          // headers: {
+          //   'Content-Type': 'multipart/form-data',
+          // },
         });
         
         console.log("Response:", response.data);
