@@ -143,21 +143,56 @@ class GSTRate(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.rate}%"
+    
+
+
+# Move Brand and BrandCategory above Product
+
+class Brand(models.Model):
+    """Simple Brand model - similar to Category"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'brands'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class BrandCategory(models.Model):
+    """Simple Brand Category model - similar to Category"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'brand_categories'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 class Product(models.Model):
+
     pid = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Product ID
-    sku = models.CharField(max_length=50, unique=True)
-    hsn = models.CharField(max_length=20, unique=True, blank=True, null=True)    
-    title = models.CharField(max_length=100)
+    sku = models.CharField(max_length=50, unique=True ,blank=True, null=True)  # Stock Keeping Unit
+    hsn = models.CharField(max_length=20, blank=True, null=True)    
+    title = models.CharField(max_length=100, blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     category1 = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_cat1')
     category2 = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_cat2')
     category3 = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_cat3')
+    category4 = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_cat4')
     stock_qty = models.IntegerField()
     mrp = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # MRP
     b2c_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # B2C Price
     b2b_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # B2B Price
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2 , blank=True, null=True)  # Selling Price (can be set based on B2C/B2B logic)
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Purchase Price (formerly cost)
     product_volume = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Product Volume
     unit = models.CharField(max_length=20, blank=True, null=True)  # Unit (e.g., kg, liter, piece)
@@ -171,8 +206,8 @@ class Product(models.Model):
     image3 = models.ImageField(upload_to='products/gallery/', blank=True, null=True)
     image4 = models.ImageField(upload_to='products/gallery/', blank=True, null=True)
     video_link = models.URLField(max_length=500, blank=True, null=True)
-    brand_name = models.CharField(max_length=100, blank=True, null=True)
-    brand_category = models.CharField(max_length=100, blank=True, null=True)
+    brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    brand_category = models.ForeignKey(BrandCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     flavour = models.CharField(max_length=100, blank=True, null=True)
     residual = models.CharField(max_length=100, blank=True, null=True)
 
@@ -183,6 +218,7 @@ class Product(models.Model):
             import uuid
             self.pid = f"P{uuid.uuid4().hex[:8].upper()}"
         super().save(*args, **kwargs)
+
     
 
 class Order(models.Model):

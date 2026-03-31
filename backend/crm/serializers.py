@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -71,6 +71,21 @@ class ProductSerializer(serializers.ModelSerializer):
     category1_display = serializers.CharField(source='category1.name', read_only=True, allow_null=True)
     category2_display = serializers.CharField(source='category2.name', read_only=True, allow_null=True)
     category3_display = serializers.CharField(source='category3.name', read_only=True, allow_null=True)
+    category4_display = serializers.CharField(source='category4.name', read_only=True, allow_null=True)
+
+    brand_display = serializers.CharField(source='brand.name', read_only=True)
+    brand_category_display = serializers.CharField(source='brand_category.name', read_only=True)
+    
+    class Meta:
+        model = Product
+        fields = '__all__'
+        extra_kwargs = {
+            'cost': {'write_only': True},
+            'image': {'required': False, 'allow_null': True},
+            'brand': {'required': False, 'allow_null': True},  # Changed from brand_name
+            'brand_category': {'required': False, 'allow_null': True},  # Changed from brand_category
+        }
+
     
     class Meta:
         model = Product
@@ -90,6 +105,22 @@ class ProductSerializer(serializers.ModelSerializer):
             if request:
                 response['image'] = request.build_absolute_uri(instance.image.url)
         return response
+
+
+
+
+# Add to your serializers.py
+
+class BrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ['id', 'name', 'description']
+
+
+class BrandCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BrandCategory
+        fields = ['id', 'name', 'description']
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)

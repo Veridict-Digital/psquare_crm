@@ -15,8 +15,8 @@ import io
 from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -671,13 +671,14 @@ class ProductViewSet(viewsets.ModelViewSet):
                 'category1': 'category1',
                 'category2': 'category2',
                 'category3': 'category3',
+                'category4': 'category4',
                 'unit': 'unit',
                 'hsn': 'hsn',
                 'product_weight': ['weight', 'product_weight'],
                 'gst_rate': 'gst_rate',
                 'description': 'description',
                 'brand': 'brand',
-'volume': 'volume',
+                'volume': 'volume',
                 'brand_name': 'brand_name',
                 'brand_category': 'brand_category',
                 'flavour': 'flavour',
@@ -763,7 +764,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                     
                     # Categories - log attempts, continue if not found (don't block import)
 
-                    category_fields = ['category', 'category1', 'category2', 'category3']
+                    category_fields = ['category', 'category1', 'category2', 'category3', 'category4']
                     for field in category_fields:
                         val = row.get(field) or row.get(field.capitalize())
                         if pd.notna(val) and str(val).strip():
@@ -890,6 +891,24 @@ class ProductViewSet(viewsets.ModelViewSet):
             import traceback
             traceback.print_exc()
             return Response({'error': f'Processing failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+
+
+# Add to your views.py
+
+class BrandViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing brands"""
+    queryset = Brand.objects.all()
+    serializer_class = BrandSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class BrandCategoryViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing brand categories"""
+    queryset = BrandCategory.objects.all()
+    serializer_class = BrandCategorySerializer
+    permission_classes = [IsAuthenticated]
+
 
 # ========== ORDER VIEWSET ==========
 class OrderViewSet(viewsets.ModelViewSet):
