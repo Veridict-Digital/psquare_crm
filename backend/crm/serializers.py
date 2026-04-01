@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -86,17 +86,6 @@ class ProductSerializer(serializers.ModelSerializer):
             'brand_category': {'required': False, 'allow_null': True},  # Changed from brand_category
         }
 
-    
-    class Meta:
-        model = Product
-        fields = '__all__'
-        extra_kwargs = {
-            'cost': {'write_only': True},
-            'image': {'required': False, 'allow_null': True}
-        }
-
-
-
     def to_representation(self, instance):
         """Override to add full URL for image in GET responses"""
         response = super().to_representation(instance)
@@ -106,10 +95,51 @@ class ProductSerializer(serializers.ModelSerializer):
                 response['image'] = request.build_absolute_uri(instance.image.url)
         return response
 
+# ProductPricing Serializer
+# ProductPricing Serializer - FIXED VERSION
+class ProductPricingSerializer(serializers.ModelSerializer):
+    product_title = serializers.CharField(source='product.title', read_only=True)
+    product_sku = serializers.CharField(source='product.sku', read_only=True)
+    category_display = serializers.CharField(source='product.category.name', read_only=True, allow_null=True)
+    category1_display = serializers.CharField(source='product.category1.name', read_only=True, allow_null=True)
+    category2_display = serializers.CharField(source='product.category2.name', read_only=True, allow_null=True)
+    category3_display = serializers.CharField(source='product.category3.name', read_only=True, allow_null=True)
+    category4_display = serializers.CharField(source='product.category4.name', read_only=True, allow_null=True)
+    product_weight = serializers.CharField(source='product.product_weight', read_only=True)
+    unit = serializers.CharField(source='product.unit', read_only=True)
+    hsn = serializers.CharField(source='product.hsn', read_only=True)
 
-
-
-# Add to your serializers.py
+    class Meta:
+        model = ProductPricing
+        fields = [
+            'id', 'product', 'product_title', 'product_sku', 'category_display',
+            'category1_display', 'category2_display', 'category3_display', 'category4_display',
+            'product_weight', 'unit', 'hsn',
+            # Cost components
+            'purchase_type', 'purchase_value',
+            'transport_type', 'transport_value',
+            'labor_type', 'labor_value',
+            'handling_type', 'handling_value',
+            'godown_type', 'godown_value',
+            'delivery_type', 'delivery_value',
+            'packaging_type', 'packaging_value',  # ✅ ADDED
+            'extra1_type', 'extra1_value',        # ✅ ADDED
+            'extra2_type', 'extra2_value',        # ✅ ADDED
+            'landing_type', 'landing_value',
+            'company_margin_type', 'company_margin_value',
+            # Computed
+            'landing_rate', 'calculated_rate', 'sale_rate', 'mrp',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'created_at', 'updated_at', 'landing_rate', 'calculated_rate', 
+            'hsn', 'product_title', 'product_sku', 'category_display', 
+            'category1_display', 'category2_display', 'category3_display', 
+            'category4_display', 'product_weight', 'unit'
+        ]
+        extra_kwargs = {
+            'product': {'read_only': True}
+        }
 
 class BrandSerializer(serializers.ModelSerializer):
     class Meta:
@@ -488,3 +518,4 @@ class CustomerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerType
         fields = '__all__'
+

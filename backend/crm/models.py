@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import dispatch
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -146,6 +148,7 @@ class GSTRate(models.Model):
     
 
 
+
 # Move Brand and BrandCategory above Product
 
 class Brand(models.Model):
@@ -220,6 +223,113 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
     
+
+class ProductPricing(models.Model):
+    TYPE_CHOICES = [
+        ('percent', '%'),
+        ('rupees', '₹'),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='pricings')
+    
+    # Cost components with type and value
+    purchase_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    purchase_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    transport_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    transport_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    labor_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    labor_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    handling_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    handling_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    godown_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    godown_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    delivery_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    delivery_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    packaging_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    packaging_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    extra1_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    extra1_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    extra2_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    extra2_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    landing_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='rupees')
+    landing_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    company_margin_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='percent')
+    company_margin_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Manual inputs (editable)
+    sale_rate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=0)
+    mrp = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=0)
+    
+    # Computed fields (saved)
+    landing_rate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    calculated_rate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('product',)
+
+    def calculate_cost_component(self, base_amount, cost_type, cost_value):
+        """Calculate cost: % of base or fixed ₹"""
+        # Handle None values
+        if base_amount is None:
+            base_amount = Decimal('0')
+        if cost_value is None:
+            cost_value = Decimal('0')
+            
+        # Convert to float for calculation
+        base_float = float(base_amount)
+        cost_float = float(cost_value)
+        
+        if cost_type == 'percent':
+            result = base_float * (cost_float / 100)
+        else:
+            result = cost_float
+        
+        # Convert back to Decimal
+        from decimal import Decimal
+        return Decimal(str(round(result, 2)))
+
+    def save(self, *args, **kwargs):
+        # Start with purchase value as base
+        base = self.purchase_value if self.purchase_value is not None else Decimal('0')
+        
+        # Add all sequential costs (do NOT add purchase_value again)
+        base += self.calculate_cost_component(base, self.transport_type, self.transport_value or 0)
+        base += self.calculate_cost_component(base, self.labor_type, self.labor_value or 0)
+        base += self.calculate_cost_component(base, self.handling_type, self.handling_value or 0)
+        base += self.calculate_cost_component(base, self.godown_type, self.godown_value or 0)
+        base += self.calculate_cost_component(base, self.delivery_type, self.delivery_value or 0)
+        base += self.calculate_cost_component(base, self.packaging_type, self.packaging_value or 0)
+        base += self.calculate_cost_component(base, self.extra1_type, self.extra1_value or 0)
+        base += self.calculate_cost_component(base, self.extra2_type, self.extra2_value or 0)
+        
+        # Set landing rate (cost before landing charges)
+        self.landing_rate = base
+        
+        # Add landing cost
+        base += self.calculate_cost_component(base, self.landing_type, self.landing_value or 0)
+        
+        # Set calculated rate (cost after landing charges)
+        self.calculated_rate = base
+        
+        # Note: sale_rate and mrp are manual inputs - don't override them
+        
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Pricing for {self.product.title} - Calculated Rate: ₹{self.calculated_rate or 0:.2f}"
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -457,3 +567,4 @@ class CombinationGift(models.Model):
 
     def __str__(self):
         return f"{self.combination.name} - Gift {self.product.title} x{self.quantity}"
+

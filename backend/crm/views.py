@@ -15,8 +15,8 @@ import io
 from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing
+from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -1291,6 +1291,12 @@ class UnitViewSet(viewsets.ModelViewSet):
     queryset = Unit.objects.filter(is_active=True)
     serializer_class = UnitSerializer
     permission_classes = [IsAuthenticated]
+
+class ProductPricingViewSet(viewsets.ModelViewSet):
+    queryset = ProductPricing.objects.select_related('product__category', 'product__gst_rate').all()
+    serializer_class = ProductPricingSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['product']
 
 # ========== CUSTOMER TYPE VIEWSET ==========
 class CustomerTypeViewSet(viewsets.ModelViewSet):

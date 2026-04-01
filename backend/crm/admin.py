@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, GSTRate
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, GSTRate, ProductPricing
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -28,3 +28,9 @@ class CustomerAssumptionAdmin(admin.ModelAdmin):
 @admin.register(GSTRate)
 class GSTRateAdmin(admin.ModelAdmin):
     list_display = ['name', 'rate', 'description', 'is_active']
+
+@admin.register(ProductPricing)
+class ProductPricingAdmin(admin.ModelAdmin):
+    list_display = ['product', 'calculated_rate', 'sale_rate', 'mrp', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['product__title']
