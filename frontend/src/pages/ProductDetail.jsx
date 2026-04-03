@@ -60,6 +60,22 @@ const ProductDetail = () => {
     return images;
   };
 
+  // Get full image URL - using relative paths (Option 1)
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // Remove any leading slash if present
+    const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+    
+    // Return relative path - browser will resolve to current domain
+    return `/media/${cleanPath}`;
+  };
+
   const productImages = getProductImages();
 
   if (isLoading) return (
@@ -122,10 +138,15 @@ const ProductDetail = () => {
                   {productImages[selectedImage] ? (
                     <>
                       <img
-                        src={productImages[selectedImage].startsWith('http') ? productImages[selectedImage] : `${axios.defaults.baseURL.replace(/\/$/, '')}${productImages[selectedImage]}`}
+                        src={getImageUrl(productImages[selectedImage])}
                         alt={product?.title}
                         className="w-full h-full object-contain cursor-zoom-in"
                         onClick={() => setIsZoomed(true)}
+                        onError={(e) => {
+                          console.error('Failed to load image:', getImageUrl(productImages[selectedImage]));
+                          e.target.onerror = null;
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"%3E%3C/rect%3E%3Ccircle cx="8.5" cy="8.5" r="1.5"%3E%3C/circle%3E%3Cpolyline points="21 15 16 10 5 21"%3E%3C/polyline%3E%3C/svg%3E';
+                        }}
                       />
                       <button 
                         className="absolute bottom-4 right-4 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition"
@@ -156,9 +177,13 @@ const ProductDetail = () => {
                       }`}
                     >
                       <img
-                        src={img.startsWith('http') ? img : `${axios.defaults.baseURL.replace(/\/$/, '')}${img}`}
+                        src={getImageUrl(img)}
                         alt={`Thumbnail ${idx + 1}`}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="2"%3E%3Crect x="3" y="3" width="18" height="18" rx="2"%3E%3C/rect%3E%3C/svg%3E';
+                        }}
                       />
                     </button>
                   ))}
@@ -272,7 +297,7 @@ const ProductDetail = () => {
                       </tr>
                     )}
                     {product?.residual && (
-                      <tr>
+                      <tr className="border-b border-gray-200">
                         <td className="font-semibold px-4 py-3 bg-gray-50">Residual</td>
                         <td className="px-4 py-3">{product?.residual}</td>
                       </tr>
@@ -304,7 +329,7 @@ const ProductDetail = () => {
         >
           <div className="relative max-w-4xl max-h-full">
             <img
-              src={productImages[selectedImage].startsWith('http') ? productImages[selectedImage] : `${axios.defaults.baseURL.replace(/\/$/, '')}${productImages[selectedImage]}`}
+              src={getImageUrl(productImages[selectedImage])}
               alt={product?.title}
               className="max-w-full max-h-screen object-contain"
             />

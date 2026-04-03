@@ -128,8 +128,9 @@ class ProductPricingSerializer(serializers.ModelSerializer):
             'landing_type', 'landing_value',
             'company_margin_type', 'company_margin_value',
             # Computed
-            'landing_rate', 'calculated_rate', 'sale_rate', 'mrp',
+            'landing_rate', 'calculated_rate', 'sale_rate', 'mrp', 'mfg_date', 'batch_no',
             'created_at', 'updated_at'
+
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'landing_rate', 'calculated_rate', 

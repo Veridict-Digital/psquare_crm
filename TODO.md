@@ -1,22 +1,32 @@
-# Product Pricing Page Fixes - Add Packaging/Extra Fields & Ensure Purchase in Landing Rate Calc
-Status: [IN PROGRESS]
+# Product Pricing: Add MFG Date & Batch No Fields (Approved Plan)
+Status: 🚀 In Progress
 
-## Overview
-Fix ProductPricing.jsx:
-- Add missing UI/API for packaging_type/value, extra1_type/value, extra2_type/value
-- Landing rate already includes purchase_value (base starts with it ✅)
+## Step 1: Backend Model Update [PENDING]
+- `backend/crm/models.py`: Add `mfg_date = models.DateField(blank=True, null=True)` and `batch_no = models.CharField(max_length=100, blank=True, null=True)` after `mrp`
 
-## Steps:
-- [x] **Step 1**: Add missing fields to data fetch mapping in useQuery
-- [x] **Step 2**: Add Packaging, Extra1, Extra2 table columns after Delivery
-- [x] **Step 3**: Update calculatePricing() to include new cost components
-- [x] **Step 4**: Add EditableCell components for new fields in table rows
-- [x] **Step 5**: Update saveMutation dataToSend & prepareSaveData() editableFields
-- [x] **Step 6**: Update CSV export headers and row data
-- [ ] **Step 7**: Test page, save functionality, calculations
-- [ ] **Step 8**: Complete ✅
+## Step 2: Backend Serializer Update [PENDING]
+- `backend/crm/serializers.py`: Add `'mfg_date', 'batch_no'` to `ProductPricingSerializer.fields`
 
-**File**: `frontend/src/pages/ProductPricing.jsx`
+## Step 3: Backend Admin Update [PENDING]
+- `backend/crm/admin.py`: Add `'mfg_date', 'batch_no'` to `ProductPricingAdmin.list_display`
 
-**Estimated time**: 15-20 mins
+## Step 4: Create Django Migration [PENDING]
+```bash
+cd backend
+python manage.py makemigrations crm
+python manage.py migrate
+```
+
+## Step 5: Frontend UI Update [PENDING]
+- `frontend/src/pages/ProductPricing.jsx`: 
+  * Add MFG Date (date picker w/ auto-open calendar) & Batch No columns after MRP
+  * Update frozen column positions, editableFields array, keyboard nav
+  * Auto-open date picker on MFG focus, auto-close on selection
+
+## Step 6: Testing [PENDING]
+- Backend API test: new fields appear in `/api/productpricings/`
+- Frontend test: MFG calendar auto-opens/closes, Batch editable, save works
+- Admin panel: columns visible
+
+**Next Action**: Proceed to Step 1 - Update models.py
 

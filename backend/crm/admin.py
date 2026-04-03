@@ -31,6 +31,6 @@ class GSTRateAdmin(admin.ModelAdmin):
 
 @admin.register(ProductPricing)
 class ProductPricingAdmin(admin.ModelAdmin):
-    list_display = ['product', 'calculated_rate', 'sale_rate', 'mrp', 'created_at']
+    list_display = ['product', 'calculated_rate', 'sale_rate', 'mrp', 'mfg_date', 'batch_no', 'created_at']
     list_filter = ['created_at']
     search_fields = ['product__title']
