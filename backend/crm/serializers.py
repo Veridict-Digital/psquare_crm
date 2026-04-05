@@ -138,9 +138,6 @@ class ProductPricingSerializer(serializers.ModelSerializer):
             'category1_display', 'category2_display', 'category3_display', 
             'category4_display', 'product_weight', 'unit'
         ]
-        extra_kwargs = {
-            'product': {'read_only': True}
-        }
 
 class BrandSerializer(serializers.ModelSerializer):
     class Meta:
