@@ -287,7 +287,52 @@ const ProductPricing = () => {
     setCurrentPage(1);
   }, [search]);
 
-  // Calculate pricing locally with memoization
+  // Calculate pricing in real-time with edited values
+  const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
+    // Helper to get value (edited value takes priority)
+    const getValue = (field) => {
+      const key = `${row.product}_${field}`;
+      if (currentEditedValues[key] !== undefined) {
+        return currentEditedValues[key];
+      }
+      return row[field];
+    };
+
+    // Helper to get type (edited type takes priority)
+    const getType = (fieldType) => {
+      const key = `${row.product}_${fieldType}_type`;
+      if (currentEditedValues[key] !== undefined) {
+        return currentEditedValues[key];
+      }
+      return row[`${fieldType}_type`] || "rupees";
+    };
+
+    let base = Number(getValue("purchase_value")) || 0;
+
+    const calculateCost = (baseAmount, type, value) => {
+      if (type === "percent") {
+        return baseAmount * (Number(value) / 100);
+      }
+      return Number(value);
+    };
+
+    base += calculateCost(base, getType("transport"), getValue("transport_value"));
+    base += calculateCost(base, getType("labor"), getValue("labor_value"));
+    base += calculateCost(base, getType("handling"), getValue("handling_value"));
+    base += calculateCost(base, getType("godown"), getValue("godown_value"));
+    base += calculateCost(base, getType("delivery"), getValue("delivery_value"));
+    base += calculateCost(base, getType("packaging"), getValue("packaging_value"));
+    base += calculateCost(base, getType("extra1"), getValue("extra1_value"));
+    base += calculateCost(base, getType("extra2"), getValue("extra2_value"));
+
+    const landing_rate = base;
+    base += calculateCost(base, getType("landing"), getValue("landing_value"));
+    const calculated_rate = base;
+
+    return { landing_rate, calculated_rate };
+  }, []);
+
+  // Calculate pricing locally with memoization (for backward compatibility)
   const calculatePricing = useCallback((row) => {
     let base = Number(row.purchase_value) || 0;
 
@@ -398,73 +443,71 @@ const ProductPricing = () => {
   }, []);
 
   // Navigation handler
-  // Navigation handler - updated to skip readonly fields
-const navigateCell = useCallback(
-  (currentRowIndex, currentFieldKey, direction) => {
-    const totalRows = paginatedData.length;
-    
-    // Get only editable (non-readonly) fields for navigation
-    const navigableFields = EDITABLE_FIELDS.filter(f => !f.readonly);
-    const currentFieldIndex = navigableFields.findIndex(
-      (f) => f.key === currentFieldKey,
-    );
+  const navigateCell = useCallback(
+    (currentRowIndex, currentFieldKey, direction) => {
+      const totalRows = paginatedData.length;
+      
+      const navigableFields = EDITABLE_FIELDS.filter(f => !f.readonly);
+      const currentFieldIndex = navigableFields.findIndex(
+        (f) => f.key === currentFieldKey,
+      );
 
-    let newRowIndex = currentRowIndex;
-    let newFieldIndex = currentFieldIndex;
+      let newRowIndex = currentRowIndex;
+      let newFieldIndex = currentFieldIndex;
 
-    switch (direction) {
-      case "ArrowRight":
-        if (currentFieldIndex < navigableFields.length - 1) {
-          newFieldIndex = currentFieldIndex + 1;
-        } else if (currentRowIndex < totalRows - 1) {
-          newRowIndex = currentRowIndex + 1;
-          newFieldIndex = 0;
-        }
-        break;
-      case "ArrowLeft":
-        if (currentFieldIndex > 0) {
-          newFieldIndex = currentFieldIndex - 1;
-        } else if (currentRowIndex > 0) {
-          newRowIndex = currentRowIndex - 1;
-          newFieldIndex = navigableFields.length - 1;
-        }
-        break;
-      case "ArrowDown":
-        if (currentRowIndex < totalRows - 1) {
-          newRowIndex = currentRowIndex + 1;
-          newFieldIndex = currentFieldIndex;
-        }
-        break;
-      case "ArrowUp":
-        if (currentRowIndex > 0) {
-          newRowIndex = currentRowIndex - 1;
-          newFieldIndex = currentFieldIndex;
-        }
-        break;
-      default:
-        return;
-    }
+      switch (direction) {
+        case "ArrowRight":
+          if (currentFieldIndex < navigableFields.length - 1) {
+            newFieldIndex = currentFieldIndex + 1;
+          } else if (currentRowIndex < totalRows - 1) {
+            newRowIndex = currentRowIndex + 1;
+            newFieldIndex = 0;
+          }
+          break;
+        case "ArrowLeft":
+          if (currentFieldIndex > 0) {
+            newFieldIndex = currentFieldIndex - 1;
+          } else if (currentRowIndex > 0) {
+            newRowIndex = currentRowIndex - 1;
+            newFieldIndex = navigableFields.length - 1;
+          }
+          break;
+        case "ArrowDown":
+          if (currentRowIndex < totalRows - 1) {
+            newRowIndex = currentRowIndex + 1;
+            newFieldIndex = currentFieldIndex;
+          }
+          break;
+        case "ArrowUp":
+          if (currentRowIndex > 0) {
+            newRowIndex = currentRowIndex - 1;
+            newFieldIndex = currentFieldIndex;
+          }
+          break;
+        default:
+          return;
+      }
 
-    if (
-      newRowIndex !== currentRowIndex ||
-      newFieldIndex !== currentFieldIndex
-    ) {
-      const newField = navigableFields[newFieldIndex];
-      setEditingCell({ rowIndex: newRowIndex, field: newField.key });
+      if (
+        newRowIndex !== currentRowIndex ||
+        newFieldIndex !== currentFieldIndex
+      ) {
+        const newField = navigableFields[newFieldIndex];
+        setEditingCell({ rowIndex: newRowIndex, field: newField.key });
 
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
-          inputRef.current.scrollIntoView({
-            behavior: "auto",
-            block: "nearest",
-          });
-        }
-      }, 50);
-    }
-  },
-  [paginatedData],
-);
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.scrollIntoView({
+              behavior: "auto",
+              block: "nearest",
+            });
+          }
+        }, 50);
+      }
+    },
+    [paginatedData],
+  );
 
   // Handle cell edit with validation
   const handleCellEdit = useCallback(
@@ -481,7 +524,6 @@ const navigateCell = useCallback(
         }
       }
 
-      // Validate
       const error = validateValue(field, processedValue, fieldConfig?.type);
       if (error) {
         setValidationErrors((prev) => ({ ...prev, [key]: error }));
@@ -648,7 +690,22 @@ const navigateCell = useCallback(
     ];
 
     const rows = filteredData.map((row) => {
-      const computed = calculatePricing(row);
+      const computed = calculateRealtimePricing(row, editedValues);
+      const getValue = (field) => {
+        const key = `${row.product}_${field}`;
+        if (editedValues[key] !== undefined) {
+          return editedValues[key];
+        }
+        return row[field];
+      };
+      const getTypeValue = (fieldType) => {
+        const key = `${row.product}_${fieldType}_type`;
+        if (editedValues[key] !== undefined) {
+          return editedValues[key];
+        }
+        return row[`${fieldType}_type`] || "rupees";
+      };
+
       return [
         row.sku || "",
         row.title || "",
@@ -656,22 +713,22 @@ const navigateCell = useCallback(
         row.unit || "",
         row.product_weight || "",
         row.hsn || "",
-        Number(row.sale_rate).toFixed(2),
+        Number(getValue("sale_rate")).toFixed(2),
         computed.landing_rate.toFixed(2),
-        `${row.company_margin_value}${row.company_margin_type === "percent" ? "%" : "₹"}`,
+        `${getValue("company_margin_value")}${getTypeValue("company_margin") === "percent" ? "%" : "₹"}`,
         computed.calculated_rate.toFixed(2),
-        Number(row.mrp).toFixed(2),
-        row.mfg_date || "",
-        row.batch_no || "",
-        `${row.purchase_value}${row.purchase_type === "percent" ? "%" : "₹"}`,
-        `${row.transport_value}${row.transport_type === "percent" ? "%" : "₹"}`,
-        `${row.labor_value}${row.labor_type === "percent" ? "%" : "₹"}`,
-        `${row.handling_value}${row.handling_type === "percent" ? "%" : "₹"}`,
-        `${row.godown_value}${row.godown_type === "percent" ? "%" : "₹"}`,
-        `${row.delivery_value}${row.delivery_type === "percent" ? "%" : "₹"}`,
-        `${row.packaging_value}${row.packaging_type === "percent" ? "%" : "₹"}`,
-        `${row.extra1_value}${row.extra1_type === "percent" ? "%" : "₹"}`,
-        `${row.extra2_value}${row.extra2_type === "percent" ? "%" : "₹"}`,
+        Number(getValue("mrp")).toFixed(2),
+        getValue("mfg_date") || "",
+        getValue("batch_no") || "",
+        `${getValue("purchase_value")}${getTypeValue("purchase") === "percent" ? "%" : "₹"}`,
+        `${getValue("transport_value")}${getTypeValue("transport") === "percent" ? "%" : "₹"}`,
+        `${getValue("labor_value")}${getTypeValue("labor") === "percent" ? "%" : "₹"}`,
+        `${getValue("handling_value")}${getTypeValue("handling") === "percent" ? "%" : "₹"}`,
+        `${getValue("godown_value")}${getTypeValue("godown") === "percent" ? "%" : "₹"}`,
+        `${getValue("delivery_value")}${getTypeValue("delivery") === "percent" ? "%" : "₹"}`,
+        `${getValue("packaging_value")}${getTypeValue("packaging") === "percent" ? "%" : "₹"}`,
+        `${getValue("extra1_value")}${getTypeValue("extra1") === "percent" ? "%" : "₹"}`,
+        `${getValue("extra2_value")}${getTypeValue("extra2") === "percent" ? "%" : "₹"}`,
       ];
     });
 
@@ -692,7 +749,7 @@ const navigateCell = useCallback(
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success("Export successful!");
-  }, [filteredData, calculatePricing]);
+  }, [filteredData, calculateRealtimePricing, editedValues]);
 
   // Render group cell
   const renderGroupCell = useCallback(
@@ -723,13 +780,12 @@ const navigateCell = useCallback(
               const hasError = validationErrors[errorKey];
 
               if (fieldConfig.readonly) {
-                const computed = calculatePricing(row);
+                const computed = calculateRealtimePricing(row, editedValues);
                 const value =
                   fieldKey === "landing_rate"
                     ? computed.landing_rate
                     : computed.calculated_rate;
-                const bgColor =
-                  fieldKey === "landing_rate" ? "bg-blue-50" : "bg-green-50";
+                const bgColor = "bg-gray-100";
 
                 return (
                   <div
@@ -807,7 +863,8 @@ const navigateCell = useCallback(
     [
       editingCell,
       validationErrors,
-      calculatePricing,
+      calculateRealtimePricing,
+      editedValues,
       getCellValue,
       getType,
       handleCellEdit,
@@ -822,7 +879,7 @@ const navigateCell = useCallback(
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
           <p className="text-gray-600">Loading product pricing...</p>
         </div>
       </div>
@@ -933,7 +990,6 @@ const navigateCell = useCallback(
     background-color: #f9fafb;
   }
   
-  /* Remove spinner buttons from number inputs */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -941,11 +997,9 @@ const navigateCell = useCallback(
   }
   
   input[type="number"] {
-    -moz-appearance: textfield; /* For Firefox */
+    -moz-appearance: textfield;
     appearance: textfield;
   }
-  
-    
 `}</style>
             <table className="pricing-table">
               <thead className="bg-gray-100">
@@ -1169,7 +1223,6 @@ const navigateCell = useCallback(
 };
 
 // Excel-like Editable Cell Component
-// Excel-like Editable Cell Component - Fixed version with no layout shifts
 const ExcelCell = React.memo(
   ({
     value,
@@ -1187,19 +1240,20 @@ const ExcelCell = React.memo(
     errorMessage,
   }) => {
     const [inputValue, setInputValue] = useState(value);
+    const [focusOnToggle, setFocusOnToggle] = useState(false);
     const localRef = useRef(null);
+    const toggleRef = useRef(null);
     const isFirstRender = useRef(true);
 
-    // Sync input value when editing starts
     useEffect(() => {
       if (isEditing) {
         setInputValue(value);
+        setFocusOnToggle(false);
       }
     }, [value, isEditing]);
 
-    // Handle focus when editing starts
     useEffect(() => {
-      if (isEditing && !isFirstRender.current) {
+      if (isEditing && !isFirstRender.current && !focusOnToggle) {
         const refToUse = inputRef || localRef;
         if (refToUse?.current) {
           requestAnimationFrame(() => {
@@ -1211,14 +1265,17 @@ const ExcelCell = React.memo(
             ) {
               refToUse.current.select();
             }
-            if (type === "date" && refToUse.current.showPicker) {
-              refToUse.current.showPicker();
-            }
           });
         }
       }
       isFirstRender.current = false;
-    }, [isEditing, inputRef, type]);
+    }, [isEditing, inputRef, type, focusOnToggle]);
+
+    useEffect(() => {
+      if (focusOnToggle && toggleRef.current) {
+        toggleRef.current.focus();
+      }
+    }, [focusOnToggle]);
 
     const handleChange = useCallback(
       (e) => {
@@ -1236,38 +1293,76 @@ const ExcelCell = React.memo(
 
     const handleKeyDown = useCallback(
       (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          if (type !== "date") {
-            const numValue = parseFloat(inputValue);
-            if (!isNaN(numValue)) {
-              onEdit(numValue);
-            } else if (type === "text") {
-              onEdit(inputValue);
+        if (!focusOnToggle) {
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            if (onTypeToggle) {
+              setFocusOnToggle(true);
+            } else {
+              onBlur();
+              setTimeout(() => onKeyDown(e), 10);
             }
-          }
-          onBlur();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          setInputValue(value);
-          onBlur();
-        } else if (
-          ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)
-        ) {
-          e.preventDefault();
-          if (type !== "date") {
-            const numValue = parseFloat(inputValue);
-            if (!isNaN(numValue)) {
-              onEdit(numValue);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (type !== "date") {
+              const numValue = parseFloat(inputValue);
+              if (!isNaN(numValue)) {
+                onEdit(numValue);
+              } else if (type === "text") {
+                onEdit(inputValue);
+              }
             }
+            onBlur();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            setInputValue(value);
+            onBlur();
+          } else if (
+            ["ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)
+          ) {
+            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+              onBlur();
+              setTimeout(() => onKeyDown(e), 10);
+            } else {
+              onKeyDown(e);
+            }
+          } else {
+            onKeyDown(e);
           }
-          onBlur();
-          setTimeout(() => onKeyDown(e), 10);
-        } else {
-          onKeyDown(e);
         }
       },
-      [inputValue, type, onEdit, onBlur, onKeyDown, value],
+      [focusOnToggle, onTypeToggle, onBlur, onKeyDown, inputValue, type, onEdit, value]
+    );
+
+    const handleToggleKeyDown = useCallback(
+      (e) => {
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          onTypeToggle();
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          setFocusOnToggle(false);
+          onBlur();
+          setTimeout(() => onKeyDown(e), 10);
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          setFocusOnToggle(false);
+          setTimeout(() => {
+            const refToUse = inputRef || localRef;
+            if (refToUse?.current) {
+              refToUse.current.focus();
+            }
+          }, 10);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          onTypeToggle();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          setFocusOnToggle(false);
+          onBlur();
+        }
+      },
+      [onTypeToggle, onBlur, onKeyDown, inputRef]
     );
 
     const handleToggleClick = useCallback(
@@ -1276,13 +1371,12 @@ const ExcelCell = React.memo(
         e.preventDefault();
         onTypeToggle();
         setTimeout(() => {
-          const refToUse = inputRef || localRef;
-          if (refToUse?.current) {
-            refToUse.current.focus();
+          if (toggleRef.current) {
+            toggleRef.current.focus();
           }
         }, 10);
       },
-      [onTypeToggle, inputRef],
+      [onTypeToggle],
     );
 
     const getDisplayValue = useCallback(() => {
@@ -1321,7 +1415,6 @@ const ExcelCell = React.memo(
       }
     }, [value, type, currentType, placeholder]);
 
-    // Display mode - non-editing
     if (!isEditing) {
       return (
         <div
@@ -1352,28 +1445,27 @@ const ExcelCell = React.memo(
       );
     }
 
-    // Editing mode - with absolute positioning to prevent layout shift
     return (
       <div
         className="relative"
         style={{
           minHeight: "34px",
           height: "34px",
+          width: "100%",
         }}
       >
-        {/* Invisible placeholder to maintain exact dimensions */}
         <div
           className="px-2 py-1 invisible"
           style={{
             minHeight: "34px",
             height: "34px",
             visibility: "hidden",
+            width: "100%",
           }}
         >
           <span className="text-sm">{getDisplayValue()}</span>
         </div>
 
-        {/* Absolute positioned input on top */}
         <div
           className="absolute inset-0 flex items-center gap-1"
           style={{ top: 0, left: 0, right: 0, bottom: 0 }}
@@ -1387,14 +1479,24 @@ const ExcelCell = React.memo(
               type="date"
               value={inputValue || ""}
               onChange={handleChange}
-              onBlur={onBlur}
+              onBlur={() => {
+                if (!focusOnToggle) {
+                  onBlur();
+                }
+              }}
               onKeyDown={handleKeyDown}
-              className={`w-full px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${
+              onDoubleClick={e => {
+                if (e.target.showPicker) e.target.showPicker();
+              }}
+              className={`px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${
                 hasError
                   ? "border-red-500 focus:ring-red-500"
                   : "border-blue-500 focus:ring-blue-500"
               }`}
               style={{
+                width: "100%",
+                minWidth: "80px",
+                maxWidth: "100%",
                 height: "30px",
                 borderWidth: "2px",
                 boxSizing: "border-box",
@@ -1410,16 +1512,21 @@ const ExcelCell = React.memo(
               value={inputValue || ""}
               onChange={(e) => setInputValue(e.target.value)}
               onBlur={() => {
-                onEdit(inputValue);
-                onBlur();
+                if (!focusOnToggle) {
+                  onEdit(inputValue);
+                  onBlur();
+                }
               }}
               onKeyDown={handleKeyDown}
-              className={`w-full px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${
+              className={`px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${
                 hasError
                   ? "border-red-500 focus:ring-red-500"
                   : "border-blue-500 focus:ring-blue-500"
               }`}
               style={{
+                width: "100%",
+                minWidth: "80px",
+                maxWidth: "100%",
                 height: "30px",
                 borderWidth: "2px",
                 boxSizing: "border-box",
@@ -1436,6 +1543,15 @@ const ExcelCell = React.memo(
                 step="0.01"
                 value={inputValue}
                 onChange={handleChange}
+                onBlur={() => {
+                  if (!focusOnToggle) {
+                    const numValue = parseFloat(inputValue);
+                    if (!isNaN(numValue)) {
+                      onEdit(numValue);
+                    }
+                    onBlur();
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 className={`px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${
                   hasError
@@ -1443,7 +1559,9 @@ const ExcelCell = React.memo(
                     : "border-blue-500 focus:ring-blue-500"
                 }`}
                 style={{
-                  width: "100px",
+                  width: "100%",
+                  minWidth: "80px",
+                  maxWidth: "100%",
                   height: "30px",
                   borderWidth: "2px",
                   boxSizing: "border-box",
@@ -1451,17 +1569,25 @@ const ExcelCell = React.memo(
               />
               {onTypeToggle && (
                 <button
+                  ref={toggleRef}
                   onClick={handleToggleClick}
-                  onMouseDown={(e) => e.preventDefault()}
-                  className="p-1 text-xs bg-gray-100 rounded hover:bg-gray-200 flex items-center gap-1 transition-colors justify-center border border-gray-300 flex-shrink-0"
+                  onKeyDown={handleToggleKeyDown}
+                  onBlur={() => {
+                    if (focusOnToggle) {
+                      setFocusOnToggle(false);
+                      onBlur();
+                    }
+                  }}
+                  className="p-1 text-xs bg-gray-100 rounded hover:bg-gray-200 flex items-center gap-1 transition-colors justify-center border border-gray-300 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   style={{
                     height: "30px",
                     minWidth: "32px",
+                    width: "32px",
                   }}
                   title={
                     currentType === "percent"
-                      ? "Switch to rupees"
-                      : "Switch to percentage"
+                      ? "Switch to rupees (use ↑/↓ arrows)"
+                      : "Switch to percentage (use ↑/↓ arrows)"
                   }
                   type="button"
                 >
@@ -1476,7 +1602,6 @@ const ExcelCell = React.memo(
           )}
         </div>
 
-        {/* Error message tooltip */}
         {hasError && errorMessage && (
           <div className="absolute z-10 mt-1 px-2 py-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded whitespace-nowrap">
             {errorMessage}
