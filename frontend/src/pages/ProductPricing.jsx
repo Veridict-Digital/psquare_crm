@@ -1223,6 +1223,7 @@ const ProductPricing = () => {
 };
 
 // Excel-like Editable Cell Component
+// Excel-like Editable Cell Component - Auto-save on navigation
 const ExcelCell = React.memo(
   ({
     value,
@@ -1244,14 +1245,18 @@ const ExcelCell = React.memo(
     const localRef = useRef(null);
     const toggleRef = useRef(null);
     const isFirstRender = useRef(true);
+    const hasSavedRef = useRef(false);
 
+    // Sync input value when editing starts
     useEffect(() => {
       if (isEditing) {
         setInputValue(value);
         setFocusOnToggle(false);
+        hasSavedRef.current = false;
       }
     }, [value, isEditing]);
 
+    // Handle focus when editing starts
     useEffect(() => {
       if (isEditing && !isFirstRender.current && !focusOnToggle) {
         const refToUse = inputRef || localRef;
@@ -1271,68 +1276,86 @@ const ExcelCell = React.memo(
       isFirstRender.current = false;
     }, [isEditing, inputRef, type, focusOnToggle]);
 
+    // Focus on toggle button when needed
     useEffect(() => {
       if (focusOnToggle && toggleRef.current) {
         toggleRef.current.focus();
       }
     }, [focusOnToggle]);
 
+    // Save the current value
+    const saveCurrentValue = useCallback(() => {
+      if (!hasSavedRef.current) {
+        if (type === "date") {
+          // Date is already saved via onChange
+          hasSavedRef.current = true;
+        } else if (type === "text") {
+          onEdit(inputValue);
+          hasSavedRef.current = true;
+        } else {
+          const numValue = parseFloat(inputValue);
+          if (!isNaN(numValue)) {
+            onEdit(numValue);
+            hasSavedRef.current = true;
+          } else if (inputValue === "" || inputValue === null || inputValue === undefined) {
+            onEdit(0);
+            hasSavedRef.current = true;
+          }
+        }
+      }
+    }, [inputValue, type, onEdit]);
+
     const handleChange = useCallback(
       (e) => {
-        setInputValue(e.target.value);
+        const newValue = e.target.value;
+        setInputValue(newValue);
+        hasSavedRef.current = false;
+        
         if (type === "date") {
-          onEdit(e.target.value);
-          setTimeout(() => {
-            if (inputRef?.current) inputRef.current.blur();
-            if (localRef.current) localRef.current.blur();
-          }, 50);
+          // Auto-save date immediately
+          onEdit(newValue);
+          hasSavedRef.current = true;
         }
       },
-      [type, onEdit, inputRef],
+      [type, onEdit],
     );
 
     const handleKeyDown = useCallback(
       (e) => {
         if (!focusOnToggle) {
-          if (e.key === "ArrowRight") {
+          // Save value when navigating away with arrow keys
+          if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) {
             e.preventDefault();
-            if (onTypeToggle) {
-              setFocusOnToggle(true);
-            } else {
-              onBlur();
-              setTimeout(() => onKeyDown(e), 10);
-            }
+            saveCurrentValue();
+            onBlur();
+            setTimeout(() => onKeyDown(e), 10);
           } else if (e.key === "Enter") {
             e.preventDefault();
-            if (type !== "date") {
-              const numValue = parseFloat(inputValue);
-              if (!isNaN(numValue)) {
-                onEdit(numValue);
-              } else if (type === "text") {
-                onEdit(inputValue);
-              }
-            }
+            saveCurrentValue();
             onBlur();
           } else if (e.key === "Escape") {
             e.preventDefault();
             setInputValue(value);
             onBlur();
-          } else if (
-            ["ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)
-          ) {
-            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
-              onBlur();
-              setTimeout(() => onKeyDown(e), 10);
-            } else {
-              onKeyDown(e);
-            }
+          } else if (e.key === "Tab") {
+            // Let Tab work normally but save first
+            saveCurrentValue();
+            onBlur();
+            setTimeout(() => onKeyDown(e), 10);
           } else {
             onKeyDown(e);
           }
         }
       },
-      [focusOnToggle, onTypeToggle, onBlur, onKeyDown, inputValue, type, onEdit, value]
+      [focusOnToggle, saveCurrentValue, onBlur, onKeyDown, value, type, inputValue, onEdit]
     );
+
+    const handleBlur = useCallback(() => {
+      if (!focusOnToggle) {
+        saveCurrentValue();
+        onBlur();
+      }
+    }, [focusOnToggle, saveCurrentValue, onBlur]);
 
     const handleToggleKeyDown = useCallback(
       (e) => {
@@ -1342,6 +1365,7 @@ const ExcelCell = React.memo(
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
           setFocusOnToggle(false);
+          saveCurrentValue();
           onBlur();
           setTimeout(() => onKeyDown(e), 10);
         } else if (e.key === "ArrowLeft") {
@@ -1359,10 +1383,11 @@ const ExcelCell = React.memo(
         } else if (e.key === "Escape") {
           e.preventDefault();
           setFocusOnToggle(false);
+          setInputValue(value);
           onBlur();
         }
       },
-      [onTypeToggle, onBlur, onKeyDown, inputRef]
+      [onTypeToggle, saveCurrentValue, onBlur, onKeyDown, inputRef, value]
     );
 
     const handleToggleClick = useCallback(
@@ -1415,6 +1440,7 @@ const ExcelCell = React.memo(
       }
     }, [value, type, currentType, placeholder]);
 
+    // Display mode - non-editing
     if (!isEditing) {
       return (
         <div
@@ -1445,6 +1471,7 @@ const ExcelCell = React.memo(
       );
     }
 
+    // Editing mode
     return (
       <div
         className="relative"
@@ -1454,6 +1481,7 @@ const ExcelCell = React.memo(
           width: "100%",
         }}
       >
+        {/* Invisible placeholder */}
         <div
           className="px-2 py-1 invisible"
           style={{
@@ -1466,6 +1494,7 @@ const ExcelCell = React.memo(
           <span className="text-sm">{getDisplayValue()}</span>
         </div>
 
+        {/* Absolute positioned input and toggle */}
         <div
           className="absolute inset-0 flex items-center gap-1"
           style={{ top: 0, left: 0, right: 0, bottom: 0 }}
@@ -1479,11 +1508,7 @@ const ExcelCell = React.memo(
               type="date"
               value={inputValue || ""}
               onChange={handleChange}
-              onBlur={() => {
-                if (!focusOnToggle) {
-                  onBlur();
-                }
-              }}
+              onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               onDoubleClick={e => {
                 if (e.target.showPicker) e.target.showPicker();
@@ -1510,13 +1535,11 @@ const ExcelCell = React.memo(
               }}
               type="text"
               value={inputValue || ""}
-              onChange={(e) => setInputValue(e.target.value)}
-              onBlur={() => {
-                if (!focusOnToggle) {
-                  onEdit(inputValue);
-                  onBlur();
-                }
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                hasSavedRef.current = false;
               }}
+              onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               className={`px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${
                 hasError
@@ -1542,16 +1565,11 @@ const ExcelCell = React.memo(
                 type="number"
                 step="0.01"
                 value={inputValue}
-                onChange={handleChange}
-                onBlur={() => {
-                  if (!focusOnToggle) {
-                    const numValue = parseFloat(inputValue);
-                    if (!isNaN(numValue)) {
-                      onEdit(numValue);
-                    }
-                    onBlur();
-                  }
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  hasSavedRef.current = false;
                 }}
+                onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 className={`px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${
                   hasError
@@ -1575,6 +1593,7 @@ const ExcelCell = React.memo(
                   onBlur={() => {
                     if (focusOnToggle) {
                       setFocusOnToggle(false);
+                      saveCurrentValue();
                       onBlur();
                     }
                   }}
@@ -1602,6 +1621,7 @@ const ExcelCell = React.memo(
           )}
         </div>
 
+        {/* Error message tooltip */}
         {hasError && errorMessage && (
           <div className="absolute z-10 mt-1 px-2 py-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded whitespace-nowrap">
             {errorMessage}
