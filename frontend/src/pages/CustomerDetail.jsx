@@ -31,7 +31,8 @@ const CustomerDetail = () => {
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const [showOrgTypeDropdown, setShowOrgTypeDropdown] = useState(false);
-  const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] = useState(false);
+  const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] =
+    useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [tempAddress, setTempAddress] = useState({});
   const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false);
@@ -225,19 +226,45 @@ const CustomerDetail = () => {
   const handleEditLastCall = () => {
     if (callLogs.length > 0) {
       const recentCall = callLogs[0];
+
+      // CRITICAL: Use the CURRENT customer ID, not the one from the call log
+      const currentCustomerId = customer?.id;
+
+      console.log(
+        "Editing last call - Customer ID from page:",
+        currentCustomerId,
+      );
+      console.log(
+        "Editing last call - Customer ID from call log:",
+        recentCall.customer,
+      );
+      console.log("Full call log:", recentCall);
+
+      // Validate customer exists
+      if (!currentCustomerId) {
+        console.error("No customer ID found in current page");
+        toast.error("Cannot edit call: Customer information missing");
+        return;
+      }
+
       const callData = {
-        ...customer,
+        // Use the CURRENT customer from the page, not the one from call log
+        id: currentCustomerId,
+        name: customer?.name,
+        surname: customer?.surname,
+        phone: customer?.phone,
         notes: recentCall.note || "",
         selectedAssumption: recentCall.assumption || [],
         selectedAssumption2: recentCall.assumption2 || [],
         selectedAssumption3: recentCall.assumption3 || [],
         orderId: recentCall.order_id || "",
         callId: recentCall.call_id,
-        id: recentCall.id, // Always use the call log ID for editing
         timer: Math.round(recentCall.duration_minutes * 60) || 0,
         isEditing: true,
         isRunning: false,
       };
+
+      console.log("Opening popup with callData:", callData);
       openPopup(callData);
     }
   };
@@ -295,22 +322,25 @@ const CustomerDetail = () => {
                         type="text"
                         value={tempName}
                         onChange={(e) => setTempName(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-xl font-bold"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            updateMutation.mutate({ name: tempName });
+                            setEditingField(null);
+                            setTempName("");
+                          }
+                        }}
+                        onBlur={() => {
+                          // Save when clicking outside
+                          if (tempName !== customer?.name) {
+                            updateMutation.mutate({ name: tempName });
+                          }
+                          setEditingField(null);
+                          setTempName("");
+                        }}
+                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-40"
                         placeholder="Customer name"
                         autoFocus
                       />
-                      <button
-                        onClick={saveNameEdit}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <Save className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={cancelNameEdit}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
                     </div>
                   ) : editingField === "surname" ? (
                     <div className="flex items-center space-x-2">
@@ -318,30 +348,30 @@ const CustomerDetail = () => {
                         type="text"
                         value={tempSurname}
                         onChange={(e) => setTempSurname(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-xl font-bold"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            updateMutation.mutate({ surname: tempSurname });
+                            setEditingField(null);
+                            setTempSurname("");
+                          }
+                        }}
+                        onBlur={() => {
+                          // Save when clicking outside
+                          if (tempSurname !== customer?.surname) {
+                            updateMutation.mutate({ surname: tempSurname });
+                          }
+                          setEditingField(null);
+                          setTempSurname("");
+                        }}
+                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-40"
                         placeholder="Customer surname"
                         autoFocus
                       />
-                      <button
-                        onClick={saveSurnameEdit}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <Save className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={cancelSurnameEdit}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
                     </div>
                   ) : (
                     <div className="flex items-center space-x-2 relative">
-                      <span className="text-2xl font-bold text-gray-900">
-                        {customer?.name?.charAt(0)?.toUpperCase() +
-                          customer?.name?.slice(1) || "Unknown"}{" "}
-                        {customer?.surname?.charAt(0)?.toUpperCase() +
-                          customer?.surname?.slice(1) || ""}
+                      <span className="text-xl font-bold text-gray-900">
+                        {customer?.name || "No name"} {customer?.surname || ""}
                       </span>
                       <button
                         onClick={() =>
@@ -349,18 +379,26 @@ const CustomerDetail = () => {
                         }
                         className="text-gray-400 hover:text-gray-600"
                       >
-                        <Edit className="h-5 w-5" />
+                        <Edit className="h-4 w-4" />
                       </button>
                       {showNameEditDropdown && (
                         <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-32">
                           <button
-                            onClick={startEditingName}
+                            onClick={() => {
+                              setTempName(customer?.name || "");
+                              setEditingField("name");
+                              setShowNameEditDropdown(false);
+                            }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded-t-lg"
                           >
                             Edit Name
                           </button>
                           <button
-                            onClick={startEditingSurname}
+                            onClick={() => {
+                              setTempSurname(customer?.surname || "");
+                              setEditingField("surname");
+                              setShowNameEditDropdown(false);
+                            }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded-b-lg"
                           >
                             Edit Surname
@@ -674,7 +712,25 @@ const CustomerDetail = () => {
                 </div>
               )}
               <button
-                onClick={() => openPopup(customer)}
+                onClick={() => {
+                  console.log("Opening popup for customer:", customer);
+                  console.log("Customer ID:", customer?.id);
+                  console.log("Customer phone:", customer?.phone);
+
+                  // Make sure we're passing the full customer object with ID
+                  const callData = {
+                    ...customer,
+                    id: customer?.id,
+                    customer_id: customer?.id,
+                    timer: 0,
+                    notes: "",
+                    selectedAssumption: [],
+                    selectedAssumption2: [],
+                    selectedAssumption3: [],
+                  };
+
+                  openPopup(callData);
+                }}
                 className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
               >
                 <Phone className="h-4 w-4 mr-2" />
@@ -835,346 +891,352 @@ const CustomerDetail = () => {
               )}
             </div>
             <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-  <Calendar className="h-5 w-5 mr-2 text-gray-400" />
-  <span className="font-medium mr-2">Appointment:</span>
-  <div className="flex items-center space-x-2">
-    <input
-      type="date"
-      value={customer?.appointment_date || customer?.created_at?.split('T')[0] || ""}
-      onChange={(e) => {
-        updateMutation.mutate({ appointment_date: e.target.value });
-      }}
-      className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 cursor-pointer"
-    />
-  </div>
-</div>
+              <Calendar className="h-5 w-5 mr-2 text-gray-400" />
+              <span className="font-medium mr-2">Appointment:</span>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="date"
+                  value={
+                    customer?.appointment_date ||
+                    customer?.created_at?.split("T")[0] ||
+                    ""
+                  }
+                  onChange={(e) => {
+                    updateMutation.mutate({ appointment_date: e.target.value });
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 cursor-pointer"
+                />
+              </div>
+            </div>
             <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-  <svg
-    className="h-5 w-5 mr-2 text-gray-400"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
-  </svg>
-  <span className="font-medium mr-2">Time:</span>
-  <div className="flex items-center space-x-2">
-    <input
-      type="time"
-      value={customer?.appointment_time || ""}
-      onChange={(e) => {
-        updateMutation.mutate({ appointment_time: e.target.value });
-      }}
-      className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 cursor-pointer"
-    />
-  </div>
-</div>
+              <svg
+                className="h-5 w-5 mr-2 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="font-medium mr-2">Time:</span>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="time"
+                  value={customer?.appointment_time || ""}
+                  onChange={(e) => {
+                    updateMutation.mutate({ appointment_time: e.target.value });
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Address Section */}
           {/* Address Section - Always visible */}
-<div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
-  <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
-  <div className="flex-1 min-w-0">
-    {editingAddress ? (
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="grid grid-cols-9 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                House No
-              </label>
-              <input
-                type="text"
-                placeholder="House/Flat No"
-                value={tempAddress.house_flat_no}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    house_flat_no: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Wing/Lane
-              </label>
-              <input
-                type="text"
-                placeholder="Wing/Lane"
-                value={tempAddress.wing_lane}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    wing_lane: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Society/Colony
-              </label>
-              <input
-                type="text"
-                placeholder="Society/Colony"
-                value={tempAddress.society_colony}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    society_colony: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Landmark
-              </label>
-              <input
-                type="text"
-                placeholder="Landmark"
-                value={tempAddress.landmark}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    landmark: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Area
-              </label>
-              <input
-                type="text"
-                placeholder="Area"
-                value={tempAddress.area}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    area: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Pincode
-              </label>
-              <input
-                type="text"
-                placeholder="Pincode"
-                value={tempAddress.pincode}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, "").slice(0, 6);
-                  setTempAddress({
-                    ...tempAddress,
-                    pincode: value,
-                  });
-                }}
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                maxLength={6}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                City
-              </label>
-              <input
-                type="text"
-                placeholder="City"
-                value={tempAddress.city}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    city: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                District
-              </label>
-              <input
-                type="text"
-                placeholder="District"
-                value={tempAddress.district}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    district: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Tahsil
-              </label>
-              <input
-                type="text"
-                placeholder="Tahsil"
-                value={tempAddress.tahsil}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    tahsil: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                State
-              </label>
-              <input
-                type="text"
-                placeholder="State"
-                value={tempAddress.state}
-                onChange={(e) =>
-                  setTempAddress({
-                    ...tempAddress,
-                    state: e.target.value,
-                  })
-                }
-                className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-              />
+          <div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
+            <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              {editingAddress ? (
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="grid grid-cols-9 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          House No
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="House/Flat No"
+                          value={tempAddress.house_flat_no}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              house_flat_no: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Wing/Lane
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Wing/Lane"
+                          value={tempAddress.wing_lane}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              wing_lane: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Society/Colony
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Society/Colony"
+                          value={tempAddress.society_colony}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              society_colony: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Landmark
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Landmark"
+                          value={tempAddress.landmark}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              landmark: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Area
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Area"
+                          value={tempAddress.area}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              area: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Pincode
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Pincode"
+                          value={tempAddress.pincode}
+                          onChange={(e) => {
+                            const value = e.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 6);
+                            setTempAddress({
+                              ...tempAddress,
+                              pincode: value,
+                            });
+                          }}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                          maxLength={6}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="City"
+                          value={tempAddress.city}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              city: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          District
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="District"
+                          value={tempAddress.district}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              district: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Tahsil
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Tahsil"
+                          value={tempAddress.tahsil}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              tahsil: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="State"
+                          value={tempAddress.state}
+                          onChange={(e) =>
+                            setTempAddress({
+                              ...tempAddress,
+                              state: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex-shrink-0 pt-6 flex items-center space-x-2">
+                    <button
+                      onClick={saveAddressEdit}
+                      className="text-green-600 hover:text-green-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
+                      title="Save changes"
+                    >
+                      <Save className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={cancelAddressEdit}
+                      className="text-red-600 hover:text-red-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
+                      title="Cancel editing"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="grid grid-cols-10 gap-1">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          House No
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.house_flat_no || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Wing/Lane
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.wing_lane || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Society/Colony
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.society_colony || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Landmark
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.landmark || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Area
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.area || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Pincode
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.pincode || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          City
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.city || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          District
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.district || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Tahsil
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.tahsil || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          State
+                        </label>
+                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
+                          {customer?.state || "-"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex-shrink-0 pt-6">
+                    <button
+                      onClick={startEditingAddress}
+                      className="text-gray-400 hover:text-gray-600 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
+                      title="Edit address"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-        <div className="ml-4 flex-shrink-0 pt-6 flex items-center space-x-2">
-          <button
-            onClick={saveAddressEdit}
-            className="text-green-600 hover:text-green-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
-            title="Save changes"
-          >
-            <Save className="h-4 w-4" />
-          </button>
-          <button
-            onClick={cancelAddressEdit}
-            className="text-red-600 hover:text-red-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
-            title="Cancel editing"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="grid grid-cols-10 gap-1">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                House No
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.house_flat_no || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Wing/Lane
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.wing_lane || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Society/Colony
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.society_colony || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Landmark
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.landmark || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Area
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.area || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Pincode
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.pincode || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                City
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.city || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                District
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.district || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Tahsil
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.tahsil || "-"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                State
-              </label>
-              <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                {customer?.state || "-"}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="ml-4 flex-shrink-0 pt-6">
-          <button
-            onClick={startEditingAddress}
-            className="text-gray-400 hover:text-gray-600 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
-            title="Edit address"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
-</div>
         </div>
 
         {/* Conversation history - EXACTLY as you had it, just fixed the logic */}
@@ -1613,7 +1675,7 @@ const CustomerDetail = () => {
                               ₹{order.paid_amount}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
-                              ₹{(order.total_amount - order.paid_amount)}
+                              ₹{order.total_amount - order.paid_amount}
                             </td>
                           </tr>
                         ))}

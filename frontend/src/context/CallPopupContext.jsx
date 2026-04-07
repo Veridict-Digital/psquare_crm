@@ -17,7 +17,8 @@ export const CallPopupProvider = ({ children }) => {
   const [timer, setTimer] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [notes, setNotes] = useState('');
-  const [callId, setCallId] = useState(null);
+  const [callId, setCallId] = useState(null); // This will store the DATABASE ID after first save
+  const [callIdString, setCallIdString] = useState(null); // Store the string version separately
   const [orderId, setOrderId] = useState('');
   const [selectedAssumption, setSelectedAssumption] = useState([]);
   const [selectedAssumption2, setSelectedAssumption2] = useState([]);
@@ -27,7 +28,7 @@ export const CallPopupProvider = ({ children }) => {
   const [showManageAssumptionsModal, setShowManageAssumptionsModal] = useState(false);
   const [editingAssumption, setEditingAssumption] = useState(null);
   const [editAssumptionName, setEditAssumptionName] = useState('');
-  const [currentDropdown, setCurrentDropdown] = useState(''); // Track which dropdown is creating assumption
+  const [currentDropdown, setCurrentDropdown] = useState('');
 
   // Separate assumption lists
   const { data: assumptions, refetch: refetchAssumptions } = useQuery({
@@ -56,36 +57,78 @@ export const CallPopupProvider = ({ children }) => {
   });
   const queryClient = useQueryClient();
 
-  // Fetch assumptions (handled below with separate queries)
+  // Reset call state function
+  const resetCallState = () => {
+    console.log('Resetting call state');
+    setTimer(0);
+    setIsRunning(false);
+    setNotes('');
+    setOrderId('');
+    setSelectedAssumption([]);
+    setSelectedAssumption2([]);
+    setSelectedAssumption3([]);
+    setCallId(null);
+    setCallIdString(null);
+    setIsVisible(false);
+    setIsEmbedded(false);
+  };
 
   const openPopup = (data) => {
+    console.log('openPopup called with data:', data);
+    
+    let customerData = null;
+    let leadData = null;
+    
     if (data.phone) {
-      // Check if it's a lead (has status) or customer
       if (data.status) {
-        setLead(data);
-        setCustomer(null);
+        leadData = data;
+        customerData = null;
       } else {
-        setCustomer(data);
-        setLead(null);
+        customerData = {
+          ...data,
+          id: data.id,
+          customer_id: data.id
+        };
+        leadData = null;
       }
     }
+    
+    setCustomer(customerData);
+    setLead(leadData);
     setIsVisible(true);
     setIsEmbedded(false);
-    // Only reset call state if not already running a call
+    
     if (!isRunning) {
       setTimer(data.timer || 0);
       setNotes(data.notes || '');
-      setCallId(data.callId || Date.now().toString()); // Set callId for saving info
+      
+      // For editing existing calls, data.id is the database ID
+      // For new calls, generate a string ID
+      if (data.id && typeof data.id === 'number') {
+        // This is an existing call log - use its database ID
+        setCallId(data.id);
+        setCallIdString(data.call_id || data.callId);
+      } else {
+        // This is a new call - generate string ID, database ID will come from save response
+        const newStringId = Date.now().toString();
+        setCallId(null); // Database ID not known yet
+        setCallIdString(data.callId || newStringId);
+      }
+      
       setSelectedAssumption(data.selectedAssumption || []);
       setSelectedAssumption2(data.selectedAssumption2 || []);
       setSelectedAssumption3(data.selectedAssumption3 || []);
       setOrderId(data.orderId || '');
     }
+    
+    console.log('Customer set to:', customerData);
+    console.log('Lead set to:', leadData);
+    console.log('Call ID (db):', callId);
+    console.log('Call ID (string):', callIdString);
   };
 
   const startEmbeddedCall = (data) => {
     if (data.phone) {
-      // Check if it's a lead (has status) or customer
       if (data.status) {
         setLead(data);
         setCustomer(null);
@@ -96,11 +139,12 @@ export const CallPopupProvider = ({ children }) => {
     }
     setIsEmbedded(true);
     setIsVisible(true);
-    // Only reset call state if not already running a call
     if (!isRunning) {
       setTimer(0);
       setNotes('');
-      setCallId(Date.now().toString()); // Set callId for saving info
+      const newStringId = Date.now().toString();
+      setCallIdString(newStringId);
+      setCallId(null);
       setSelectedAssumption([]);
       setSelectedAssumption2([]);
       setSelectedAssumption3([]);
@@ -110,11 +154,11 @@ export const CallPopupProvider = ({ children }) => {
   const hidePopup = () => {
     setIsVisible(false);
     setIsEmbedded(false);
-    // Do not reset call state here; just hide the popup
   };
 
   const startTimer = () => {
-    setCallId(Date.now().toString());
+    const newStringId = Date.now().toString();
+    setCallIdString(newStringId);
     setIsRunning(true);
   };
 
@@ -122,62 +166,183 @@ export const CallPopupProvider = ({ children }) => {
     setIsRunning(false);
   };
 
+  const saveInfo = async () => {
+    console.log('saveInfo called');
+    console.log('callId (db):', callId);
+    console.log('callIdString:', callIdString);
+    console.log('Current customer:', customer);
+    
+    if (!callIdString) {
+      console.log('No callIdString, returning early');
+      alert('No call ID found. Please start a call first.');
+      return;
+    }
+    
+    let isValid = false;
+    let customerId = null;
+    let leadId = null;
+    
+    if (customer && customer.id) {
+      isValid = true;
+      customerId = customer.id;
+      console.log('Using customer ID:', customerId);
+    } else if (lead && lead.id) {
+      isValid = true;
+      leadId = lead.id;
+      console.log('Using lead ID:', leadId);
+    }
+    
+    if (!isValid) {
+      alert('Cannot save call log: No valid customer or lead selected.');
+      console.error('Missing customer/lead:', { customer, lead });
+      return;
+    }
+    
+    try {
+      const callLogData = {
+        duration: timer,
+        note: notes,
+        status: 'In Progress',
+        call_id: callIdString,
+      };
+
+      if (customerId) {
+        callLogData.customer = customerId;
+        delete callLogData.lead;
+      } else if (leadId) {
+        callLogData.lead = leadId;
+      }
+
+      if (orderId && orderId.trim()) {
+        callLogData.order_id = orderId.trim();
+      }
+
+      if (selectedAssumption && selectedAssumption.length > 0) {
+        callLogData.assumption = selectedAssumption;
+      }
+      if (selectedAssumption2 && selectedAssumption2.length > 0) {
+        callLogData.assumption2 = selectedAssumption2;
+      }
+      if (selectedAssumption3 && selectedAssumption3.length > 0) {
+        callLogData.assumption3 = selectedAssumption3;
+      }
+
+      console.log('Sending callLogData:', callLogData);
+      
+      const response = await axios.post('/api/calllogs/save_info/', callLogData);
+      console.log('Save info response:', response);
+      
+      // CRITICAL: Save the database ID from the response
+      if (response.data && response.data.id) {
+        console.log('Received database ID from API:', response.data.id);
+        setCallId(response.data.id); // Store the database ID for future updates
+      }
+      
+      queryClient.invalidateQueries(['call-logs']);
+      queryClient.invalidateQueries(['customer-details']);
+      
+      
+    } catch (error) {
+      console.error('Error saving info:', error.response?.data || error.message);
+      alert(`Failed to save info: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
   const endCall = async () => {
-    if (timer > 0) {
+    console.log('endCall called');
+    console.log('callId (db):', callId);
+    console.log('callIdString:', callIdString);
+    console.log('timer:', timer);
+    
+    // If we have a database ID, use PUT to update existing record
+    if (callId && timer > 0) {
       try {
         const callLogData = {
-          duration: timer, // Send duration in seconds as integer
+          duration: timer,
           note: notes,
           status: 'Completed',
-          call_id: callId, // Include the call tracker ID
         };
 
-        // Set customer or lead based on which one is active
-        if (customer) {
+        if (customer && customer.id) {
           callLogData.customer = customer.id;
-        } else if (lead) {
+        } else if (lead && lead.id) {
           callLogData.lead = lead.id;
         }
 
-      // If order ID is provided, include it and set order_placed to Yes
-      if (orderId.trim()) {
-        callLogData.order_id = orderId.trim();
-        callLogData.order_placed = "Yes";
-      }
+        if (orderId && orderId.trim()) {
+          callLogData.order_id = orderId.trim();
+        }
 
-        // If assumption is selected, include it
-        if (selectedAssumption) {
+        if (selectedAssumption && selectedAssumption.length > 0) {
           callLogData.assumption = selectedAssumption;
         }
-        if (selectedAssumption2) {
+        if (selectedAssumption2 && selectedAssumption2.length > 0) {
           callLogData.assumption2 = selectedAssumption2;
         }
-        if (selectedAssumption3) {
+        if (selectedAssumption3 && selectedAssumption3.length > 0) {
+          callLogData.assumption3 = selectedAssumption3;
+        }
+
+        console.log('Ending call - UPDATING existing record with ID:', callId);
+        console.log('Update data:', callLogData);
+        
+        // USE PUT to update the existing record
+        const response = await axios.put(`/api/calllogs/${callId}/`, callLogData);
+        console.log('Call updated successfully:', response.data);
+        
+        queryClient.invalidateQueries(['call-logs']);
+        queryClient.invalidateQueries(['customer-details']);
+        
+        
+      } catch (error) {
+        console.error('Error ending call:', error.response?.data || error.message);
+        alert(`Failed to end call: ${error.response?.data?.error || error.message}`);
+      }
+    } 
+    // If no database ID but timer > 0, create new record (should not happen normally)
+    else if (timer > 0 && callIdString) {
+      console.log('No database ID found, creating new record (this should not happen normally)');
+      try {
+        const callLogData = {
+          duration: timer,
+          note: notes,
+          status: 'Completed',
+          call_id: callIdString,
+        };
+
+        if (customer && customer.id) {
+          callLogData.customer = customer.id;
+        } else if (lead && lead.id) {
+          callLogData.lead = lead.id;
+        }
+
+        if (orderId && orderId.trim()) {
+          callLogData.order_id = orderId.trim();
+        }
+
+        if (selectedAssumption && selectedAssumption.length > 0) {
+          callLogData.assumption = selectedAssumption;
+        }
+        if (selectedAssumption2 && selectedAssumption2.length > 0) {
+          callLogData.assumption2 = selectedAssumption2;
+        }
+        if (selectedAssumption3 && selectedAssumption3.length > 0) {
           callLogData.assumption3 = selectedAssumption3;
         }
 
         await axios.post('/api/calllogs/', callLogData);
         queryClient.invalidateQueries(['call-logs']);
         queryClient.invalidateQueries(['customer-details']);
+        
       } catch (error) {
-        console.error('Error saving call log:', error.response?.data || error.message);
+        console.error('Error ending call:', error);
+        alert(`Failed to end call: ${error.response?.data?.error || error.message}`);
       }
     }
-    // Now reset call state after ending the call, but keep the popup open and keep customer/lead context
-    // setIsVisible(false);
-    // setIsEmbedded(false);
-    // setCustomer(null);
-    // setLead(null);
-    setTimer(0);
-    setIsRunning(false);
-    setNotes('');
-    setOrderId('');
-    setSelectedAssumption('');
-    setSelectedAssumption2('');
-    setSelectedAssumption3('');
-    setCallId(null);
+    
+    // Reset all call state
+    resetCallState();
   };
-
 
   // Create, edit, delete for each assumption type
   const createNewAssumption = async () => {
@@ -269,76 +434,12 @@ export const CallPopupProvider = ({ children }) => {
     if (!lead) return;
     try {
       const response = await axios.post(`/api/leads/${lead.id}/convert_to_customer/`);
-      // Update state to show the new customer
       setCustomer(response.data.customer);
       setLead(null);
-      // Optionally, show a success message or navigate
       alert('Lead converted to customer successfully!');
     } catch (error) {
       console.error('Error converting lead to customer:', error.response?.data || error.message);
       alert('Failed to convert lead to customer.');
-    }
-  };
-
-  const saveInfo = async () => {
-    console.log('saveInfo called with callId:', callId);
-    if (!callId) {
-      console.log('No callId, returning early');
-      return;
-    }
-    // Validate that either a valid customer or lead is present
-    if ((!customer || !customer.id) && (!lead || !lead.id)) {
-      alert('Cannot save call log: No valid customer or lead selected.');
-      return;
-    }
-    try {
-      const callLogData = {
-        duration: timer, // Send duration in seconds as integer
-        note: notes,
-        status: 'In Progress',
-        call_id: callId, // Include the call tracker ID
-      };
-
-      // Set customer or lead based on which one is active
-      if (customer && customer.id) {
-        callLogData.customer = customer.id;
-      } else if (lead && lead.id) {
-        callLogData.lead = lead.id;
-      }
-
-      // If order ID is provided, include it and set order_placed to Yes
-      if (orderId.trim()) {
-        callLogData.order_id = orderId.trim();
-        callLogData.order_placed = "Yes";
-      }
-
-      // If assumption is selected, include it
-      if (selectedAssumption && selectedAssumption.length > 0) {
-        callLogData.assumption = selectedAssumption;
-      }
-      if (selectedAssumption2 && selectedAssumption2.length > 0) {
-        callLogData.assumption2 = selectedAssumption2;
-      }
-      if (selectedAssumption3 && selectedAssumption3.length > 0) {
-        callLogData.assumption3 = selectedAssumption3;
-      }
-
-      console.log('Sending callLogData:', callLogData);
-      const response = await axios.post('/api/calllogs/save_info/', callLogData);
-      console.log('Save info response:', response);
-      // Invalidate queries to refresh the UI with the new call log
-      queryClient.invalidateQueries(['call-logs']);
-      queryClient.invalidateQueries(['customer-details']);
-      // Optionally, set a timer to end the call after 24 hours
-      setTimeout(() => {
-        if (isRunning) {
-          endCall();
-          alert('Call ended automatically after 24 hours.');
-        }
-      }, 24 * 60 * 60 * 1000); // 24 hours in milliseconds
-    } catch (error) {
-      console.error('Error saving info:', error.response?.data || error.message);
-      alert('Failed to save info. Check console for details.');
     }
   };
 
@@ -353,7 +454,22 @@ export const CallPopupProvider = ({ children }) => {
   }, [isRunning]);
 
   return (
-    <CallPopupContext.Provider value={{ isVisible, isEmbedded, customer, lead, timer, isRunning, notes, setNotes, orderId, setOrderId, selectedAssumption, setSelectedAssumption, selectedAssumption2, setSelectedAssumption2, selectedAssumption3, setSelectedAssumption3, assumptions, assumptions2, assumptions3, openPopup, hidePopup, startEmbeddedCall, startTimer, stopTimer, endCall, saveInfo, placeOrder, convertToCustomer, showCreateAssumptionModal, setShowCreateAssumptionModal, newAssumptionName, setNewAssumptionName, createNewAssumption, showManageAssumptionsModal, setShowManageAssumptionsModal, editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, editingAssumption, editAssumptionName, setEditAssumptionName, callId, currentDropdown, setCurrentDropdown }}>
+    <CallPopupContext.Provider value={{ 
+      isVisible, isEmbedded, customer, lead, timer, isRunning, 
+      notes, setNotes, orderId, setOrderId, 
+      selectedAssumption, setSelectedAssumption, 
+      selectedAssumption2, setSelectedAssumption2, 
+      selectedAssumption3, setSelectedAssumption3, 
+      assumptions, assumptions2, assumptions3, 
+      openPopup, hidePopup, startEmbeddedCall, startTimer, stopTimer, 
+      endCall, saveInfo, placeOrder, convertToCustomer, 
+      showCreateAssumptionModal, setShowCreateAssumptionModal, 
+      newAssumptionName, setNewAssumptionName, createNewAssumption, 
+      showManageAssumptionsModal, setShowManageAssumptionsModal, 
+      editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, 
+      editingAssumption, editAssumptionName, setEditAssumptionName, 
+      callId, currentDropdown, setCurrentDropdown 
+    }}>
       {children}
       <CallPopup />
 

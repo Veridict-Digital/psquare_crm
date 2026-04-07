@@ -1129,49 +1129,67 @@ class CallLogViewSet(viewsets.ModelViewSet):
     def save_info(self, request):
         from django.utils import timezone
         from rest_framework import serializers
+        
         data = request.data.copy()
         data['employee'] = request.user.id
+        
+        # CRITICAL FIX: Require customer ID - don't allow orphaned logs
+        customer_id = data.get('customer')
+        
+        if not customer_id:
+            return Response(
+                {'error': 'Customer ID is required. Cannot save call log without customer.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate customer exists
+        try:
+            customer = Customer.objects.get(id=customer_id)
+            data['customer'] = customer.id
+        except Customer.DoesNotExist:
+            return Response(
+                {'error': f'Customer with id {customer_id} does not exist'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Remove lead field if present (to avoid confusion)
+        data.pop('lead', None)
+        
         # Only set status to 'In Progress' if not provided by frontend
         if 'status' not in data or not data['status']:
             data['status'] = 'In Progress'
         data['saved_at'] = timezone.now()
-
+        
         # Convert duration from seconds to timedelta
         if 'duration' in data:
             from datetime import timedelta
             data['duration'] = timedelta(seconds=int(data['duration']))
-
+        
         call_id = data.get('call_id')
         existing_call_log = None
-
+        
         # Check if call log with this call_id already exists (for editing)
         if call_id:
             try:
                 existing_call_log = CallLog.objects.get(call_id=call_id)
             except CallLog.DoesNotExist:
                 pass
-
+        
         if existing_call_log:
             # Update existing call log
             serializer = self.get_serializer(existing_call_log, data=data, partial=True)
         else:
             # Create new call log
             serializer = self.get_serializer(data=data)
-
+        
         try:
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError as e:
-            # If the error is about invalid customer pk, remove customer and try again
-            if 'customer' in e.detail and any('Invalid pk' in str(error) for error in e.detail['customer']):
-                data.pop('customer', None)
-                if existing_call_log:
-                    serializer = self.get_serializer(existing_call_log, data=data, partial=True)
-                else:
-                    serializer = self.get_serializer(data=data)
-                serializer.is_valid(raise_exception=True)
-            else:
-                raise
-
+            return Response(
+                {'error': f'Validation failed: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Set order if order_id is provided
         order_id = data.get('order_id')
         if order_id:
@@ -1180,9 +1198,9 @@ class CallLogViewSet(viewsets.ModelViewSet):
                 serializer.validated_data['order'] = order
             except Order.DoesNotExist:
                 pass
-
+        
         call_log = serializer.save()
-
+        
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 # ========== LEAD VIEWSET ==========

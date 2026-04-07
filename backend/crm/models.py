@@ -461,13 +461,13 @@ class CallLog(models.Model):
         ('Completed', 'Completed'),
         ('Follow-up', 'Follow-up'),
     ]
-
-    call_id = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Call ID
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
-    lead = models.ForeignKey('Lead', on_delete=models.CASCADE, null=True, blank=True)
-    employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='call_logs', null=True, blank=True)  # Add this
-    date = models.DateTimeField(auto_now_add=True)  # Add this
-    saved_at = models.DateTimeField(blank=True, null=True)  # Timestamp when info is saved
+    
+    call_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='call_logs')
+    lead = models.ForeignKey('Lead', on_delete=models.SET_NULL, null=True, blank=True, related_name='call_logs')
+    employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='call_logs', null=True, blank=True)
+    date = models.DateTimeField(auto_now_add=True)
+    saved_at = models.DateTimeField(blank=True, null=True)
     duration = models.DurationField()
     note = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
@@ -475,28 +475,29 @@ class CallLog(models.Model):
     assumption = models.ManyToManyField(CustomerAssumption, blank=True)
     assumption2 = models.ManyToManyField(CustomerAssumption2, blank=True)
     assumption3 = models.ManyToManyField(CustomerAssumption3, blank=True)
-
+    
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        # FORCE: Every call log MUST have a customer
+        if not self.customer:
+            raise ValidationError('Customer is required for all call logs')
+    
     def save(self, *args, **kwargs):
+        self.clean()  # Validate before saving
         if not self.call_id:
-            # Generate unique Call ID
             import uuid
             self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
         else:
-            # If call_id is provided (from call tracker), use it but ensure uniqueness
-            # Check if this call_id already exists
             if CallLog.objects.filter(call_id=self.call_id).exists():
-                # If it exists, generate a new one
                 import uuid
                 self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
         super().save(*args, **kwargs)
-
+    
     def __str__(self):
         if self.customer:
             return f"Call Log #{self.call_id} - {self.customer.name}"
-        elif self.lead:
-            return f"Call Log #{self.call_id} - {self.lead.name or 'Unknown Lead'}"
         else:
-            return f"Call Log #{self.call_id}"
+            return f"Call Log #{self.call_id} (Orphaned - Error)"
 
 class Lead(models.Model):
     STATUS_CHOICES = [
