@@ -288,49 +288,67 @@ const ProductPricing = () => {
   }, [search]);
 
   // Calculate pricing in real-time with edited values
-  const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
-    // Helper to get value (edited value takes priority)
-    const getValue = (field) => {
-      const key = `${row.product}_${field}`;
-      if (currentEditedValues[key] !== undefined) {
-        return currentEditedValues[key];
-      }
-      return row[field];
-    };
+  // Calculate pricing in real-time with edited values
+const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
+  // Helper to get value (edited value takes priority)
+  const getValue = (field) => {
+    const key = `${row.product}_${field}`;
+    if (currentEditedValues[key] !== undefined) {
+      return currentEditedValues[key];
+    }
+    return row[field];
+  };
 
-    // Helper to get type (edited type takes priority)
-    const getType = (fieldType) => {
-      const key = `${row.product}_${fieldType}_type`;
-      if (currentEditedValues[key] !== undefined) {
-        return currentEditedValues[key];
-      }
-      return row[`${fieldType}_type`] || "rupees";
-    };
+  // Helper to get type (edited type takes priority)
+  const getType = (fieldType) => {
+    const key = `${row.product}_${fieldType}_type`;
+    if (currentEditedValues[key] !== undefined) {
+      return currentEditedValues[key];
+    }
+    return row[`${fieldType}_type`] || "rupees";
+  };
 
-    let base = Number(getValue("purchase_value")) || 0;
+  let base = Number(getValue("purchase_value")) || 0;
 
-    const calculateCost = (baseAmount, type, value) => {
-      if (type === "percent") {
-        return baseAmount * (Number(value) / 100);
-      }
-      return Number(value);
-    };
+  const calculateCost = (baseAmount, type, value) => {
+    if (type === "percent") {
+      return baseAmount * (Number(value) / 100);
+    }
+    return Number(value);
+  };
 
-    base += calculateCost(base, getType("transport"), getValue("transport_value"));
-    base += calculateCost(base, getType("labor"), getValue("labor_value"));
-    base += calculateCost(base, getType("handling"), getValue("handling_value"));
-    base += calculateCost(base, getType("godown"), getValue("godown_value"));
-    base += calculateCost(base, getType("delivery"), getValue("delivery_value"));
-    base += calculateCost(base, getType("packaging"), getValue("packaging_value"));
-    base += calculateCost(base, getType("extra1"), getValue("extra1_value"));
-    base += calculateCost(base, getType("extra2"), getValue("extra2_value"));
+  // Add all cost components
+  base += calculateCost(base, getType("transport"), getValue("transport_value"));
+  base += calculateCost(base, getType("labor"), getValue("labor_value"));
+  base += calculateCost(base, getType("handling"), getValue("handling_value"));
+  base += calculateCost(base, getType("godown"), getValue("godown_value"));
+  base += calculateCost(base, getType("delivery"), getValue("delivery_value"));
+  base += calculateCost(base, getType("packaging"), getValue("packaging_value"));
+  base += calculateCost(base, getType("extra1"), getValue("extra1_value"));
+  base += calculateCost(base, getType("extra2"), getValue("extra2_value"));
 
-    const landing_rate = base;
-    base += calculateCost(base, getType("landing"), getValue("landing_value"));
-    const calculated_rate = base;
+  // Landing rate is the sum of all cost components
+  const landing_rate = base;
+  
+  // Add landing cost
+  base += calculateCost(base, getType("landing"), getValue("landing_value"));
+  
+  // Calculate company margin based on the base amount after landing cost
+  const marginValue = Number(getValue("company_margin_value")) || 0;
+  const marginType = getType("company_margin");
+  
+  let marginAmount = 0;
+  if (marginType === "percent") {
+    marginAmount = base * (marginValue / 100);
+  } else {
+    marginAmount = marginValue;
+  }
+  
+  // Calculated rate = base (after all costs including landing) + company margin
+  const calculated_rate = base + marginAmount;
 
-    return { landing_rate, calculated_rate };
-  }, []);
+  return { landing_rate, calculated_rate };
+}, []);
 
   // Calculate pricing locally with memoization (for backward compatibility)
   const calculatePricing = useCallback((row) => {

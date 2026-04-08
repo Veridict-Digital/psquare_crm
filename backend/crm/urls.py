@@ -22,7 +22,7 @@ router.register(r'organizationtypes', OrganizationTypeViewSet)
 router.register(r'gstrates', GSTRateViewSet)
 router.register(r'productcombinations', ProductCombinationViewSet)
 router.register(r'units', UnitViewSet)
-
+router.register(r'customertypes', CustomerTypeViewSet)
 router.register(r'productpricings', ProductPricingViewSet)
 
 urlpatterns = [

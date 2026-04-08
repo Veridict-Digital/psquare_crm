@@ -586,20 +586,36 @@ const CustomerList = () => {
   };
 
   const handleAddCustomer = () => {
-    if (!newContact.phone) {
-      setErrorMessage("Phone is required");
-      return;
-    }
-    if (newContact.phone.length < 10) {
-      setErrorMessage("Phone number must be at least 10 digits");
-      return;
-    }
-    if (phoneError && phoneError !== "Checking phone number...") {
-      setErrorMessage(phoneError);
-      return;
-    }
-    addCustomerMutation.mutate(newContact);
+  if (!newContact.phone) {
+    setErrorMessage("Phone is required");
+    return;
+  }
+  if (newContact.phone.length < 10) {
+    setErrorMessage("Phone number must be at least 10 digits");
+    return;
+  }
+  if (phoneError && phoneError !== "Checking phone number...") {
+    setErrorMessage(phoneError);
+    return;
+  }
+  
+  // Find the actual IDs from the data
+  const selectedOrgType = organizationTypes?.find(
+    type => type.name === newContact.company_type
+  );
+  const selectedCustomerType = customerTypes?.find(
+    type => type.id === Number(newContact.customer_type) || type.name === newContact.customer_type
+  );
+  
+  // Prepare data with IDs instead of strings/names
+  const submitData = {
+    ...newContact,
+    company_type: selectedOrgType?.id || null,  // Send the ID, not the name
+    customer_type: selectedCustomerType?.id || null,  // Send the ID
   };
+  
+  addCustomerMutation.mutate(submitData);
+};
 
   // Selection handlers
   const handleSelectCustomer = (customerId) => {

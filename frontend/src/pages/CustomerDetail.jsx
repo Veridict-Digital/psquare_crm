@@ -101,6 +101,15 @@ const CustomerDetail = () => {
     },
   });
 
+  const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  const cleaned = phone.toString().replace(/\D/g, '');
+  if (cleaned.length === 10) {
+    return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+  }
+  return phone;
+};
+
   // Set primary phone mutation
   const setPrimaryPhoneMutation = useMutation({
     mutationFn: (phoneId) =>
@@ -301,298 +310,235 @@ const CustomerDetail = () => {
       <div className="container mx-auto px-4 max-w-full min-h-screen overflow-y-auto">
         {/* Header */}
         <div className="mb-4">
-          <div className="flex justify-between items-center py-2">
-            {/* Left side: Avatar + Name + Verified */}
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap lg:flex-nowrap justify-between items-start lg:items-center gap-4 py-2">
+            {/* Left side: Avatar + Name + Phones - Fixed width */}
+            <div className="flex items-start lg:items-center space-x-4 flex-shrink-0 w-full lg:w-auto">
               {/* Avatar */}
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <div className="h-17 w-17 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-4 border-white shadow-lg flex items-center justify-center">
                   <User className="h-10 w-10 text-blue-600" />
                 </div>
                 <div className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
               </div>
 
-              {/* Name + Verified */}
-              <div className="flex items-center space-x-4">
+              {/* Name Section - Fixed width container */}
+              <div className="flex-shrink-0 min-w-[200px]">
                 <div className="flex flex-col">
                   <span className="text-sm text-gray-600">Name</span>
-                  {editingField === "name" ? (
-                    <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2">
+                    {/* First Name Field */}
+                    <div className="relative">
                       <input
                         type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            updateMutation.mutate({ name: tempName });
-                            setEditingField(null);
-                            setTempName("");
-                          }
+                        value={customer?.name || ""}
+                        onChange={(e) => {
+                          updateMutation.mutate({ name: e.target.value });
                         }}
-                        onBlur={() => {
-                          // Save when clicking outside
-                          if (tempName !== customer?.name) {
-                            updateMutation.mutate({ name: tempName });
-                          }
-                          setEditingField(null);
-                          setTempName("");
-                        }}
-                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-40"
-                        placeholder="Customer name"
-                        autoFocus
+                        placeholder="First name"
+                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-28 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
-                  ) : editingField === "surname" ? (
-                    <div className="flex items-center space-x-2">
+
+                    {/* Last Name Field */}
+                    <div className="relative">
                       <input
                         type="text"
-                        value={tempSurname}
-                        onChange={(e) => setTempSurname(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            updateMutation.mutate({ surname: tempSurname });
-                            setEditingField(null);
-                            setTempSurname("");
-                          }
+                        value={customer?.surname || ""}
+                        onChange={(e) => {
+                          updateMutation.mutate({ surname: e.target.value });
                         }}
-                        onBlur={() => {
-                          // Save when clicking outside
-                          if (tempSurname !== customer?.surname) {
-                            updateMutation.mutate({ surname: tempSurname });
-                          }
-                          setEditingField(null);
-                          setTempSurname("");
-                        }}
-                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-40"
-                        placeholder="Customer surname"
-                        autoFocus
+                        placeholder="Last name"
+                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-28 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
-                  ) : (
-                    <div className="flex items-center space-x-2 relative">
-                      <span className="text-xl font-bold text-gray-900">
-                        {customer?.name || "No name"} {customer?.surname || ""}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setShowNameEditDropdown(!showNameEditDropdown)
-                        }
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      {showNameEditDropdown && (
-                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-32">
-                          <button
-                            onClick={() => {
-                              setTempName(customer?.name || "");
-                              setEditingField("name");
-                              setShowNameEditDropdown(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded-t-lg"
-                          >
-                            Edit Name
-                          </button>
-                          <button
-                            onClick={() => {
-                              setTempSurname(customer?.surname || "");
-                              setEditingField("surname");
-                              setShowNameEditDropdown(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded-b-lg"
-                          >
-                            Edit Surname
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
-              {customer?.all_phones && customer.all_phones.length > 0 && (
-                <div className="relative">
-                  {/* Show first 2 phone numbers stacked */}
-                  <div className="space-y-1">
-                    {customer.all_phones.slice(0, 2).map((phoneObj, index) => (
-                      <div key={phoneObj.id || index} className="relative">
-                        <div className="flex items-center">
-                          <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                          {phoneObj.phone === customer.phone &&
-                          editingField === "phone" ? (
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="text"
-                                value={tempValue}
-                                onChange={(e) => setTempValue(e.target.value)}
-                                className="px-2 py-1 border border-gray-300 rounded text-sm"
-                                autoFocus
-                              />
-                              <button
-                                onClick={() => {
-                                  updateMutation.mutate({ phone: tempValue });
-                                  setEditingField(null);
-                                }}
-                                className="text-green-600 hover:text-green-800"
-                              >
-                                <Save className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setEditingField(null);
-                                  setTempValue("");
-                                }}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-2">
-                              <span
-                                className={`${
-                                  phoneObj.is_primary
-                                    ? "font-semibold text-blue-600"
-                                    : "text-gray-600"
-                                }`}
-                              >
-                                {phoneObj.phone}
-                                {phoneObj.is_primary && " (P)"}
-                              </span>
-                              {phoneObj.is_primary && (
-                                <button
-                                  onClick={() =>
-                                    setShowPrimaryDropdown(!showPrimaryDropdown)
-                                  }
-                                  className="text-gray-400 hover:text-gray-600"
-                                >
-                                  <ChevronDown
-                                    className={`h-4 w-4 transform transition-transform ${
-                                      showPrimaryDropdown ? "rotate-180" : ""
-                                    }`}
-                                  />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      `Are you sure you want to delete phone number "${phoneObj.phone}"?`,
-                                    )
-                                  ) {
-                                    deletePhoneMutation.mutate(phoneObj.id);
-                                  }
-                                }}
-                                className="text-red-400 hover:text-red-600"
-                                title="Delete phone number"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Primary phone dropdown */}
-                        {phoneObj.is_primary && showPrimaryDropdown && (
-                          <div className="ml-6 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                            <div className="p-2 max-h-40 overflow-y-auto">
-                              <div className="text-xs text-gray-500 mb-1 px-1">
-                                Set as primary:
-                              </div>
-                              {customer.all_phones
-                                .filter((p) => !p.is_primary)
-                                .map((p) => (
-                                  <button
-                                    key={p.id}
-                                    onClick={() => {
-                                      setPrimaryPhoneMutation.mutate(p.id);
-                                      setShowPrimaryDropdown(false);
-                                    }}
-                                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded disabled:opacity-50"
-                                    disabled={setPrimaryPhoneMutation.isPending}
-                                  >
-                                    {p.phone}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Show "+X more" dropdown if more than 2 phones */}
-                  {customer.all_phones.length > 2 && (
-                    <div className="mt-1 relative">
-                      <button
-                        onClick={() => setShowAllPhones(!showAllPhones)}
-                        className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        <Plus className="h-3 w-3 mr-1" />+
-                        {customer.all_phones.length - 2} more numbers
-                        <ChevronDown
-                          className={`h-3 w-3 ml-1 transform ${showAllPhones ? "rotate-180" : ""}`}
-                        />
-                      </button>
-
-                      {/* All phones dropdown */}
-                      {showAllPhones && (
-                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
-                          <div className="p-2 max-h-48 overflow-y-auto">
-                            <div className="text-xs text-gray-500 mb-2 px-2">
-                              All phone numbers:
-                            </div>
-                            {customer.all_phones.slice(2).map((phone, idx) => (
-                              <div
-                                key={phone.id || idx}
-                                className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded"
-                              >
-                                <div className="flex items-center">
-                                  <Phone className="h-3.5 w-3.5 mr-2 text-gray-400" />
-                                  <span
-                                    className={`text-sm ${
-                                      phone.is_primary
-                                        ? "font-semibold text-blue-600"
-                                        : "text-gray-700"
-                                    }`}
-                                  >
-                                    {phone.phone}
-                                  </span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  {phone.is_primary && (
-                                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
-                                      Primary
-                                    </span>
-                                  )}
-                                  <button
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          `Are you sure you want to delete phone number "${phone.phone}"?`,
-                                        )
-                                      ) {
-                                        deletePhoneMutation.mutate(phone.id);
-                                      }
-                                    }}
-                                    className="text-red-400 hover:text-red-600"
-                                    title="Delete phone number"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+              {/* Phones Section - Fixed width */}
+              <div className="flex-shrink-0 min-w-[200px]">
+  {customer?.all_phones && customer.all_phones.length > 0 && (
+    <div className="relative">
+      <div className="space-y-1">
+        {customer.all_phones.slice(0, 2).map((phoneObj, index) => (
+          <div key={phoneObj.id || index} className="relative">
+            <div className="flex items-center">
+              <Phone className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+              {phoneObj.phone === customer.phone && editingField === "phone" ? (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={tempValue}
+                    onChange={(e) => setTempValue(e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm w-32"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => {
+                      updateMutation.mutate({ phone: tempValue });
+                      setEditingField(null);
+                    }}
+                    className="text-green-600 hover:text-green-800"
+                  >
+                    <Save className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingField(null);
+                      setTempValue("");
+                    }}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span
+                    className={`${
+                      phoneObj.is_primary
+                        ? "font-semibold text-blue-600"
+                        : "text-gray-600"
+                    } text-base md:text-lg`}
+                  >
+                    {formatPhoneNumber(phoneObj.phone)}
+                    {phoneObj.is_primary && " (P)"}
+                  </span>
+                  {phoneObj.is_primary && (
+                    <button
+                      onClick={() =>
+                        setShowPrimaryDropdown(!showPrimaryDropdown)
+                      }
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 transform transition-transform ${
+                          showPrimaryDropdown ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
                   )}
+                  <button
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Are you sure you want to delete phone number "${formatPhoneNumber(phoneObj.phone)}"?`,
+                        )
+                      ) {
+                        deletePhoneMutation.mutate(phoneObj.id);
+                      }
+                    }}
+                    className="text-red-400 hover:text-red-600"
+                    title="Delete phone number"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Middle: Summary Cards */}
-            <div className="grid grid-cols-5 gap-2 mx-4">
+            {/* Primary phone dropdown */}
+            {phoneObj.is_primary && showPrimaryDropdown && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <div className="p-2 max-h-40 overflow-y-auto">
+                  <div className="text-xs text-gray-500 mb-1 px-1">
+                    Set as primary:
+                  </div>
+                  {customer.all_phones
+                    .filter((p) => !p.is_primary)
+                    .map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setPrimaryPhoneMutation.mutate(p.id);
+                          setShowPrimaryDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded disabled:opacity-50"
+                        disabled={setPrimaryPhoneMutation.isPending}
+                      >
+                        {formatPhoneNumber(p.phone)}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Show "+X more" dropdown */}
+      {customer.all_phones.length > 2 && (
+        <div className="mt-1 relative">
+          <button
+            onClick={() => setShowAllPhones(!showAllPhones)}
+            className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+          >
+            <Plus className="h-3 w-3 mr-1" />+
+            {customer.all_phones.length - 2} more numbers
+            <ChevronDown
+              className={`h-3 w-3 ml-1 transform ${showAllPhones ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {showAllPhones && (
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
+              <div className="p-2 max-h-48 overflow-y-auto">
+                <div className="text-xs text-gray-500 mb-2 px-2">
+                  All phone numbers:
+                </div>
+                {customer.all_phones.slice(2).map((phone, idx) => (
+                  <div
+                    key={phone.id || idx}
+                    className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded"
+                  >
+                    <div className="flex items-center">
+                      <Phone className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                      <span
+                        className={`text-base md:text-lg ${
+                          phone.is_primary
+                            ? "font-semibold text-blue-600"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {formatPhoneNumber(phone.phone)}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {phone.is_primary && (
+                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+                          Primary
+                        </span>
+                      )}
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Are you sure you want to delete phone number "${formatPhoneNumber(phone.phone)}"?`,
+                            )
+                          ) {
+                            deletePhoneMutation.mutate(phone.id);
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-600"
+                        title="Delete phone number"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )}
+</div>
+            </div>
+
+            {/* Middle: Summary Cards - Flexible but with min-width */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 flex-1 min-w-[300px]">
               {[
                 { label: "Total Calls", value: summary?.total_calls || 0 },
                 { label: "Total Orders", value: summary?.total_orders || 0 },
@@ -607,7 +553,7 @@ const CustomerDetail = () => {
               ].map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-20"
+                  className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-[80px] flex-1"
                 >
                   <p className="text-xs text-gray-500 truncate">{item.label}</p>
                   <p className="text-sm font-bold text-gray-900 truncate">
@@ -616,7 +562,7 @@ const CustomerDetail = () => {
                 </div>
               ))}
 
-              <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-38 relative">
+              <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-[120px] relative">
                 <div
                   className="flex items-center justify-between cursor-pointer"
                   onClick={() => setShowAgentDropdown(!showAgentDropdown)}
@@ -635,7 +581,7 @@ const CustomerDetail = () => {
                 </div>
                 {showAgentDropdown && (
                   <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-[200px] min-w-max">
-                    <div className="py-1 overflow-y-auto max-h-48 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    <div className="py-1 overflow-y-auto max-h-48">
                       <button
                         onClick={() => handleAgentSelect(null)}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700"
@@ -658,12 +604,12 @@ const CustomerDetail = () => {
               </div>
             </div>
 
-            {/* Right side: Buttons aligned with name */}
-            <div className="flex space-x-2 items-center min-w-max">
+            {/* Right side: Buttons - Fixed width, wrap on mobile */}
+            <div className="flex flex-wrap gap-2 items-center justify-end flex-shrink-0">
               {!showAddPhone ? (
                 <button
                   onClick={() => setShowAddPhone(true)}
-                  className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Add Phone
@@ -680,8 +626,8 @@ const CustomerDetail = () => {
                           setNewPhoneNumber(value);
                         }
                       }}
-                      placeholder="Enter new phone number"
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      placeholder="Enter phone number"
+                      className="px-2 py-1 border border-gray-300 rounded text-sm w-32"
                       autoFocus
                       maxLength={10}
                     />
@@ -713,11 +659,6 @@ const CustomerDetail = () => {
               )}
               <button
                 onClick={() => {
-                  console.log("Opening popup for customer:", customer);
-                  console.log("Customer ID:", customer?.id);
-                  console.log("Customer phone:", customer?.phone);
-
-                  // Make sure we're passing the full customer object with ID
                   const callData = {
                     ...customer,
                     id: customer?.id,
@@ -728,17 +669,16 @@ const CustomerDetail = () => {
                     selectedAssumption2: [],
                     selectedAssumption3: [],
                   };
-
                   openPopup(callData);
                 }}
-                className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25"
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
               >
                 <Phone className="h-4 w-4 mr-2" />
                 Call Now
               </button>
               <button
                 onClick={() => navigate(`/orders/new?customer=${customer?.id}`)}
-                className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25"
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm whitespace-nowrap"
               >
                 <ShoppingBag className="h-4 w-4 mr-2" />
                 Place Order
@@ -753,7 +693,7 @@ const CustomerDetail = () => {
                     deleteMutation.mutate();
                   }
                 }}
-                className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-red-500 to-rose-600 text-white font-medium rounded-lg hover:from-red-600 hover:to-rose-700 transition-all duration-200 shadow-lg shadow-red-500/25"
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white font-medium rounded-lg hover:from-red-600 hover:to-rose-700 transition-all duration-200 shadow-lg shadow-red-500/25 text-sm whitespace-nowrap"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
@@ -764,53 +704,55 @@ const CustomerDetail = () => {
           {/* Secondary info below */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 mt-2">
             <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-              <User className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Org Name:</span>
-              {editingField === "company_name" ? (
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={tempValue}
-                    onChange={(e) => setTempValue(e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded text-sm"
-                    autoFocus
-                  />
-                  <button
-                    onClick={() => {
-                      updateMutation.mutate({ company_name: tempValue });
-                      setEditingField(null);
-                    }}
-                    className="text-green-600 hover:text-green-800"
-                  >
-                    <Save className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingField(null);
-                      setTempValue("");
-                    }}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-gray-900">
-                    {customer?.company_name || "Not set"}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setEditingField("company_name");
-                      setTempValue(customer?.company_name || "");
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+  <User className="h-5 w-5 mr-2 text-gray-400" />
+  <span className="font-medium mr-2">Org:</span>
+  {editingField === "company_name" ? (
+    <div className="flex items-center space-x-2">
+      <input
+        type="text"
+        value={tempValue}
+        onChange={(e) => setTempValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            updateMutation.mutate({ company_name: tempValue });
+            setEditingField(null);
+            setTempValue("");
+          }
+        }}
+        onBlur={() => {
+          if (tempValue !== customer?.company_name) {
+            updateMutation.mutate({ company_name: tempValue });
+          }
+          setEditingField(null);
+          setTempValue("");
+        }}
+        className="px-2 py-1 border border-gray-300 rounded text-sm w-48"
+        autoFocus
+      />
+    </div>
+  ) : (
+    <div className="flex items-center space-x-2">
+      <span 
+        className="font-semibold text-gray-900 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
+        onClick={() => {
+          setEditingField("company_name");
+          setTempValue(customer?.company_name || "");
+        }}
+      >
+        {customer?.company_name || "Not set"}
+      </span>
+      <button
+        onClick={() => {
+          setEditingField("company_name");
+          setTempValue(customer?.company_name || "");
+        }}
+        className="text-gray-400 hover:text-gray-600"
+      >
+        <Edit className="h-4 w-4" />
+      </button>
+    </div>
+  )}
+</div>
             <div className="flex items-center text-lg text-gray-600 relative bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <User className="h-5 w-5 mr-2 text-gray-400" />
               <span className="font-medium mr-2">Org Type:</span>
