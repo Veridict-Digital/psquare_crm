@@ -259,6 +259,8 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 # ========== CUSTOMER VIEWSET ==========
+# crm/views.py - Complete CustomerViewSet
+
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
@@ -266,13 +268,26 @@ class CustomerViewSet(viewsets.ModelViewSet):
     pagination_class = CustomerPagination
 
     def get_queryset(self):
+        user = self.request.user
         queryset = Customer.objects.all()
+        
+        # ========== ROLE-BASED FILTERING (CRITICAL) ==========
+        if user.role == 'Admin':
+            # Admin sees ALL customers
+            queryset = Customer.objects.all()
+        else:
+            # Telecaller/Employee sees ONLY customers assigned to them
+            queryset = Customer.objects.filter(agent=user)
+        
+        # ========== OPTIMIZE QUERYSET ==========
         queryset = queryset.select_related('company_type', 'customer_type', 'agent')
         queryset = queryset.prefetch_related('phones')
+        
+        # ========== APPLY FILTERS FOR LIST AND EXPORT ==========
         if self.action in ['list', 'export_excel']:
             queryset = queryset.annotate(total_order_value=models.Sum('order__total_amount'))
 
-            # Filters
+            # Get filter parameters
             date_from = self.request.query_params.get('date_from')
             date_to = self.request.query_params.get('date_to')
             contact_type = self.request.query_params.get('contact_type')
@@ -289,40 +304,49 @@ class CustomerViewSet(viewsets.ModelViewSet):
             search = self.request.query_params.get('search')
             has_appointment = self.request.query_params.get('has_appointment')
 
+            # ========== LEADS VS APPOINTMENT TOGGLE (PRESERVED) ==========
             if has_appointment == 'true':
                 queryset = queryset.filter(appointment_date__isnull=False)
             elif has_appointment == 'false':
                 queryset = queryset.filter(appointment_date__isnull=True)
 
+            # ========== APPLY ALL OTHER FILTERS ==========
             if date_from:
                 queryset = queryset.filter(
                     models.Q(appointment_date__gte=date_from) |
                     (models.Q(appointment_date__isnull=True) & models.Q(created_at__gte=date_from))
                 )
+            
             if date_to:
                 queryset = queryset.filter(
                     models.Q(appointment_date__lte=date_to) |
                     (models.Q(appointment_date__isnull=True) & models.Q(created_at__lte=date_to))
                 )
+            
             if contact_type:
                 queryset = queryset.filter(contact_type=contact_type)
+            
             if phone:
                 queryset = queryset.filter(
                     models.Q(phone__icontains=phone) |
                     models.Q(phones__phone__icontains=phone)
                 )
+            
             if phone_search:
                 queryset = queryset.filter(
                     models.Q(phone__icontains=phone_search) |
                     models.Q(phones__phone__icontains=phone_search)
                 )
+            
             if name_search:
                 queryset = queryset.filter(
                     models.Q(name__icontains=name_search) |
                     models.Q(surname__icontains=name_search)
                 )
+            
             if agent:
                 queryset = queryset.filter(agent=int(agent))
+            
             if address:
                 queryset = queryset.filter(
                     models.Q(house_flat_no__icontains=address) |
@@ -336,16 +360,22 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     models.Q(city__icontains=address) |
                     models.Q(address__icontains=address)
                 )
+            
             if organization_name:
                 queryset = queryset.filter(company_name__icontains=organization_name)
+            
             if organization_type:
                 queryset = queryset.filter(company_type__name__icontains=organization_type)
+            
             if customer_type:
                 queryset = queryset.filter(customer_type__name__icontains=customer_type)
+            
             if telecaller:
                 queryset = queryset.filter(agent__username__icontains=telecaller, agent__role='Telecaller')
+            
             if time:
                 queryset = queryset.filter(appointment_time__icontains=time)
+            
             if search:
                 from django.db.models import Q
                 queryset = queryset.filter(
@@ -368,42 +398,72 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     Q(phones__phone__icontains=search)
                 ).distinct()
 
+        # ========== ORDERING (APPOINTMENT DATE PRIORITY) ==========
         from django.db.models import Case, When, Value, IntegerField, Q, F
         from django.db.models.functions import Coalesce
     
         queryset = queryset.annotate(
-        # Use appointment_date if available, otherwise use created_at
-        effective_date=Coalesce('appointment_date', 'created_at', output_field=models.DateTimeField())
+            effective_date=Coalesce('appointment_date', 'created_at', output_field=models.DateTimeField())
         ).order_by(
-        'effective_date',  # Sort by effective date
-        Case(
-            When(Q(appointment_time__isnull=True) | Q(appointment_time=''), then=Value(1)),
-            default=Value(0),
-            output_field=IntegerField()
-        ),
-        'appointment_time'
-    )
+            'effective_date',
+            Case(
+                When(Q(appointment_time__isnull=True) | Q(appointment_time=''), then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ),
+            'appointment_time'
+        )
+        
         return queryset
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        
+        # ========== ADD ROLE-BASED UPDATE PROTECTION ==========
+        user = request.user
+        if user.role != 'Admin' and instance.agent != user:
+            return Response(
+                {'error': 'You can only update customers assigned to you'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):
-            # If 'prefetch_related' has been applied to a queryset, we need to
-            # forcibly invalidate the prefetch cache on the instance.
             instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
 
+    def destroy(self, request, *args, **kwargs):
+        # ========== ADD ROLE-BASED DELETE PROTECTION ==========
+        user = request.user
+        instance = self.get_object()
+        
+        if user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can delete customers'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['get'])
     def details(self, request, pk=None):
         customer = self.get_object()
+        
+        # ========== ADD ROLE-BASED ACCESS PROTECTION ==========
+        user = request.user
+        if user.role != 'Admin' and customer.agent != user:
+            return Response(
+                {'error': 'You can only view customers assigned to you'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        # Get all phone numbers from Phone model (includes primary and additional phones)
+        # Get all phone numbers from Phone model
         from collections import OrderedDict
         all_phones_dict = OrderedDict()
         for phone_obj in customer.phones.all():
@@ -413,6 +473,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         # Get call logs for this customer
         call_logs = CallLog.objects.filter(customer=customer).select_related('employee').order_by('-date')
+        
+        # For non-admin, only show their own call logs
+        if user.role != 'Admin':
+            call_logs = call_logs.filter(employee=user)
 
         # Get orders for this customer
         orders = Order.objects.filter(customer=customer).select_related('agent').order_by('-id')
@@ -427,7 +491,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         # Serialize data
         customer_data = CustomerSerializer(customer).data
-        customer_data['all_phones'] = all_phones  # Add all phone numbers
+        customer_data['all_phones'] = all_phones
         call_logs_data = CallLogSerializer(call_logs, many=True).data
 
         # Add agent name and items to orders
@@ -474,16 +538,23 @@ class CustomerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def add_phone(self, request, pk=None):
         customer = self.get_object()
+        
+        # ========== ADD ROLE-BASED ACCESS PROTECTION ==========
+        user = request.user
+        if user.role != 'Admin' and customer.agent != user:
+            return Response(
+                {'error': 'You can only modify customers assigned to you'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         phone_number = request.data.get('phone')
 
         if not phone_number:
             return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if phone already exists
         if Phone.objects.filter(phone=phone_number).exists():
             return Response({'error': 'Phone number already exists'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create new phone for the customer
         phone = Phone.objects.create(customer=customer, phone=phone_number, is_primary=False)
 
         serializer = PhoneSerializer(phone)
@@ -492,6 +563,15 @@ class CustomerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def set_primary_phone(self, request, pk=None):
         customer = self.get_object()
+        
+        # ========== ADD ROLE-BASED ACCESS PROTECTION ==========
+        user = request.user
+        if user.role != 'Admin' and customer.agent != user:
+            return Response(
+                {'error': 'You can only modify customers assigned to you'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         phone_id = request.data.get('phone_id')
 
         if not phone_id:
@@ -502,11 +582,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
         except Phone.DoesNotExist:
             return Response({'error': 'Phone not found for this customer'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Set this phone as primary (this will automatically unset others due to model save method)
         phone.is_primary = True
         phone.save()
 
-        # Update customer's primary phone field
         customer.phone = phone.phone
         customer.save()
 
@@ -516,6 +594,15 @@ class CustomerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['delete'])
     def delete_phone(self, request, pk=None):
         customer = self.get_object()
+        
+        # ========== ADD ROLE-BASED ACCESS PROTECTION ==========
+        user = request.user
+        if user.role != 'Admin' and customer.agent != user:
+            return Response(
+                {'error': 'You can only modify customers assigned to you'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         phone_id = request.data.get('phone_id')
 
         if not phone_id:
@@ -526,14 +613,11 @@ class CustomerViewSet(viewsets.ModelViewSet):
         except Phone.DoesNotExist:
             return Response({'error': 'Phone not found for this customer'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Prevent deleting the primary phone if there are other phones
         if phone.is_primary and customer.phones.count() > 1:
             return Response({'error': 'Cannot delete primary phone. Set another phone as primary first.'}, status=status.HTTP_400_BAD_REQUEST)
 
         phone.delete()
 
-        # If the deleted phone was primary and it was the only phone, this shouldn't happen due to the check above
-        # But if it was primary, we need to set a new primary
         if phone.is_primary and customer.phones.exists():
             new_primary = customer.phones.first()
             new_primary.is_primary = True
@@ -543,9 +627,16 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         return Response({'message': 'Phone deleted successfully'}, status=status.HTTP_200_OK)
 
-
     @action(detail=False, methods=['post'])
     def bulk_assign(self, request):
+        # ========== ONLY ADMINS CAN BULK ASSIGN ==========
+        user = request.user
+        if user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can bulk assign customers'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         customer_ids = request.data.get('customer_ids', [])
         agent_id = request.data.get('agent_id')
 
@@ -560,7 +651,6 @@ class CustomerViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Invalid agent ID'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update customers with the new agent
         updated_count = Customer.objects.filter(id__in=customer_ids).update(agent=agent)
 
         return Response({
@@ -570,11 +660,11 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def export_excel(self, request):
-        # Get the same queryset as list view but remove pagination for export
+        # ========== ROLE-BASED EXPORT ==========
+        # The get_queryset() method already applies role-based filtering
         queryset = self.get_queryset()
-        queryset = self.filter_queryset(queryset)  # Apply filters but not pagination
+        queryset = self.filter_queryset(queryset)
 
-        # Prepare data for export
         customers_data = []
         for customer in queryset:
             try:
@@ -607,7 +697,6 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 }
                 customers_data.append(customer_dict)
             except Exception as e:
-                # Log the error and skip this customer
                 print(f"Error processing customer {customer.id}: {str(e)}")
                 continue
 

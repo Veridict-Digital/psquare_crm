@@ -158,6 +158,8 @@ const CustomerList = () => {
       filterCustomerType,
       filterTelecaller,
       filterTime,
+      user?.role, // ADD THIS - Critical for role-based caching
+      user?.id,
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -751,27 +753,7 @@ const CustomerList = () => {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Customers & Leads</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={handleExportExcel}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
-            title="Download Excel"
-          >
-            <Download className="h-4 w-4" />
-            Excel
-          </button>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add Contact
-          </button>
-        </div>
-      </div>
-
+      
       {/* Messages */}
       {successMessage && (
         <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center justify-between">
@@ -813,6 +795,7 @@ const CustomerList = () => {
               onKeyDown={handlePhoneSearchKeyDown}
               className="w-full pl-10 pr-12 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
               maxLength="10"
+              autoFocus={true}
             />
             {phoneSearchInput !== phoneSearch && phoneSearchInput && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -1034,7 +1017,26 @@ const CustomerList = () => {
             >
               <Grid className="h-5 w-5" />
             </button>
+
           </div>
+          <div className="flex gap-2">
+          <button
+            onClick={handleExportExcel}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+            title="Download Excel"
+          >
+            <Download className="h-4 w-4" />
+            Excel
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+            
+          >
+            <Plus className="h-4 w-4" />
+            Add Contact
+          </button>
+        </div>
         </div>
       </div>
 
