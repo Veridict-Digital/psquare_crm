@@ -64,8 +64,7 @@ const CustomerList = () => {
   const [pendingFilterAddress, setPendingFilterAddress] = useState("");
   const [pendingFilterOrgName, setPendingFilterOrgName] = useState("");
   const [pendingFilterOrgType, setPendingFilterOrgType] = useState("");
-  const [pendingFilterCustomerType, setPendingFilterCustomerType] =
-    useState("");
+  const [pendingFilterCustomerType, setPendingFilterCustomerType] = useState("");
   const [pendingFilterTelecaller, setPendingFilterTelecaller] = useState("");
   const [pendingFilterTime, setPendingFilterTime] = useState("");
 
@@ -131,6 +130,7 @@ const CustomerList = () => {
   const phoneInputRef = useRef(null);
   const phoneSearchTimeoutRef = useRef(null);
   const nameSearchTimeoutRef = useRef(null);
+  const addFormPhoneInputRef = useRef(null); // New ref for add form phone input
 
   const { user } = useAuth();
   const { openPopup } = useCallPopup();
@@ -158,7 +158,7 @@ const CustomerList = () => {
       filterCustomerType,
       filterTelecaller,
       filterTime,
-      user?.role, // ADD THIS - Critical for role-based caching
+      user?.role, 
       user?.id,
     ],
     queryFn: async () => {
@@ -232,6 +232,15 @@ const CustomerList = () => {
   const data = customersData;
   const isLoading = customersLoading;
   const error = customersError;
+
+  // Auto-focus on add form phone input when form opens
+  useEffect(() => {
+    if (showAddForm && addFormPhoneInputRef.current) {
+      setTimeout(() => {
+        addFormPhoneInputRef.current.focus();
+      }, 100);
+    }
+  }, [showAddForm]);
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -506,10 +515,11 @@ const CustomerList = () => {
         city: "",
       });
       setSuccessMessage("Customer added successfully!");
+      // Keep form open but focus on phone field again
       setTimeout(() => {
-        if (phoneInputRef.current) {
-          phoneInputRef.current.focus();
-          phoneInputRef.current.select();
+        if (addFormPhoneInputRef.current) {
+          addFormPhoneInputRef.current.focus();
+          addFormPhoneInputRef.current.select();
         }
       }, 100);
     },
@@ -521,6 +531,12 @@ const CustomerList = () => {
         error.response?.data?.phone?.[0] ||
         "Failed to add customer";
       setErrorMessage(errorMessage);
+      // Focus back on phone field after error
+      setTimeout(() => {
+        if (addFormPhoneInputRef.current) {
+          addFormPhoneInputRef.current.focus();
+        }
+      }, 100);
     },
   });
 
@@ -590,14 +606,24 @@ const CustomerList = () => {
   const handleAddCustomer = () => {
   if (!newContact.phone) {
     setErrorMessage("Phone is required");
+    // Focus on phone field
+    if (addFormPhoneInputRef.current) {
+      addFormPhoneInputRef.current.focus();
+    }
     return;
   }
   if (newContact.phone.length < 10) {
     setErrorMessage("Phone number must be at least 10 digits");
+    if (addFormPhoneInputRef.current) {
+      addFormPhoneInputRef.current.focus();
+    }
     return;
   }
   if (phoneError && phoneError !== "Checking phone number...") {
     setErrorMessage(phoneError);
+    if (addFormPhoneInputRef.current) {
+      addFormPhoneInputRef.current.focus();
+    }
     return;
   }
   
@@ -1063,7 +1089,7 @@ const CustomerList = () => {
                 Phone *
               </label>
               <input
-                ref={phoneInputRef}
+                ref={addFormPhoneInputRef}
                 type="text"
                 value={newContact.phone}
                 onChange={(e) => {
@@ -1506,9 +1532,9 @@ const CustomerList = () => {
                           </button>
                         </div>
                       </div>
-                    </td>
-                  </tr>
-                )}
+                      </td>
+                     </tr>
+                  )}
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {customers.map((customer) => (

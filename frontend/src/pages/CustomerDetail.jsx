@@ -15,6 +15,8 @@ import {
   ChevronDown,
   Calendar,
   MapPin,
+  Copy,
+  Check,
 } from "lucide-react";
 import { fetchCustomerTypes } from "../api/customerTypes";
 
@@ -41,6 +43,7 @@ const CustomerDetail = () => {
   const [tempName, setTempName] = useState("");
   const [tempSurname, setTempSurname] = useState("");
   const [customerTypes, setCustomerTypes] = useState([]);
+  const [copiedPhone, setCopiedPhone] = useState(null); // State for copy feedback
   const itemsPerPage = 5;
 
   // Fetch customer details
@@ -72,6 +75,17 @@ const CustomerDetail = () => {
       .then(setCustomerTypes)
       .catch(() => setCustomerTypes([]));
   }, []);
+
+  // Copy phone number to clipboard
+  const copyToClipboard = async (phoneNumber, phoneId) => {
+    try {
+      await navigator.clipboard.writeText(phoneNumber);
+      setCopiedPhone(phoneId);
+      setTimeout(() => setCopiedPhone(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
 
   // Update customer mutation
   const updateMutation = useMutation({
@@ -136,7 +150,34 @@ const CustomerDetail = () => {
   // Edit call log mutation - always updates existing record
   const editCallLogMutation = useMutation({
     mutationFn: (data) => axios.put(`/api/calllogs/${data.id}/`, data),
-    onSuccess: () => {
+    onMutate: async (updatedCallLog) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries(["customer-details", id]);
+
+      // Snapshot the previous value
+      const previousDetails = queryClient.getQueryData(["customer-details", id]);
+
+      // Optimistically update the call log in cache
+      if (previousDetails && previousDetails.call_logs) {
+        queryClient.setQueryData(["customer-details", id], {
+          ...previousDetails,
+          call_logs: previousDetails.call_logs.map((log) =>
+            log.id === updatedCallLog.id ? { ...log, ...updatedCallLog } : log
+          ),
+        });
+      }
+
+      // Return context for rollback
+      return { previousDetails };
+    },
+    onError: (err, updatedCallLog, context) => {
+      // Rollback to previous value
+      if (context?.previousDetails) {
+        queryClient.setQueryData(["customer-details", id], context.previousDetails);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after mutation for consistency
       queryClient.invalidateQueries(["customer-details", id]);
     },
   });
@@ -257,7 +298,6 @@ const CustomerDetail = () => {
       }
 
       const callData = {
-        // Use the CURRENT customer from the page, not the one from call log
         id: currentCustomerId,
         name: customer?.name,
         surname: customer?.surname,
@@ -271,10 +311,9 @@ const CustomerDetail = () => {
         timer: Math.round(recentCall.duration_minutes * 60) || 0,
         isEditing: true,
         isRunning: false,
+        dbId: recentCall.id // Pass DB id for edit (renamed for clarity)
       };
-
-      console.log("Opening popup with callData:", callData);
-      openPopup(callData);
+      openPopup(callData, editCallLogMutation.mutateAsync);
     }
   };
 
@@ -359,7 +398,7 @@ const CustomerDetail = () => {
                 </div>
               </div>
 
-              {/* Phones Section - Fixed width */}
+              {/* Phones Section - Fixed width with copy buttons */}
               <div className="flex-shrink-0 min-w-[200px]">
                 {customer?.all_phones && customer.all_phones.length > 0 && (
                   <div className="relative">
@@ -415,6 +454,20 @@ const CustomerDetail = () => {
                                     {formatPhoneNumber(phoneObj.phone)}
                                     {phoneObj.is_primary && " (P)"}
                                   </span>
+                                  
+                                  {/* Copy Button */}
+                                  <button
+                                    onClick={() => copyToClipboard(phoneObj.phone, phoneObj.id)}
+                                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                                    title="Copy phone number"
+                                  >
+                                    {copiedPhone === phoneObj.id ? (
+                                      <Check className="h-4 w-4 text-green-500" />
+                                    ) : (
+                                      <Copy className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                  
                                   {phoneObj.is_primary && (
                                     <button
                                       onClick={() =>
@@ -513,16 +566,29 @@ const CustomerDetail = () => {
                                     <div className="flex items-center">
                                       <Phone className="h-3.5 w-3.5 mr-2 text-gray-400" />
                                       <span
-                                        className={`text-base md:text-lg ${
+                                        className={`${
                                           phone.is_primary
                                             ? "font-semibold text-blue-600"
                                             : "text-gray-700"
-                                        }`}
+                                        } text-base md:text-lg`}
                                       >
                                         {formatPhoneNumber(phone.phone)}
                                       </span>
                                     </div>
                                     <div className="flex items-center space-x-2">
+                                      {/* Copy button for dropdown items */}
+                                      <button
+                                        onClick={() => copyToClipboard(phone.phone, phone.id)}
+                                        className="text-gray-400 hover:text-blue-600 transition-colors"
+                                        title="Copy phone number"
+                                      >
+                                        {copiedPhone === phone.id ? (
+                                          <Check className="h-3.5 w-3.5 text-green-500" />
+                                        ) : (
+                                          <Copy className="h-3.5 w-3.5" />
+                                        )}
+                                      </button>
+                                      
                                       {phone.is_primary && (
                                         <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
                                           Primary
