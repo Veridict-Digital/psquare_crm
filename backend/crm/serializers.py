@@ -38,6 +38,15 @@ class CustomerSerializer(serializers.ModelSerializer):
     company_type_display = serializers.CharField(source='company_type.name', read_only=True)
     customer_type_display = serializers.CharField(source='customer_type.name', read_only=True)
 
+    # ADD THIS FIELD
+    telecaller_id = serializers.PrimaryKeyRelatedField(
+        source='agent', 
+        queryset=User.objects.filter(role__in=['Employee', 'Telecaller']),
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+
     def get_total_order_value(self, obj):
         # Calculate total order value from all orders for this customer
         total = obj.order_set.aggregate(total=models.Sum('total_amount'))['total'] or 0

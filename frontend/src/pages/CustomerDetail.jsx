@@ -694,56 +694,59 @@ const CustomerDetail = () => {
             {/* Right side: Buttons - Fixed width, wrap on mobile */}
             <div className="flex flex-wrap gap-2 items-center justify-end flex-shrink-0">
               {!showAddPhone ? (
-                <button
-                  onClick={() => setShowAddPhone(true)}
-                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Phone
-                </button>
-              ) : (
-                <div className="flex flex-col">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={newPhoneNumber}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        if (value.length <= 10) {
-                          setNewPhoneNumber(value);
-                        }
-                      }}
-                      placeholder="Enter phone number"
-                      className="px-2 py-1 border border-gray-300 rounded text-sm w-32"
-                      autoFocus
-                      maxLength={10}
-                    />
-                    <button
-                      onClick={() => {
-                        if (newPhoneNumber.length !== 10) {
-                          alert("Phone number must be exactly 10 digits.");
-                          return;
-                        }
-                        addPhoneMutation.mutate({
-                          phone: newPhoneNumber,
-                        });
-                      }}
-                      className="text-green-600 hover:text-green-800"
-                    >
-                      <Save className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowAddPhone(false);
-                        setNewPhoneNumber("");
-                      }}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
+  <button
+    onClick={() => {
+      setShowAddPhone(true);
+      setTimeout(() => {
+        const phoneInput = document.getElementById('new-phone-input');
+        if (phoneInput) phoneInput.focus();
+      }, 100);
+    }}
+    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+  >
+    <Plus className="h-4 w-4 mr-1" />
+    Add Phone
+  </button>
+) : (
+  <div className="flex items-center space-x-2">
+    <Phone className="h-4 w-4 text-gray-400" />
+    <input
+      id="new-phone-input"
+      type="text"
+      value={newPhoneNumber}
+      onChange={(e) => {
+        const value = e.target.value.replace(/\D/g, "");
+        if (value.length <= 10) {
+          setNewPhoneNumber(value);
+        }
+      }}
+      onBlur={() => {
+        if (newPhoneNumber && newPhoneNumber.length === 10) {
+          addPhoneMutation.mutate({ phone: newPhoneNumber });
+        }
+        setShowAddPhone(false);
+        setNewPhoneNumber("");
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          if (newPhoneNumber && newPhoneNumber.length === 10) {
+            addPhoneMutation.mutate({ phone: newPhoneNumber });
+          }
+          setShowAddPhone(false);
+          setNewPhoneNumber("");
+        } else if (e.key === "Escape") {
+          setShowAddPhone(false);
+          setNewPhoneNumber("");
+        }
+      }}
+      placeholder="Enter 10-digit number"
+      className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      maxLength={10}
+      autoFocus
+    />
+  </div>
+)}
+              
               <button
                 onClick={() => {
                   const callData = {
@@ -967,305 +970,208 @@ const CustomerDetail = () => {
 
           {/* Address Section */}
           {/* Address Section - Always visible */}
-          <div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
-            <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              {editingAddress ? (
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="grid grid-cols-9 gap-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          House No
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="House/Flat No"
-                          value={tempAddress.house_flat_no}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              house_flat_no: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Wing/Lane
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Wing/Lane"
-                          value={tempAddress.wing_lane}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              wing_lane: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Society/Colony
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Society/Colony"
-                          value={tempAddress.society_colony}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              society_colony: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Landmark
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Landmark"
-                          value={tempAddress.landmark}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              landmark: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Area
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Area"
-                          value={tempAddress.area}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              area: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Pincode
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Pincode"
-                          value={tempAddress.pincode}
-                          onChange={(e) => {
-                            const value = e.target.value
-                              .replace(/\D/g, "")
-                              .slice(0, 6);
-                            setTempAddress({
-                              ...tempAddress,
-                              pincode: value,
-                            });
-                          }}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                          maxLength={6}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="City"
-                          value={tempAddress.city}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              city: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          District
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="District"
-                          value={tempAddress.district}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              district: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Tahsil
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Tahsil"
-                          value={tempAddress.tahsil}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              tahsil: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          State
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="State"
-                          value={tempAddress.state}
-                          onChange={(e) =>
-                            setTempAddress({
-                              ...tempAddress,
-                              state: e.target.value,
-                            })
-                          }
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ml-4 flex-shrink-0 pt-6 flex items-center space-x-2">
-                    <button
-                      onClick={saveAddressEdit}
-                      className="text-green-600 hover:text-green-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
-                      title="Save changes"
-                    >
-                      <Save className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={cancelAddressEdit}
-                      className="text-red-600 hover:text-red-800 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
-                      title="Cancel editing"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="grid grid-cols-10 gap-1">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          House No
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.house_flat_no || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Wing/Lane
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.wing_lane || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Society/Colony
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.society_colony || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Landmark
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.landmark || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Area
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.area || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Pincode
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.pincode || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          City
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.city || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          District
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.district || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Tahsil
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.tahsil || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          State
-                        </label>
-                        <div className="px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 min-h-[34px] flex items-center">
-                          {customer?.state || "-"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ml-4 flex-shrink-0 pt-6">
-                    <button
-                      onClick={startEditingAddress}
-                      className="text-gray-400 hover:text-gray-600 flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100"
-                      title="Edit address"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* Address Section - With inline editing like name/org fields */}
+<div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
+  <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
+  <div className="flex-1 min-w-0">
+    <div className="flex items-start justify-between">
+      <div className="flex-1 min-w-0">
+        <div className="grid grid-cols-10 gap-1">
+          {/* House No */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              House No
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.house_flat_no || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.house_flat_no) {
+                  updateMutation.mutate({ house_flat_no: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
+
+          {/* Wing/Lane */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Wing/Lane
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.wing_lane || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.wing_lane) {
+                  updateMutation.mutate({ wing_lane: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Society/Colony */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Society/Colony
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.society_colony || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.society_colony) {
+                  updateMutation.mutate({ society_colony: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Landmark */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Landmark
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.landmark || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.landmark) {
+                  updateMutation.mutate({ landmark: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Area */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Area
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.area || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.area) {
+                  updateMutation.mutate({ area: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Pincode */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Pincode
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.pincode || ""}
+              onBlur={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                if (value !== customer?.pincode) {
+                  if (value && value.length !== 6) {
+                    alert("Pincode must be exactly 6 digits");
+                    return;
+                  }
+                  updateMutation.mutate({ pincode: value || null });
+                }
+              }}
+              onChange={(e) => {
+                // Allow only digits and limit to 6 characters while typing
+                const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                e.target.value = value;
+              }}
+              placeholder="-"
+              maxLength={6}
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* City */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              City
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.city || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.city) {
+                  updateMutation.mutate({ city: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* District */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              District
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.district || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.district) {
+                  updateMutation.mutate({ district: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Tahsil */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Tahsil
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.tahsil || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.tahsil) {
+                  updateMutation.mutate({ tahsil: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* State */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              State
+            </label>
+            <input
+              type="text"
+              defaultValue={customer?.state || ""}
+              onBlur={(e) => {
+                if (e.target.value !== customer?.state) {
+                  updateMutation.mutate({ state: e.target.value || null });
+                }
+              }}
+              placeholder="-"
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
         </div>
 
         {/* Conversation history - EXACTLY as you had it, just fixed the logic */}

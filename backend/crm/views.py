@@ -294,6 +294,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             phone = self.request.query_params.get('phone')
             phone_search = self.request.query_params.get('search_phone')
             name_search = self.request.query_params.get('search_name')
+            surname_search = self.request.query_params.get('search_surname')  # NEW
             agent = self.request.query_params.get('agent')
             address = self.request.query_params.get('address')
             organization_name = self.request.query_params.get('organization_name')
@@ -303,6 +304,18 @@ class CustomerViewSet(viewsets.ModelViewSet):
             time = self.request.query_params.get('time')
             search = self.request.query_params.get('search')
             has_appointment = self.request.query_params.get('has_appointment')
+            
+            # NEW: Individual address field filters
+            house_flat_no = self.request.query_params.get('house_flat_no')
+            wing_lane = self.request.query_params.get('wing_lane')
+            society_colony = self.request.query_params.get('society_colony')
+            landmark = self.request.query_params.get('landmark')
+            area = self.request.query_params.get('area')
+            city = self.request.query_params.get('city')
+            district = self.request.query_params.get('district')
+            tahsil = self.request.query_params.get('tahsil')
+            state = self.request.query_params.get('state')
+            pincode = self.request.query_params.get('pincode')
 
             # ========== LEADS VS APPOINTMENT TOGGLE (PRESERVED) ==========
             if has_appointment == 'true':
@@ -338,15 +351,48 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     models.Q(phones__phone__icontains=phone_search)
                 )
             
+            # UPDATED: Separate name and surname search
             if name_search:
-                queryset = queryset.filter(
-                    models.Q(name__icontains=name_search) |
-                    models.Q(surname__icontains=name_search)
-                )
+                queryset = queryset.filter(name__icontains=name_search)
+            
+            if surname_search:
+                queryset = queryset.filter(surname__icontains=surname_search)
             
             if agent:
                 queryset = queryset.filter(agent=int(agent))
             
+            # NEW: Individual address field filters (more specific than generic address)
+            if house_flat_no:
+                queryset = queryset.filter(house_flat_no__icontains=house_flat_no)
+            
+            if wing_lane:
+                queryset = queryset.filter(wing_lane__icontains=wing_lane)
+            
+            if society_colony:
+                queryset = queryset.filter(society_colony__icontains=society_colony)
+            
+            if landmark:
+                queryset = queryset.filter(landmark__icontains=landmark)
+            
+            if area:
+                queryset = queryset.filter(area__icontains=area)
+            
+            if city:
+                queryset = queryset.filter(city__icontains=city)
+            
+            if district:
+                queryset = queryset.filter(district__icontains=district)
+            
+            if tahsil:
+                queryset = queryset.filter(tahsil__icontains=tahsil)
+            
+            if state:
+                queryset = queryset.filter(state__icontains=state)
+            
+            if pincode:
+                queryset = queryset.filter(pincode__icontains=pincode)
+            
+            # Keep the generic address filter for backward compatibility
             if address:
                 queryset = queryset.filter(
                     models.Q(house_flat_no__icontains=address) |
