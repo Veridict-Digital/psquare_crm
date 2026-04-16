@@ -305,6 +305,20 @@ const CustomerList = () => {
     }).format(amount);
   };
 
+  // Helper function to format phone number as XXX-XXX-XXXX
+  const formatPhoneNumber = (phone) => {
+    // Remove all non-digit characters
+    const cleaned = phone.replace(/\D/g, "");
+
+    // Check if we have exactly 10 digits
+    if (cleaned.length === 10) {
+      return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+    }
+
+    // If not 10 digits, return original (or handle differently)
+    return phone;
+  };
+
   // Reset to first page when search or applied filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -406,18 +420,69 @@ const CustomerList = () => {
     }
   }, [newContact.phone]);
 
-  // Phone check
+  // Phone check and auto-fill Quick Add form if phone exists
+  const [existingCustomerId, setExistingCustomerId] = useState(null);
   useEffect(() => {
     if (newContact.phone.length >= 10) {
       if (phoneCheckLoading) {
         setPhoneError("Checking phone number...");
+        setExistingCustomerId(null);
       } else if (phoneCheckData && phoneCheckData.count > 0) {
         setPhoneError("Phone number already exists");
+        // Auto-fetch and fill all fields if phone exists
+        const customer = phoneCheckData.results && phoneCheckData.results[0];
+        if (customer) {
+          setExistingCustomerId(customer.id);
+          // Map company_type to ID if it's a string (name)
+          let companyTypeId = customer.company_type;
+          if (typeof companyTypeId === "string" && organizationTypes) {
+            const found = organizationTypes.find(
+              (org) => org.name === companyTypeId,
+            );
+            if (found) companyTypeId = found.id;
+          } else if (
+            typeof companyTypeId === "object" &&
+            companyTypeId !== null
+          ) {
+            companyTypeId = companyTypeId.id;
+          }
+          setNewContact((prev) => ({
+            ...prev,
+            name: customer.name || "",
+            surname: customer.surname || "",
+            email: customer.email || "",
+            company_name: customer.company_name || "",
+            company_type: companyTypeId || "",
+            customer_type: customer.customer_type
+              ? typeof customer.customer_type === "object"
+                ? customer.customer_type.id
+                : customer.customer_type
+              : "",
+            telecaller_id: customer.agent
+              ? typeof customer.agent === "object"
+                ? customer.agent.id
+                : customer.agent
+              : "",
+            pincode: customer.pincode || "",
+            house_flat_no: customer.house_flat_no || "",
+            wing_lane: customer.wing_lane || "",
+            society_colony: customer.society_colony || "",
+            landmark: customer.landmark || "",
+            area: customer.area || "",
+            state: customer.state || "",
+            district: customer.district || "",
+            tahsil: customer.tahsil || "",
+            city: customer.city || "",
+          }));
+        }
       } else {
         setPhoneError("");
+        setExistingCustomerId(null);
       }
+    } else {
+      setExistingCustomerId(null);
     }
-  }, [newContact.phone, phoneCheckLoading, phoneCheckData]);
+  }, [newContact.phone, phoneCheckLoading, phoneCheckData, organizationTypes]);
 
   // Phone search handler (auto-apply with debounce)
   const handlePhoneSearchChange = (e) => {
@@ -1345,7 +1410,10 @@ const CustomerList = () => {
                     setShowNewOrgTypeInput(true);
                     setNewContact({ ...newContact, company_type: "" });
                   } else {
-                    setNewContact({ ...newContact, company_type: value });
+                    setNewContact({
+                      ...newContact,
+                      company_type: value ? Number(value) : "",
+                    });
                     setShowNewOrgTypeInput(false);
                   }
                 }}
@@ -1353,7 +1421,7 @@ const CustomerList = () => {
               >
                 <option value="">Select Organization Type</option>
                 {organizationTypes?.map((type) => (
-                  <option key={type.id} value={type.name}>
+                  <option key={type.id} value={type.id}>
                     {type.name}
                   </option>
                 ))}
@@ -1655,14 +1723,70 @@ const CustomerList = () => {
               />
             </div>
             <div className="flex items-end gap-2">
-              <button
-                onClick={handleAddCustomer}
-                disabled={addCustomerMutation.isLoading}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
-              >
-                <Plus className="h-4 w-4" />
-                {addCustomerMutation.isLoading ? "Adding..." : "Add"}
-              </button>
+              {existingCustomerId ? (
+                <button
+                  onClick={async () => {
+                    // Always send company_type as ID
+                    let submitContact = { ...newContact };
+                    if (
+                      typeof submitContact.company_type === "string" &&
+                      organizationTypes
+                    ) {
+                      const found = organizationTypes.find(
+                        (org) => org.name === submitContact.company_type,
+                      );
+                      if (found) submitContact.company_type = found.id;
+                    }
+                    try {
+                      await axios.patch(
+                        `/api/customers/${existingCustomerId}/`,
+                        submitContact,
+                      );
+                      setSuccessMessage("Customer updated successfully!");
+                      setShowAddForm(false);
+                      setExistingCustomerId(null);
+                      setNewContact({
+                        name: "",
+                        surname: "",
+                        phone: "",
+                        email: "",
+                        company_name: "",
+                        company_type: "",
+                        customer_type: "",
+                        telecaller_id: "",
+                        pincode: "",
+                        house_flat_no: "",
+                        wing_lane: "",
+                        society_colony: "",
+                        landmark: "",
+                        area: "",
+                        state: "",
+                        district: "",
+                        tahsil: "",
+                        city: "",
+                      });
+                      queryClient.invalidateQueries({
+                        queryKey: ["customers"],
+                      });
+                    } catch (err) {
+                      setErrorMessage("Failed to update customer");
+                    }
+                  }}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Edit className="h-4 w-4" />
+                  Update
+                </button>
+              ) : (
+                <button
+                  onClick={handleAddCustomer}
+                  disabled={addCustomerMutation.isLoading}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  {addCustomerMutation.isLoading ? "Adding..." : "Add"}
+                </button>
+              )}
               <button
                 onClick={() => setShowAddForm(false)}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
@@ -1676,83 +1800,83 @@ const CustomerList = () => {
 
       {/* Table View */}
       {viewMode === "table" ? (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-<div 
-  className="overflow-x-auto overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" 
-  style={{ maxHeight: 'calc(100vh - 280px)' }}
->
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-[#1a2332] sticky top-0 z-10">
-              <tr>
-                {user?.role === "Admin" && (
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider sticky left-0 bg-[#1a2332] z-20">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedCustomers.length === customers.length &&
-                        customers.length > 0
-                      }
-                      onChange={handleSelectAll}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div
+            className="overflow-x-auto overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            style={{ maxHeight: "calc(100vh - 280px)" }}
+          >
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-[#1a2332] sticky top-0 z-10">
+                <tr>
+                  {user?.role === "Admin" && (
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider sticky left-0 bg-[#1a2332] z-20">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedCustomers.length === customers.length &&
+                          customers.length > 0
+                        }
+                        onChange={handleSelectAll}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </th>
+                  )}
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                    Contact Name
                   </th>
-                )}
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Contact Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Org Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Org Type
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
-                  Phone Number
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Address
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Telecaller
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Appointment
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Time
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-              {selectedCustomers.length > 0 && user?.role === "Admin" && (
-                <tr className="bg-blue-50">
-                  <td colSpan="10" className="px-6 py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-blue-700">
-                        {selectedCustomers.length} contact
-                        {selectedCustomers.length > 1 ? "s" : ""} selected
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setShowAssignmentModal(true)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors"
-                        >
-                          <UserCheck className="h-3.5 w-3.5" />
-                          Assign
-                        </button>
-                        <button
-                          onClick={() => setSelectedCustomers([])}
-                          className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                    Org Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                    Org Type
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
+                    Phone Number
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                    Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                    Telecaller
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                    Appointment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                    Time
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              )}
-            </thead>
+                {selectedCustomers.length > 0 && user?.role === "Admin" && (
+                  <tr className="bg-blue-50">
+                    <td colSpan="10" className="px-6 py-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-blue-700">
+                          {selectedCustomers.length} contact
+                          {selectedCustomers.length > 1 ? "s" : ""} selected
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setShowAssignmentModal(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors"
+                          >
+                            <UserCheck className="h-3.5 w-3.5" />
+                            Assign
+                          </button>
+                          <button
+                            onClick={() => setSelectedCustomers([])}
+                            className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {customers.map((customer) => (
                   <tr
@@ -1810,33 +1934,29 @@ const CustomerList = () => {
                     </td>
                     <td className="px-6 py-3">
                       <div className="space-y-0.5">
-                        {customer.all_phones &&
-                        customer.all_phones.length > 0 ? (
-                          customer.all_phones.map((phoneObj, index) => (
+                        {customer.phones && customer.phones.length > 0 ? (
+                          customer.phones.map((phoneObj, idx) => (
                             <div
-                              key={index}
+                              key={idx}
                               className="flex items-center text-sm"
                             >
                               <Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
-                              <Link
-                                to={`/customers/${phoneObj.id}`}
-                                className={`hover:text-blue-600 transition-colors ${
+                              <span
+                                className={
                                   phoneObj.phone === customer.phone
                                     ? "font-medium text-blue-600"
                                     : "text-gray-700"
-                                }`}
-                                onClick={(e) => e.stopPropagation()}
+                                }
                               >
-                                {phoneObj.phone}
-                                {phoneObj.phone === customer.phone &&
-                                  " (Primary)"}
-                              </Link>
+                                {formatPhoneNumber(phoneObj.phone)}
+                                {phoneObj.phone === customer.phone && " (P)"}
+                              </span>
                             </div>
                           ))
                         ) : (
                           <div className="flex items-center text-sm text-gray-700">
                             <Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
-                            {customer.phone}
+                            {formatPhoneNumber(customer.phone)}
                           </div>
                         )}
                       </div>
