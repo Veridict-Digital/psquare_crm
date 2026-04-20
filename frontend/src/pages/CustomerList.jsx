@@ -143,7 +143,8 @@ const CustomerList = () => {
     district: "",
     tahsil: "",
     city: "",
-  });
+      appointment_date: "",
+    });
 
   // Validation states
   const [phoneError, setPhoneError] = useState("");
@@ -641,7 +642,6 @@ const CustomerList = () => {
   }, [newContact.phone]);
 
   // Phone check and auto-fill Quick Add form if phone exists
-  // Phone check and auto-fill Quick Add form if phone exists
 const [existingCustomerId, setExistingCustomerId] = useState(null);
 
 useEffect(() => {
@@ -668,6 +668,7 @@ useEffect(() => {
       district: "",
       tahsil: "",
       city: "",
+      appointment_date: "",
     });
     return;
   }
@@ -695,6 +696,7 @@ useEffect(() => {
       district: "",
       tahsil: "",
       city: "",
+      appointment_date: "",
       phone: prev.phone, // Preserve the phone being typed
     }));
     return;
@@ -748,6 +750,7 @@ useEffect(() => {
         district: customer.district || "",
         tahsil: customer.tahsil || "",
         city: customer.city || "",
+        appointment_date: customer.appointment_date || "",
       }));
     }
   } else if (phoneCheckData && phoneCheckData.count === 0) {
@@ -1105,7 +1108,8 @@ useEffect(() => {
       company_type: selectedOrgType?.id || null,
       customer_type: selectedCustomerType?.id || null,
       telecaller_id: newContact.telecaller_id || null,
-    };
+        appointment_date: newContact.appointment_date || null,
+      };
 
     addCustomerMutation.mutate(submitData);
   };
@@ -1210,7 +1214,21 @@ useEffect(() => {
       if (phoneSearch) params.append("phone", phoneSearch);
       if (nameSearch) params.append("name", nameSearch);
       if (surnameSearch) params.append("surname", surnameSearch);
+      if (filterOrgName) params.append("company_name", filterOrgName);
+      if (filterOrgType) params.append("company_type", filterOrgType);
+      if (filterCustomerType) params.append("customer_type", filterCustomerType);
       if (filterTelecaller) params.append("agent", filterTelecaller);
+      if (filterTime) params.append("time", filterTime);
+      if (filterHouseFlatNo) params.append("house_flat_no", filterHouseFlatNo);
+      if (filterWingLane) params.append("wing_lane", filterWingLane);
+      if (filterSocietyColony) params.append("society_colony", filterSocietyColony);
+      if (filterLandmark) params.append("landmark", filterLandmark);
+      if (filterArea) params.append("area", filterArea);
+      if (filterCity) params.append("city", filterCity);
+      if (filterDistrict) params.append("district", filterDistrict);
+      if (filterTahsil) params.append("tahsil", filterTahsil);
+      if (filterState) params.append("state", filterState);
+      if (filterPincode) params.append("pincode", filterPincode);
       if (viewType === "customers") params.append("contact_type", "Customer");
       if (viewType === "leads") params.append("contact_type", "Lead");
 
@@ -1599,7 +1617,7 @@ useEffect(() => {
       {/* Quick Add Form */}
       {showAddForm && (
         <div className="bg-white rounded-xl shadow-lg p-6 mb-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Phone *
@@ -1841,6 +1859,20 @@ useEffect(() => {
               </select>
             </div>
             <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Appointment Date
+                      </label>
+                      <input
+                        type="date"
+                        value={newContact.appointment_date}
+                        onChange={(e) =>
+                          setNewContact({ ...newContact, appointment_date: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Appointment Date"
+                      />
+                    </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 House/Flat No
               </label>
@@ -2048,7 +2080,8 @@ useEffect(() => {
                         district: "",
                         tahsil: "",
                         city: "",
-                      });
+                          appointment_date: "",
+                        });
                       queryClient.invalidateQueries({
                         queryKey: ["customers"],
                       });
