@@ -46,6 +46,7 @@ const CallPopup = () => {
     assumptions3,
     currentDropdown,
     setCurrentDropdown,
+    isEditingLastCall
   } = useCallPopup();
 
   if (!isVisible && !isEmbedded) return null;
@@ -269,7 +270,9 @@ const CallPopup = () => {
                 <button onClick={endCall} className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">End Call</button>
               </>
             )}
-            <button onClick={() => { console.log('Save Info button clicked'); saveInfo(); }} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Save Info</button>
+            {isEditingLastCall && (
+              <button onClick={() => { console.log('Save Info button clicked'); saveInfo(); }} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Save Info</button>
+            )}
             {customer && <button onClick={placeOrder} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Place Order</button>}
             {lead && <button onClick={convertToCustomer} className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Convert to Customer</button>}
           </div>
@@ -496,15 +499,17 @@ const CallPopup = () => {
         </button>
       </>
     )}
-    <button
-      onClick={() => { console.log('Save Info button clicked (floating)'); saveInfo(); }}
-      className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm"
-    >
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-      </svg>
-      Save Info
-    </button>
+    {isEditingLastCall && (
+      <button
+        onClick={() => { console.log('Save Info button clicked (floating)'); saveInfo(); }}
+        className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+        </svg>
+        Save Info
+      </button>
+    )}
     {customer && (
       <button
         onClick={placeOrder}

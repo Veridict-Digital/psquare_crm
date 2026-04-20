@@ -31,6 +31,9 @@ const CustomerDetail = () => {
   const [ordersPage, setOrdersPage] = useState(1);
   const [showAddPhone, setShowAddPhone] = useState(false);
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [editingContactPerson, setEditingContactPerson] = useState(null);
+  const [tempContactPerson, setTempContactPerson] = useState("");
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const [showOrgTypeDropdown, setShowOrgTypeDropdown] = useState(false);
   const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] =
@@ -112,7 +115,22 @@ const CustomerDetail = () => {
       queryClient.invalidateQueries(["customer-details", id]);
       setShowAddPhone(false);
       setNewPhoneNumber("");
+      setPhoneError("");
     },
+    onError: (error) => {
+      if (error.response && error.response.data && error.response.data.error) {
+        setPhoneError(error.response.data.error);
+      } else {
+        setPhoneError("Failed to add phone number.");
+      }
+    },
+  });
+
+  // Add or update contact person for a phone
+  const updatePhoneContactPerson = useMutation({
+    mutationFn: ({ id, contact_person }) =>
+      axios.patch(`/api/phones/${id}/`, { contact_person }),
+    onSuccess: () => queryClient.invalidateQueries(["customer-details", id]),
   });
 
   const formatPhoneNumber = (phone) => {
@@ -155,14 +173,17 @@ const CustomerDetail = () => {
       await queryClient.cancelQueries(["customer-details", id]);
 
       // Snapshot the previous value
-      const previousDetails = queryClient.getQueryData(["customer-details", id]);
+      const previousDetails = queryClient.getQueryData([
+        "customer-details",
+        id,
+      ]);
 
       // Optimistically update the call log in cache
       if (previousDetails && previousDetails.call_logs) {
         queryClient.setQueryData(["customer-details", id], {
           ...previousDetails,
           call_logs: previousDetails.call_logs.map((log) =>
-            log.id === updatedCallLog.id ? { ...log, ...updatedCallLog } : log
+            log.id === updatedCallLog.id ? { ...log, ...updatedCallLog } : log,
           ),
         });
       }
@@ -173,7 +194,10 @@ const CustomerDetail = () => {
     onError: (err, updatedCallLog, context) => {
       // Rollback to previous value
       if (context?.previousDetails) {
-        queryClient.setQueryData(["customer-details", id], context.previousDetails);
+        queryClient.setQueryData(
+          ["customer-details", id],
+          context.previousDetails,
+        );
       }
     },
     onSettled: () => {
@@ -311,7 +335,7 @@ const CustomerDetail = () => {
         timer: Math.round(recentCall.duration_minutes * 60) || 0,
         isEditing: true,
         isRunning: false,
-        dbId: recentCall.id // Pass DB id for edit (renamed for clarity)
+        dbId: recentCall.id, // Pass DB id for edit (renamed for clarity)
       };
       openPopup(callData, editCallLogMutation.mutateAsync);
     }
@@ -399,6 +423,7 @@ const CustomerDetail = () => {
               </div>
 
               {/* Phones Section - Fixed width with copy buttons */}
+
               <div className="flex-shrink-0 min-w-[200px]">
                 {customer?.all_phones && customer.all_phones.length > 0 && (
                   <div className="relative">
@@ -407,8 +432,10 @@ const CustomerDetail = () => {
                         .slice(0, 2)
                         .map((phoneObj, index) => (
                           <div key={phoneObj.id || index} className="relative">
-                            <div className="flex items-center">
-                              <Phone className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                            <div className="flex items-center space-x-2">
+                              <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+
+                              {/* Phone Number */}
                               {phoneObj.phone === customer.phone &&
                               editingField === "phone" ? (
                                 <div className="flex items-center space-x-2">
@@ -443,66 +470,122 @@ const CustomerDetail = () => {
                                   </button>
                                 </div>
                               ) : (
-                                <div className="flex items-center space-x-2">
-                                  <span
-                                    className={`${
-                                      phoneObj.is_primary
-                                        ? "font-semibold text-blue-600"
-                                        : "text-gray-600"
-                                    } text-base md:text-lg`}
-                                  >
-                                    {formatPhoneNumber(phoneObj.phone)}
-                                    {phoneObj.is_primary && " (P)"}
-                                  </span>
-                                  
-                                  {/* Copy Button */}
-                                  <button
-                                    onClick={() => copyToClipboard(phoneObj.phone, phoneObj.id)}
-                                    className="text-gray-400 hover:text-blue-600 transition-colors"
-                                    title="Copy phone number"
-                                  >
-                                    {copiedPhone === phoneObj.id ? (
-                                      <Check className="h-4 w-4 text-green-500" />
-                                    ) : (
-                                      <Copy className="h-4 w-4" />
-                                    )}
-                                  </button>
-                                  
-                                  {phoneObj.is_primary && (
-                                    <button
-                                      onClick={() =>
-                                        setShowPrimaryDropdown(
-                                          !showPrimaryDropdown,
-                                        )
-                                      }
-                                      className="text-gray-400 hover:text-gray-600"
-                                    >
-                                      <ChevronDown
-                                        className={`h-4 w-4 transform transition-transform ${
-                                          showPrimaryDropdown
-                                            ? "rotate-180"
-                                            : ""
-                                        }`}
-                                      />
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          `Are you sure you want to delete phone number "${formatPhoneNumber(phoneObj.phone)}"?`,
-                                        )
-                                      ) {
-                                        deletePhoneMutation.mutate(phoneObj.id);
-                                      }
-                                    }}
-                                    className="text-red-400 hover:text-red-600"
-                                    title="Delete phone number"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
+                                <span
+                                  className={`${
+                                    phoneObj.is_primary
+                                      ? "font-semibold text-blue-600"
+                                      : "text-gray-600"
+                                  } text-base md:text-lg whitespace-nowrap`}
+                                >
+                                  {formatPhoneNumber(phoneObj.phone)}
+                                  {phoneObj.is_primary && " (P)"}
+                                </span>
                               )}
+
+                              {/* Copy Button */}
+                              <button
+                                onClick={() =>
+                                  copyToClipboard(phoneObj.phone, phoneObj.id)
+                                }
+                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Copy phone number"
+                              >
+                                {copiedPhone === phoneObj.id ? (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </button>
+
+                              {/* Contact Person - Direct Input Field */}
+                              {editingContactPerson === phoneObj.id ? (
+                                <input
+                                  type="text"
+                                  value={tempContactPerson}
+                                  onChange={(e) =>
+                                    setTempContactPerson(e.target.value)
+                                  }
+                                  onBlur={() => {
+                                    if (
+                                      tempContactPerson !==
+                                      (phoneObj.contact_person || "")
+                                    ) {
+                                      updatePhoneContactPerson.mutate({
+                                        id: phoneObj.id,
+                                        contact_person: tempContactPerson,
+                                      });
+                                    }
+                                    setEditingContactPerson(null);
+                                    setTempContactPerson("");
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      if (
+                                        tempContactPerson !==
+                                        (phoneObj.contact_person || "")
+                                      ) {
+                                        updatePhoneContactPerson.mutate({
+                                          id: phoneObj.id,
+                                          contact_person: tempContactPerson,
+                                        });
+                                      }
+                                      setEditingContactPerson(null);
+                                      setTempContactPerson("");
+                                    } else if (e.key === "Escape") {
+                                      setEditingContactPerson(null);
+                                      setTempContactPerson("");
+                                    }
+                                  }}
+                                  placeholder="Contact person"
+                                  className="px-2 py-1 border border-gray-300 rounded text-sm w-32"
+                                  autoFocus
+                                />
+                              ) : (
+                                <span
+                                  onClick={() => {
+                                    setEditingContactPerson(phoneObj.id);
+                                    setTempContactPerson(
+                                      phoneObj.contact_person || "",
+                                    );
+                                  }}
+                                  className="text-sm text-gray-600 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded whitespace-nowrap"
+                                >
+                                  {phoneObj.contact_person || "Add contact"}
+                                </span>
+                              )}
+
+                              {/* Primary Phone Dropdown Button */}
+                              {phoneObj.is_primary && (
+                                <button
+                                  onClick={() =>
+                                    setShowPrimaryDropdown(!showPrimaryDropdown)
+                                  }
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  <ChevronDown
+                                    className={`h-4 w-4 transform transition-transform ${
+                                      showPrimaryDropdown ? "rotate-180" : ""
+                                    }`}
+                                  />
+                                </button>
+                              )}
+
+                              {/* Delete Button */}
+                              <button
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Are you sure you want to delete phone number "${formatPhoneNumber(phoneObj.phone)}"?`,
+                                    )
+                                  ) {
+                                    deletePhoneMutation.mutate(phoneObj.id);
+                                  }
+                                }}
+                                className="text-red-400 hover:text-red-600"
+                                title="Delete phone number"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
 
                             {/* Primary phone dropdown */}
@@ -551,7 +634,7 @@ const CustomerDetail = () => {
                         </button>
 
                         {showAllPhones && (
-                          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
+                          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[400px]">
                             <div className="p-2 max-h-48 overflow-y-auto">
                               <div className="text-xs text-gray-500 mb-2 px-2">
                                 All phone numbers:
@@ -561,24 +644,25 @@ const CustomerDetail = () => {
                                 .map((phone, idx) => (
                                   <div
                                     key={phone.id || idx}
-                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded"
+                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded gap-2"
                                   >
-                                    <div className="flex items-center">
-                                      <Phone className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <Phone className="h-3.5 w-3.5 text-gray-400" />
                                       <span
                                         className={`${
                                           phone.is_primary
                                             ? "font-semibold text-blue-600"
                                             : "text-gray-700"
-                                        } text-base md:text-lg`}
+                                        } text-base whitespace-nowrap`}
                                       >
                                         {formatPhoneNumber(phone.phone)}
                                       </span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      {/* Copy button for dropdown items */}
+
+                                      {/* Copy button */}
                                       <button
-                                        onClick={() => copyToClipboard(phone.phone, phone.id)}
+                                        onClick={() =>
+                                          copyToClipboard(phone.phone, phone.id)
+                                        }
                                         className="text-gray-400 hover:text-blue-600 transition-colors"
                                         title="Copy phone number"
                                       >
@@ -588,30 +672,92 @@ const CustomerDetail = () => {
                                           <Copy className="h-3.5 w-3.5" />
                                         )}
                                       </button>
-                                      
+
+                                      {/* Contact Person - Direct Input */}
+                                      {editingContactPerson === phone.id ? (
+                                        <input
+                                          type="text"
+                                          value={tempContactPerson}
+                                          onChange={(e) =>
+                                            setTempContactPerson(e.target.value)
+                                          }
+                                          onBlur={() => {
+                                            if (
+                                              tempContactPerson !==
+                                              (phone.contact_person || "")
+                                            ) {
+                                              updatePhoneContactPerson.mutate({
+                                                id: phone.id,
+                                                contact_person:
+                                                  tempContactPerson,
+                                              });
+                                            }
+                                            setEditingContactPerson(null);
+                                            setTempContactPerson("");
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              if (
+                                                tempContactPerson !==
+                                                (phone.contact_person || "")
+                                              ) {
+                                                updatePhoneContactPerson.mutate(
+                                                  {
+                                                    id: phone.id,
+                                                    contact_person:
+                                                      tempContactPerson,
+                                                  },
+                                                );
+                                              }
+                                              setEditingContactPerson(null);
+                                              setTempContactPerson("");
+                                            } else if (e.key === "Escape") {
+                                              setEditingContactPerson(null);
+                                              setTempContactPerson("");
+                                            }
+                                          }}
+                                          placeholder="Contact person"
+                                          className="px-2 py-0.5 border border-gray-300 rounded text-sm w-28"
+                                          autoFocus
+                                        />
+                                      ) : (
+                                        <span
+                                          onClick={() => {
+                                            setEditingContactPerson(phone.id);
+                                            setTempContactPerson(
+                                              phone.contact_person || "",
+                                            );
+                                          }}
+                                          className="text-sm text-gray-600 cursor-pointer hover:bg-gray-100 px-2 py-0.5 rounded whitespace-nowrap"
+                                        >
+                                          {phone.contact_person ||
+                                            "Add contact"}
+                                        </span>
+                                      )}
+
                                       {phone.is_primary && (
-                                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+                                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded whitespace-nowrap">
                                           Primary
                                         </span>
                                       )}
-                                      <button
-                                        onClick={() => {
-                                          if (
-                                            window.confirm(
-                                              `Are you sure you want to delete phone number "${formatPhoneNumber(phone.phone)}"?`,
-                                            )
-                                          ) {
-                                            deletePhoneMutation.mutate(
-                                              phone.id,
-                                            );
-                                          }
-                                        }}
-                                        className="text-red-400 hover:text-red-600"
-                                        title="Delete phone number"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
                                     </div>
+
+                                    {/* Delete Button */}
+                                    <button
+                                      onClick={() => {
+                                        if (
+                                          window.confirm(
+                                            `Are you sure you want to delete phone number "${formatPhoneNumber(phone.phone)}"?`,
+                                          )
+                                        ) {
+                                          deletePhoneMutation.mutate(phone.id);
+                                        }
+                                      }}
+                                      className="text-red-400 hover:text-red-600"
+                                      title="Delete phone number"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
                                   </div>
                                 ))}
                             </div>
@@ -694,59 +840,78 @@ const CustomerDetail = () => {
             {/* Right side: Buttons - Fixed width, wrap on mobile */}
             <div className="flex flex-wrap gap-2 items-center justify-end flex-shrink-0">
               {!showAddPhone ? (
-  <button
-    onClick={() => {
-      setShowAddPhone(true);
-      setTimeout(() => {
-        const phoneInput = document.getElementById('new-phone-input');
-        if (phoneInput) phoneInput.focus();
-      }, 100);
-    }}
-    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
-  >
-    <Plus className="h-4 w-4 mr-1" />
-    Add Phone
-  </button>
-) : (
-  <div className="flex items-center space-x-2">
-    <Phone className="h-4 w-4 text-gray-400" />
-    <input
-      id="new-phone-input"
-      type="text"
-      value={newPhoneNumber}
-      onChange={(e) => {
-        const value = e.target.value.replace(/\D/g, "");
-        if (value.length <= 10) {
-          setNewPhoneNumber(value);
-        }
-      }}
-      onBlur={() => {
-        if (newPhoneNumber && newPhoneNumber.length === 10) {
-          addPhoneMutation.mutate({ phone: newPhoneNumber });
-        }
-        setShowAddPhone(false);
-        setNewPhoneNumber("");
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          if (newPhoneNumber && newPhoneNumber.length === 10) {
-            addPhoneMutation.mutate({ phone: newPhoneNumber });
-          }
-          setShowAddPhone(false);
-          setNewPhoneNumber("");
-        } else if (e.key === "Escape") {
-          setShowAddPhone(false);
-          setNewPhoneNumber("");
-        }
-      }}
-      placeholder="Enter 10-digit number"
-      className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      maxLength={10}
-      autoFocus
-    />
-  </div>
-)}
-              
+                <button
+                  onClick={() => {
+                    setShowAddPhone(true);
+                    setTimeout(() => {
+                      const phoneInput =
+                        document.getElementById("new-phone-input");
+                      if (phoneInput) phoneInput.focus();
+                    }, 100);
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Phone
+                </button>
+              ) : (
+                <div className="flex flex-col space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <input
+                      id="new-phone-input"
+                      type="text"
+                      value={newPhoneNumber}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        if (value.length <= 10) {
+                          setNewPhoneNumber(value);
+                          setPhoneError("");
+                          if (value.length > 0 && value.length < 10) {
+                            setPhoneError("Phone number must be 10 digits.");
+                          }
+                          // Immediately trigger add if 10 digits
+                          if (value.length === 10) {
+                            addPhoneMutation.mutate({ phone: value });
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        if (newPhoneNumber && newPhoneNumber.length === 10) {
+                          // Already handled in onChange, just close
+                          setShowAddPhone(false);
+                          setNewPhoneNumber("");
+                        } else if (newPhoneNumber.length > 0 && newPhoneNumber.length < 10) {
+                          setPhoneError("Phone number must be 10 digits.");
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          if (newPhoneNumber && newPhoneNumber.length === 10) {
+                            // Already handled in onChange, just close
+                            setShowAddPhone(false);
+                            setNewPhoneNumber("");
+                          } else {
+                            setPhoneError("Phone number must be 10 digits.");
+                          }
+                        } else if (e.key === "Escape") {
+                          setShowAddPhone(false);
+                          setNewPhoneNumber("");
+                          setPhoneError("");
+                        }
+                      }}
+                      placeholder="Enter 10-digit number"
+                      className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={10}
+                      autoFocus
+                    />
+                  </div>
+                  {phoneError && (
+                    <div className="text-xs text-red-500 mt-1">{phoneError}</div>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={() => {
                   const callData = {
@@ -764,14 +929,14 @@ const CustomerDetail = () => {
                 className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
               >
                 <Phone className="h-4 w-4 mr-2" />
-                Call Now
+                Call
               </button>
               <button
                 onClick={() => navigate(`/orders/new?customer=${customer?.id}`)}
                 className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm whitespace-nowrap"
               >
                 <ShoppingBag className="h-4 w-4 mr-2" />
-                Place Order
+                Order
               </button>
               <button
                 onClick={() => {
@@ -785,8 +950,8 @@ const CustomerDetail = () => {
                 }}
                 className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white font-medium rounded-lg hover:from-red-600 hover:to-rose-700 transition-all duration-200 shadow-lg shadow-red-500/25 text-sm whitespace-nowrap"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+                <Trash2 className="h-4 w-4 mr-2 items-center" />
+                Del
               </button>
             </div>
           </div>
@@ -969,209 +1134,229 @@ const CustomerDetail = () => {
           </div>
 
           {/* Address Section */}
-          {/* Address Section - Always visible */}
-          {/* Address Section - With inline editing like name/org fields */}
-<div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
-  <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
-  <div className="flex-1 min-w-0">
-    <div className="flex items-start justify-between">
-      <div className="flex-1 min-w-0">
-        <div className="grid grid-cols-10 gap-1">
-          {/* House No */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              House No
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.house_flat_no || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.house_flat_no) {
-                  updateMutation.mutate({ house_flat_no: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+          <div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
+            <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="grid grid-cols-10 gap-1">
+                    {/* House No */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        House No
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.house_flat_no || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.house_flat_no) {
+                            updateMutation.mutate({
+                              house_flat_no: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* Wing/Lane */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Wing/Lane
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.wing_lane || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.wing_lane) {
-                  updateMutation.mutate({ wing_lane: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* Wing/Lane */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Wing/Lane
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.wing_lane || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.wing_lane) {
+                            updateMutation.mutate({
+                              wing_lane: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* Society/Colony */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Society/Colony
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.society_colony || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.society_colony) {
-                  updateMutation.mutate({ society_colony: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* Society/Colony */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Society/Colony
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.society_colony || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.society_colony) {
+                            updateMutation.mutate({
+                              society_colony: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* Landmark */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Landmark
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.landmark || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.landmark) {
-                  updateMutation.mutate({ landmark: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* Landmark */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Landmark
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.landmark || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.landmark) {
+                            updateMutation.mutate({
+                              landmark: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* Area */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Area
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.area || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.area) {
-                  updateMutation.mutate({ area: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* Area */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Area
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.area || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.area) {
+                            updateMutation.mutate({
+                              area: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* Pincode */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Pincode
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.pincode || ""}
-              onBlur={(e) => {
-                const value = e.target.value.replace(/\D/g, "").slice(0, 6);
-                if (value !== customer?.pincode) {
-                  if (value && value.length !== 6) {
-                    alert("Pincode must be exactly 6 digits");
-                    return;
-                  }
-                  updateMutation.mutate({ pincode: value || null });
-                }
-              }}
-              onChange={(e) => {
-                // Allow only digits and limit to 6 characters while typing
-                const value = e.target.value.replace(/\D/g, "").slice(0, 6);
-                e.target.value = value;
-              }}
-              placeholder="-"
-              maxLength={6}
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* Pincode */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Pincode
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.pincode || ""}
+                        onBlur={(e) => {
+                          const value = e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6);
+                          if (value !== customer?.pincode) {
+                            if (value && value.length !== 6) {
+                              alert("Pincode must be exactly 6 digits");
+                              return;
+                            }
+                            updateMutation.mutate({ pincode: value || null });
+                          }
+                        }}
+                        onChange={(e) => {
+                          // Allow only digits and limit to 6 characters while typing
+                          const value = e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6);
+                          e.target.value = value;
+                        }}
+                        placeholder="-"
+                        maxLength={6}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* City */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              City
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.city || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.city) {
-                  updateMutation.mutate({ city: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* City */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.city || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.city) {
+                            updateMutation.mutate({
+                              city: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* District */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              District
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.district || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.district) {
-                  updateMutation.mutate({ district: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* District */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        District
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.district || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.district) {
+                            updateMutation.mutate({
+                              district: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* Tahsil */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Tahsil
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.tahsil || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.tahsil) {
-                  updateMutation.mutate({ tahsil: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+                    {/* Tahsil */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Tahsil
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.tahsil || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.tahsil) {
+                            updateMutation.mutate({
+                              tahsil: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-          {/* State */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              State
-            </label>
-            <input
-              type="text"
-              defaultValue={customer?.state || ""}
-              onBlur={(e) => {
-                if (e.target.value !== customer?.state) {
-                  updateMutation.mutate({ state: e.target.value || null });
-                }
-              }}
-              placeholder="-"
-              className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+                    {/* State */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        State
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={customer?.state || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== customer?.state) {
+                            updateMutation.mutate({
+                              state: e.target.value || null,
+                            });
+                          }
+                        }}
+                        placeholder="-"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
         </div>
 
         {/* Conversation history - EXACTLY as you had it, just fixed the logic */}

@@ -1,3 +1,4 @@
+
 # crm/views.py - Complete file
 
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -262,6 +263,202 @@ class UserViewSet(viewsets.ModelViewSet):
 # crm/views.py - Complete CustomerViewSet
 
 class CustomerViewSet(viewsets.ModelViewSet):
+        # ========== UNIQUE FIELD VALUE ENDPOINTS FOR FILTER DROPDOWNS ==========
+    @action(detail=False, methods=['get'], url_path='unique_names')
+    def unique_names(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(name__icontains=q)
+        names = (
+            qs.values_list('name', flat=True)
+            .exclude(name__isnull=True)
+            .exclude(name__exact='')
+            .distinct()
+            .order_by('name')[:20]
+        )
+        return Response(list(names))
+
+    @action(detail=False, methods=['get'], url_path='unique_surnames')
+    def unique_surnames(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(surname__icontains=q)
+        surnames = (
+            qs.values_list('surname', flat=True)
+            .exclude(surname__isnull=True)
+            .exclude(surname__exact='')
+            .distinct()
+            .order_by('surname')[:20]
+        )
+        return Response(list(surnames))
+
+    @action(detail=False, methods=['get'], url_path='unique_company_names')
+    def unique_company_names(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(company_name__icontains=q)
+        company_names = (
+            qs.values_list('company_name', flat=True)
+            .exclude(company_name__isnull=True)
+            .exclude(company_name__exact='')
+            .distinct()
+            .order_by('company_name')[:20]
+        )
+        return Response(list(company_names))
+
+    @action(detail=False, methods=['get'], url_path='unique_areas')
+    def unique_areas(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(area__icontains=q)
+        areas = (
+            qs.values_list('area', flat=True)
+            .exclude(area__isnull=True)
+            .exclude(area__exact='')
+            .distinct()
+            .order_by('area')[:20]
+        )
+        return Response(list(areas))
+
+    @action(detail=False, methods=['get'], url_path='unique_cities')
+    def unique_cities(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(city__icontains=q)
+        cities = (
+            qs.values_list('city', flat=True)
+            .exclude(city__isnull=True)
+            .exclude(city__exact='')
+            .distinct()
+            .order_by('city')[:20]
+        )
+        return Response(list(cities))
+
+    @action(detail=False, methods=['get'], url_path='unique_districts')
+    def unique_districts(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(district__icontains=q)
+        districts = (
+            qs.values_list('district', flat=True)
+            .exclude(district__isnull=True)
+            .exclude(district__exact='')
+            .distinct()
+            .order_by('district')[:20]
+        )
+        return Response(list(districts))
+
+    @action(detail=False, methods=['get'], url_path='unique_tahsils')
+    def unique_tahsils(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(tahsil__icontains=q)
+        tahsils = (
+            qs.values_list('tahsil', flat=True)
+            .exclude(tahsil__isnull=True)
+            .exclude(tahsil__exact='')
+            .distinct()
+            .order_by('tahsil')[:20]
+        )
+        return Response(list(tahsils))
+
+    @action(detail=False, methods=['get'], url_path='unique_states')
+    def unique_states(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(state__icontains=q)
+        states = (
+            qs.values_list('state', flat=True)
+            .exclude(state__isnull=True)
+            .exclude(state__exact='')
+            .distinct()
+            .order_by('state')[:20]
+        )
+        return Response(list(states))
+
+    @action(detail=False, methods=['get'], url_path='unique_pincodes')
+    def unique_pincodes(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(pincode__icontains=q)
+        pincodes = (
+            qs.values_list('pincode', flat=True)
+            .exclude(pincode__isnull=True)
+            .exclude(pincode__exact='')
+            .distinct()
+            .order_by('pincode')[:20]
+        )
+        return Response(list(pincodes))
+
+    @action(detail=False, methods=['get'], url_path='unique_landmarks')
+    def unique_landmarks(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(landmark__icontains=q)
+        landmarks = (
+            qs.values_list('landmark', flat=True)
+            .exclude(landmark__isnull=True)
+            .exclude(landmark__exact='')
+            .distinct()
+            .order_by('landmark')[:20]
+        )
+        return Response(list(landmarks))
+
+    @action(detail=False, methods=['get'], url_path='unique_house_flat_nos')
+    def unique_house_flat_nos(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(house_flat_no__icontains=q)
+        house_flat_nos = (
+            qs.values_list('house_flat_no', flat=True)
+            .exclude(house_flat_no__isnull=True)
+            .exclude(house_flat_no__exact='')
+            .distinct()
+            .order_by('house_flat_no')[:20]
+        )
+        return Response(list(house_flat_nos))
+
+    @action(detail=False, methods=['get'], url_path='unique_wing_lanes')
+    def unique_wing_lanes(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(wing_lane__icontains=q)
+        wing_lanes = (
+            qs.values_list('wing_lane', flat=True)
+            .exclude(wing_lane__isnull=True)
+            .exclude(wing_lane__exact='')
+            .distinct()
+            .order_by('wing_lane')[:20]
+        )
+        return Response(list(wing_lanes))
+
+    @action(detail=False, methods=['get'], url_path='unique_society_colonies')
+    def unique_society_colonies(self, request):
+        q = request.query_params.get('q', '').strip()
+        qs = Customer.objects.all()
+        if q:
+            qs = qs.filter(society_colony__icontains=q)
+        society_colonies = (
+            qs.values_list('society_colony', flat=True)
+            .exclude(society_colony__isnull=True)
+            .exclude(society_colony__exact='')
+            .distinct()
+            .order_by('society_colony')[:20]
+        )
+        return Response(list(society_colonies))
+        
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated]
@@ -445,20 +642,21 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 ).distinct()
 
         # ========== ORDERING (APPOINTMENT DATE PRIORITY) ==========
-        from django.db.models import Case, When, Value, IntegerField, Q, F
-        from django.db.models.functions import Coalesce
-    
-        queryset = queryset.annotate(
-            effective_date=Coalesce('appointment_date', 'created_at', output_field=models.DateTimeField())
-        ).order_by(
-            'effective_date',
-            Case(
-                When(Q(appointment_time__isnull=True) | Q(appointment_time=''), then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField()
-            ),
-            'appointment_time'
-        )
+            from django.db.models import Case, When, Value, IntegerField, Q, F
+            from django.db.models.functions import Coalesce
+
+            queryset = queryset.annotate(
+                effective_date=Coalesce('appointment_date', 'created_at', output_field=models.DateTimeField())
+            ).order_by(
+                'effective_date',  # 1. Sort by date (appointment_date or created_at)
+                Case(
+                    When(Q(appointment_time__isnull=True) | Q(appointment_time=''), then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                ),  # 2. Non-empty times come first, empty times come last
+                'appointment_time',  # 3. Sort by appointment time (alphabetically)
+                'created_at'  # 4. NEW: Oldest created_at first, newest at bottom
+            )
         
         return queryset
 
@@ -473,6 +671,26 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 {'error': 'You can only update customers assigned to you'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        
+        # ========== RESET APPOINTMENT TIME WHEN DATE CHANGES ==========
+        # Get old appointment date
+        old_appointment_date = instance.appointment_date
+        # Get new appointment date from request (if provided)
+        new_appointment_date = request.data.get('appointment_date')
+        
+        # Check if appointment_date is being updated and has changed
+        if new_appointment_date is not None:
+            # Convert to string for comparison (handle None vs date object)
+            old_date_str = str(old_appointment_date) if old_appointment_date else None
+            new_date_str = str(new_appointment_date) if new_appointment_date else None
+            
+            if old_date_str != new_date_str:
+                # Appointment date changed, reset appointment_time
+                # Create a mutable copy of request data
+                mutable_data = request.data.copy()
+                mutable_data['appointment_time'] = None
+                # Update the request data
+                request._full_data = mutable_data
         
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -509,12 +727,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Get all phone numbers from Phone model
+        # Get all phone numbers from Phone model, include contact_person
         from collections import OrderedDict
         all_phones_dict = OrderedDict()
         for phone_obj in customer.phones.all():
             if phone_obj.phone not in all_phones_dict:
-                all_phones_dict[phone_obj.phone] = {'phone': phone_obj.phone, 'id': phone_obj.id, 'is_primary': phone_obj.is_primary}
+                all_phones_dict[phone_obj.phone] = {
+                    'phone': phone_obj.phone,
+                    'id': phone_obj.id,
+                    'is_primary': phone_obj.is_primary,
+                    'contact_person': phone_obj.contact_person,
+                }
         all_phones = list(all_phones_dict.values())
 
         # Get call logs for this customer
@@ -1485,6 +1708,12 @@ class RegisterView(APIView):
             'user': UserSerializer(user).data
         })
 
+
+# PhoneViewSet for PATCH /api/phones/<id>/
+class PhoneViewSet(viewsets.ModelViewSet):
+    queryset = Phone.objects.all()
+    serializer_class = PhoneSerializer
+    permission_classes = [IsAuthenticated]
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -1500,3 +1729,6 @@ class LoginView(APIView):
                 'user': UserSerializer(user).data
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+

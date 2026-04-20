@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchCustomerTypes, addCustomerType } from "../api/customerTypes";
 import { useCallPopup } from "../context/CallPopupContext";
 import { useAuth } from "../context/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Search,
@@ -32,13 +32,15 @@ import {
 } from "lucide-react";
 
 const CustomerList = () => {
-  // Search states (auto-apply)
-  const [phoneSearch, setPhoneSearch] = useState("");
-  const [phoneSearchInput, setPhoneSearchInput] = useState("");
-  const [nameSearch, setNameSearch] = useState("");
-  const [nameSearchInput, setNameSearchInput] = useState("");
-  const [surnameSearch, setSurnameSearch] = useState("");
-  const [surnameSearchInput, setSurnameSearchInput] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Search states (auto-apply) - initialized from URL params
+  const [phoneSearch, setPhoneSearch] = useState(() => searchParams.get("phone") || "");
+  const [phoneSearchInput, setPhoneSearchInput] = useState(() => searchParams.get("phone") || "");
+  const [nameSearch, setNameSearch] = useState(() => searchParams.get("name") || "");
+  const [nameSearchInput, setNameSearchInput] = useState(() => searchParams.get("name") || "");
+  const [surnameSearch, setSurnameSearch] = useState(() => searchParams.get("surname") || "");
+  const [surnameSearchInput, setSurnameSearchInput] = useState(() => searchParams.get("surname") || "");
 
   // Auto-focus phone search input on mount (page refresh)
   useEffect(() => {
@@ -54,57 +56,61 @@ const CustomerList = () => {
     }
   }, [phoneSearch]);
 
-  // Applied filter states
-  const [filterOrgName, setFilterOrgName] = useState("");
-  const [filterOrgType, setFilterOrgType] = useState("");
-  const [filterCustomerType, setFilterCustomerType] = useState("");
-  const [filterTelecaller, setFilterTelecaller] = useState("");
-  const [filterTime, setFilterTime] = useState("");
+  // Applied filter states - initialized from URL params
+  const [filterOrgName, setFilterOrgName] = useState(() => searchParams.get("org_name") || "");
+  const [filterOrgType, setFilterOrgType] = useState(() => searchParams.get("org_type") || "");
+  const [filterCustomerType, setFilterCustomerType] = useState(() => searchParams.get("customer_type") || "");
+  const [filterTelecaller, setFilterTelecaller] = useState(() => searchParams.get("telecaller") || "");
+  const [filterTime, setFilterTime] = useState(() => searchParams.get("time") || "");
 
-  // Address filter states (separate for each field)
-  const [filterHouseFlatNo, setFilterHouseFlatNo] = useState("");
-  const [filterWingLane, setFilterWingLane] = useState("");
-  const [filterSocietyColony, setFilterSocietyColony] = useState("");
-  const [filterLandmark, setFilterLandmark] = useState("");
-  const [filterArea, setFilterArea] = useState("");
-  const [filterCity, setFilterCity] = useState("");
-  const [filterDistrict, setFilterDistrict] = useState("");
-  const [filterTahsil, setFilterTahsil] = useState("");
-  const [filterState, setFilterState] = useState("");
-  const [filterPincode, setFilterPincode] = useState("");
+  // Address filter states (separate for each field) - initialized from URL params
+  const [filterHouseFlatNo, setFilterHouseFlatNo] = useState(() => searchParams.get("house_flat_no") || "");
+  const [filterWingLane, setFilterWingLane] = useState(() => searchParams.get("wing_lane") || "");
+  const [filterSocietyColony, setFilterSocietyColony] = useState(() => searchParams.get("society_colony") || "");
+  const [filterLandmark, setFilterLandmark] = useState(() => searchParams.get("landmark") || "");
+  const [filterArea, setFilterArea] = useState(() => searchParams.get("area") || "");
+  const [filterCity, setFilterCity] = useState(() => searchParams.get("city") || "");
+  const [filterDistrict, setFilterDistrict] = useState(() => searchParams.get("district") || "");
+  const [filterTahsil, setFilterTahsil] = useState(() => searchParams.get("tahsil") || "");
+  const [filterState, setFilterState] = useState(() => searchParams.get("state") || "");
+  const [filterPincode, setFilterPincode] = useState(() => searchParams.get("pincode") || "");
 
   // Pending filter states (what user selects before clicking Apply)
-  const [pendingFilterOrgName, setPendingFilterOrgName] = useState("");
-  const [pendingFilterOrgType, setPendingFilterOrgType] = useState("");
-  const [pendingFilterCustomerType, setPendingFilterCustomerType] =
-    useState("");
-  const [pendingFilterTelecaller, setPendingFilterTelecaller] = useState("");
-  const [pendingFilterTime, setPendingFilterTime] = useState("");
+  const [pendingFilterOrgName, setPendingFilterOrgName] = useState(() => searchParams.get("org_name") || "");
+  const [pendingFilterOrgType, setPendingFilterOrgType] = useState(() => searchParams.get("org_type") || "");
+  const [pendingFilterCustomerType, setPendingFilterCustomerType] = useState(() => searchParams.get("customer_type") || "");
+  const [pendingFilterTelecaller, setPendingFilterTelecaller] = useState(() => searchParams.get("telecaller") || "");
+  const [pendingFilterTime, setPendingFilterTime] = useState(() => searchParams.get("time") || "");
 
   // Pending address filter states
-  const [pendingFilterHouseFlatNo, setPendingFilterHouseFlatNo] = useState("");
-  const [pendingFilterWingLane, setPendingFilterWingLane] = useState("");
-  const [pendingFilterSocietyColony, setPendingFilterSocietyColony] =
-    useState("");
-  const [pendingFilterLandmark, setPendingFilterLandmark] = useState("");
-  const [pendingFilterArea, setPendingFilterArea] = useState("");
-  const [pendingFilterCity, setPendingFilterCity] = useState("");
-  const [pendingFilterDistrict, setPendingFilterDistrict] = useState("");
-  const [pendingFilterTahsil, setPendingFilterTahsil] = useState("");
-  const [pendingFilterState, setPendingFilterState] = useState("");
-  const [pendingFilterPincode, setPendingFilterPincode] = useState("");
+  const [pendingFilterHouseFlatNo, setPendingFilterHouseFlatNo] = useState(() => searchParams.get("house_flat_no") || "");
+  const [pendingFilterWingLane, setPendingFilterWingLane] = useState(() => searchParams.get("wing_lane") || "");
+  const [pendingFilterSocietyColony, setPendingFilterSocietyColony] = useState(() => searchParams.get("society_colony") || "");
+  const [pendingFilterLandmark, setPendingFilterLandmark] = useState(() => searchParams.get("landmark") || "");
+  const [pendingFilterArea, setPendingFilterArea] = useState(() => searchParams.get("area") || "");
+  const [pendingFilterCity, setPendingFilterCity] = useState(() => searchParams.get("city") || "");
+  const [pendingFilterDistrict, setPendingFilterDistrict] = useState(() => searchParams.get("district") || "");
+  const [pendingFilterTahsil, setPendingFilterTahsil] = useState(() => searchParams.get("tahsil") || "");
+  const [pendingFilterState, setPendingFilterState] = useState(() => searchParams.get("state") || "");
+  const [pendingFilterPincode, setPendingFilterPincode] = useState(() => searchParams.get("pincode") || "");
 
-  // Date filter states
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [pendingDateFrom, setPendingDateFrom] = useState("");
-  const [pendingDateTo, setPendingDateTo] = useState("");
+  // Date filter states - initialized from URL params
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("date_from") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("date_to") || "");
+  const [pendingDateFrom, setPendingDateFrom] = useState(() => searchParams.get("date_from") || "");
+  const [pendingDateTo, setPendingDateTo] = useState(() => searchParams.get("date_to") || "");
 
   // UI states
   const [viewMode, setViewMode] = useState("table");
-  const [viewType, setViewType] = useState("customers");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [viewType, setViewType] = useState(() => searchParams.get("view_type") || "customers");
+  const [currentPage, setCurrentPage] = useState(() => {
+    const page = searchParams.get("page");
+    return page ? parseInt(page) : 1;
+  });
+  const [pageSize, setPageSize] = useState(() => {
+    const size = searchParams.get("page_size");
+    return size ? parseInt(size) : 15;
+  });
 
   // Editing states
   const [editingAppointment, setEditingAppointment] = useState(null);
@@ -116,8 +122,7 @@ const CustomerList = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNewOrgTypeInput, setShowNewOrgTypeInput] = useState(false);
   const [newOrgType, setNewOrgType] = useState("");
-  const [showNewCustomerTypeInput, setShowNewCustomerTypeInput] =
-    useState(false);
+  const [showNewCustomerTypeInput, setShowNewCustomerTypeInput] = useState(false);
   const [newCustomerType, setNewCustomerType] = useState("");
   const [newContact, setNewContact] = useState({
     name: "",
@@ -142,7 +147,9 @@ const CustomerList = () => {
 
   // Validation states
   const [phoneError, setPhoneError] = useState("");
-
+  const [pendingNameSearch, setPendingNameSearch] = useState(() => searchParams.get("name") || "");
+  const [pendingSurnameSearch, setPendingSurnameSearch] = useState(() => searchParams.get("surname") || "");
+  
   // Selection states
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -166,6 +173,233 @@ const CustomerList = () => {
   const { openPopup } = useCallPopup();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Function to update URL with current filters
+  const updateURLParams = useCallback(() => {
+    const params = new URLSearchParams();
+    
+    // Add all active filters to URL
+    if (phoneSearch) params.set("phone", phoneSearch);
+    if (nameSearch) params.set("name", nameSearch);
+    if (surnameSearch) params.set("surname", surnameSearch);
+    if (filterOrgName) params.set("org_name", filterOrgName);
+    if (filterOrgType) params.set("org_type", filterOrgType);
+    if (filterCustomerType) params.set("customer_type", filterCustomerType);
+    if (filterTelecaller) params.set("telecaller", filterTelecaller);
+    if (filterTime) params.set("time", filterTime);
+    if (filterHouseFlatNo) params.set("house_flat_no", filterHouseFlatNo);
+    if (filterWingLane) params.set("wing_lane", filterWingLane);
+    if (filterSocietyColony) params.set("society_colony", filterSocietyColony);
+    if (filterLandmark) params.set("landmark", filterLandmark);
+    if (filterArea) params.set("area", filterArea);
+    if (filterCity) params.set("city", filterCity);
+    if (filterDistrict) params.set("district", filterDistrict);
+    if (filterTahsil) params.set("tahsil", filterTahsil);
+    if (filterState) params.set("state", filterState);
+    if (filterPincode) params.set("pincode", filterPincode);
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
+    if (viewType !== "customers") params.set("view_type", viewType);
+    if (currentPage !== 1) params.set("page", currentPage);
+    if (pageSize !== 15) params.set("page_size", pageSize);
+    
+    setSearchParams(params, { replace: true });
+  }, [
+    phoneSearch, nameSearch, surnameSearch,
+    filterOrgName, filterOrgType, filterCustomerType, filterTelecaller, filterTime,
+    filterHouseFlatNo, filterWingLane, filterSocietyColony, filterLandmark,
+    filterArea, filterCity, filterDistrict, filterTahsil, filterState, filterPincode,
+    dateFrom, dateTo, viewType, currentPage, pageSize, setSearchParams
+  ]);
+
+  // Update URL whenever filters change
+  useEffect(() => {
+    updateURLParams();
+  }, [
+    phoneSearch, nameSearch, surnameSearch,
+    filterOrgName, filterOrgType, filterCustomerType, filterTelecaller, filterTime,
+    filterHouseFlatNo, filterWingLane, filterSocietyColony, filterLandmark,
+    filterArea, filterCity, filterDistrict, filterTahsil, filterState, filterPincode,
+    dateFrom, dateTo, viewType, currentPage, pageSize, updateURLParams
+  ]);
+
+  // Reusable async searchable dropdown for filter fields
+  const SearchableDropdown = ({
+    value,
+    onChange,
+    fetchUrl,
+    placeholder,
+    minLength = 1,
+    disabled = false,
+    className = "",
+  }) => {
+    const [inputValue, setInputValue] = useState(value || "");
+    const [options, setOptions] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [highlighted, setHighlighted] = useState(-1);
+    const [isTyping, setIsTyping] = useState(false);
+    const containerRef = useRef(null);
+    const inputRef = useRef(null);
+    const fetchTimeoutRef = useRef(null);
+
+    useEffect(() => {
+      setInputValue(value || "");
+    }, [value]);
+
+    useEffect(() => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+
+      if (!isTyping || !inputValue || inputValue.trim().length < minLength) {
+        setOptions([]);
+        setShowDropdown(false);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      
+      fetchTimeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await axios.get(`${fetchUrl}?q=${encodeURIComponent(inputValue)}`);
+          
+          let optionsArray = [];
+          if (Array.isArray(response.data)) {
+            optionsArray = response.data;
+          } else if (response.data.results && Array.isArray(response.data.results)) {
+            optionsArray = response.data.results;
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            optionsArray = response.data.data;
+          } else if (typeof response.data === 'object') {
+            optionsArray = Object.values(response.data).find(val => Array.isArray(val)) || [];
+          }
+          
+          setOptions(optionsArray);
+          if (isTyping && optionsArray.length > 0) {
+            setShowDropdown(true);
+          }
+        } catch (err) {
+          console.error("Dropdown fetch error for", fetchUrl, err);
+          setOptions([]);
+          setShowDropdown(false);
+        } finally {
+          setLoading(false);
+        }
+      }, 500);
+      
+      return () => {
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+        }
+      };
+    }, [inputValue, fetchUrl, minLength, isTyping]);
+
+    const handleKeyDown = (e) => {
+      if (!showDropdown) return;
+      
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlighted((prev) => Math.min(prev + 1, options.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlighted((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === "Enter" && highlighted >= 0) {
+        e.preventDefault();
+        handleSelect(options[highlighted]);
+      } else if (e.key === "Escape") {
+        setShowDropdown(false);
+        setIsTyping(false);
+      }
+    };
+
+    const handleSelect = (option) => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      
+      setShowDropdown(false);
+      setIsTyping(false);
+      setHighlighted(-1);
+      setOptions([]);
+      
+      setInputValue(option);
+      onChange(option);
+    };
+
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (containerRef.current && !containerRef.current.contains(event.target)) {
+          setShowDropdown(false);
+          setIsTyping(false);
+          setHighlighted(-1);
+        }
+      };
+      
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    return (
+      <div ref={containerRef} className="relative w-full">
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => {
+            const newValue = e.target.value;
+            setInputValue(newValue);
+            setIsTyping(true);
+            onChange("");
+            setHighlighted(-1);
+          }}
+          onFocus={() => {
+            if (inputValue && inputValue.length >= minLength && !showDropdown) {
+              setIsTyping(true);
+            }
+          }}
+          onBlur={() => {
+            setTimeout(() => {
+              setIsTyping(false);
+            }, 200);
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className={`w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white ${className}`}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        {loading && (
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+          </div>
+        )}
+        {showDropdown && options.length > 0 && (
+          <ul
+            className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+            style={{ zIndex: 9999 }}
+          >
+            {options.map((option, idx) => (
+              <li
+                key={idx}
+                className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
+                  idx === highlighted ? "bg-blue-100" : ""
+                }`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(option);
+                }}
+                onMouseEnter={() => setHighlighted(idx)}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
 
   // Query for customers (uses applied filters and searches)
   const {
@@ -206,22 +440,14 @@ const CustomerList = () => {
       params.append("page", currentPage);
       params.append("page_size", pageSize);
 
-      // Date filters
       if (dateFrom) params.append("date_from", dateFrom);
       if (dateTo) params.append("date_to", dateTo);
-
-      // Phone search (auto-applies)
       if (phoneSearch) params.append("search_phone", phoneSearch);
-
-      // Name and surname searches (auto-applies)
       if (nameSearch) params.append("search_name", nameSearch);
       if (surnameSearch) params.append("search_surname", surnameSearch);
-
-      // Address filters
       if (filterHouseFlatNo) params.append("house_flat_no", filterHouseFlatNo);
       if (filterWingLane) params.append("wing_lane", filterWingLane);
-      if (filterSocietyColony)
-        params.append("society_colony", filterSocietyColony);
+      if (filterSocietyColony) params.append("society_colony", filterSocietyColony);
       if (filterLandmark) params.append("landmark", filterLandmark);
       if (filterArea) params.append("area", filterArea);
       if (filterCity) params.append("city", filterCity);
@@ -229,16 +455,12 @@ const CustomerList = () => {
       if (filterTahsil) params.append("tahsil", filterTahsil);
       if (filterState) params.append("state", filterState);
       if (filterPincode) params.append("pincode", filterPincode);
-
-      // Other filters
       if (filterOrgName) params.append("organization_name", filterOrgName);
       if (filterOrgType) params.append("organization_type", filterOrgType);
-      if (filterCustomerType)
-        params.append("customer_type", filterCustomerType);
+      if (filterCustomerType) params.append("customer_type", filterCustomerType);
       if (filterTelecaller) params.append("telecaller", filterTelecaller);
       if (filterTime) params.append("time", filterTime);
 
-      // Contact type filter based on view
       if (!phoneSearch && !nameSearch && !surnameSearch) {
         if (viewType === "customers") {
           params.append("has_appointment", "true");
@@ -307,22 +529,16 @@ const CustomerList = () => {
 
   // Helper function to format phone number as XXX-XXX-XXXX
   const formatPhoneNumber = (phone) => {
-    // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, "");
-
-    // Check if we have exactly 10 digits
     if (cleaned.length === 10) {
       return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
     }
-
-    // If not 10 digits, return original (or handle differently)
     return phone;
   };
 
   // Reset to first page when search or applied filters change
   useEffect(() => {
     setCurrentPage(1);
-    // Auto-focus phone search input after refresh
     if (phoneSearchInputRef.current) {
       phoneSearchInputRef.current.focus();
     }
@@ -353,6 +569,8 @@ const CustomerList = () => {
 
   // Apply filters when apply button is clicked
   const handleApplyFilters = useCallback(() => {
+    setNameSearch(pendingNameSearch);
+    setSurnameSearch(pendingSurnameSearch);
     setFilterHouseFlatNo(pendingFilterHouseFlatNo);
     setFilterWingLane(pendingFilterWingLane);
     setFilterSocietyColony(pendingFilterSocietyColony);
@@ -372,6 +590,8 @@ const CustomerList = () => {
     setDateTo(pendingDateTo);
     setCurrentPage(1);
   }, [
+    pendingNameSearch,
+    pendingSurnameSearch,
     pendingFilterHouseFlatNo,
     pendingFilterWingLane,
     pendingFilterSocietyColony,
@@ -421,73 +641,145 @@ const CustomerList = () => {
   }, [newContact.phone]);
 
   // Phone check and auto-fill Quick Add form if phone exists
-  const [existingCustomerId, setExistingCustomerId] = useState(null);
-  useEffect(() => {
-    if (newContact.phone.length >= 10) {
-      if (phoneCheckLoading) {
-        setPhoneError("Checking phone number...");
-        setExistingCustomerId(null);
-      } else if (phoneCheckData && phoneCheckData.count > 0) {
-        setPhoneError("Phone number already exists");
-        // Auto-fetch and fill all fields if phone exists
-        const customer = phoneCheckData.results && phoneCheckData.results[0];
-        if (customer) {
-          setExistingCustomerId(customer.id);
-          // Map company_type to ID if it's a string (name)
-          let companyTypeId = customer.company_type;
-          if (typeof companyTypeId === "string" && organizationTypes) {
-            const found = organizationTypes.find(
-              (org) => org.name === companyTypeId,
-            );
-            if (found) companyTypeId = found.id;
-          } else if (
-            typeof companyTypeId === "object" &&
-            companyTypeId !== null
-          ) {
-            companyTypeId = companyTypeId.id;
-          }
-          setNewContact((prev) => ({
-            ...prev,
-            name: customer.name || "",
-            surname: customer.surname || "",
-            email: customer.email || "",
-            company_name: customer.company_name || "",
-            company_type: companyTypeId || "",
-            customer_type: customer.customer_type
-              ? typeof customer.customer_type === "object"
-                ? customer.customer_type.id
-                : customer.customer_type
-              : "",
-            telecaller_id: customer.agent
-              ? typeof customer.agent === "object"
-                ? customer.agent.id
-                : customer.agent
-              : "",
-            pincode: customer.pincode || "",
-            house_flat_no: customer.house_flat_no || "",
-            wing_lane: customer.wing_lane || "",
-            society_colony: customer.society_colony || "",
-            landmark: customer.landmark || "",
-            area: customer.area || "",
-            state: customer.state || "",
-            district: customer.district || "",
-            tahsil: customer.tahsil || "",
-            city: customer.city || "",
-          }));
-        }
-      } else {
-        setPhoneError("");
-        setExistingCustomerId(null);
+  // Phone check and auto-fill Quick Add form if phone exists
+const [existingCustomerId, setExistingCustomerId] = useState(null);
+
+useEffect(() => {
+  // If phone is empty, clear all fields
+  if (!newContact.phone || newContact.phone.length === 0) {
+    setExistingCustomerId(null);
+    setPhoneError("");
+    setNewContact({
+      name: "",
+      surname: "",
+      phone: "",
+      email: "",
+      company_name: "",
+      company_type: "",
+      customer_type: "",
+      telecaller_id: "",
+      pincode: "",
+      house_flat_no: "",
+      wing_lane: "",
+      society_colony: "",
+      landmark: "",
+      area: "",
+      state: "",
+      district: "",
+      tahsil: "",
+      city: "",
+    });
+    return;
+  }
+
+  // If phone length is less than 10, don't check yet
+  if (newContact.phone.length < 10) {
+    setPhoneError("Phone number must be at least 10 digits");
+    setExistingCustomerId(null);
+    // Clear all fields except phone when phone is incomplete
+    setNewContact((prev) => ({
+      name: "",
+      surname: "",
+      email: "",
+      company_name: "",
+      company_type: "",
+      customer_type: "",
+      telecaller_id: "",
+      pincode: "",
+      house_flat_no: "",
+      wing_lane: "",
+      society_colony: "",
+      landmark: "",
+      area: "",
+      state: "",
+      district: "",
+      tahsil: "",
+      city: "",
+      phone: prev.phone, // Preserve the phone being typed
+    }));
+    return;
+  }
+
+  // Phone length is 10 or more, check if exists
+  if (phoneCheckLoading) {
+    setPhoneError("Checking phone number...");
+    setExistingCustomerId(null);
+  } else if (phoneCheckData && phoneCheckData.count > 0) {
+    setPhoneError("Phone number already exists");
+    const customer = phoneCheckData.results && phoneCheckData.results[0];
+    if (customer) {
+      setExistingCustomerId(customer.id);
+      let companyTypeId = customer.company_type;
+      if (typeof companyTypeId === "string" && organizationTypes) {
+        const found = organizationTypes.find(
+          (org) => org.name === companyTypeId,
+        );
+        if (found) companyTypeId = found.id;
+      } else if (
+        typeof companyTypeId === "object" &&
+        companyTypeId !== null
+      ) {
+        companyTypeId = companyTypeId.id;
       }
-    } else {
-      setExistingCustomerId(null);
+      setNewContact((prev) => ({
+        ...prev,
+        name: customer.name || "",
+        surname: customer.surname || "",
+        email: customer.email || "",
+        company_name: customer.company_name || "",
+        company_type: companyTypeId || "",
+        customer_type: customer.customer_type
+          ? typeof customer.customer_type === "object"
+            ? customer.customer_type.id
+            : customer.customer_type
+          : "",
+        telecaller_id: customer.agent
+          ? typeof customer.agent === "object"
+            ? customer.agent.id
+            : customer.agent
+          : "",
+        pincode: customer.pincode || "",
+        house_flat_no: customer.house_flat_no || "",
+        wing_lane: customer.wing_lane || "",
+        society_colony: customer.society_colony || "",
+        landmark: customer.landmark || "",
+        area: customer.area || "",
+        state: customer.state || "",
+        district: customer.district || "",
+        tahsil: customer.tahsil || "",
+        city: customer.city || "",
+      }));
     }
-  }, [newContact.phone, phoneCheckLoading, phoneCheckData, organizationTypes]);
+  } else if (phoneCheckData && phoneCheckData.count === 0) {
+    // Phone doesn't exist, clear all fields except phone
+    setPhoneError("");
+    setExistingCustomerId(null);
+    setNewContact((prev) => ({
+      name: "",
+      surname: "",
+      email: "",
+      company_name: "",
+      company_type: "",
+      customer_type: "",
+      telecaller_id: "",
+      pincode: "",
+      house_flat_no: "",
+      wing_lane: "",
+      society_colony: "",
+      landmark: "",
+      area: "",
+      state: "",
+      district: "",
+      tahsil: "",
+      city: "",
+      phone: prev.phone, // Preserve the phone being entered
+    }));
+  }
+}, [newContact.phone, phoneCheckLoading, phoneCheckData, organizationTypes]);
 
   // Phone search handler (auto-apply with debounce)
   const handlePhoneSearchChange = (e) => {
     const value = e.target.value;
-    // Only allow digits for phone search
     if (value && !/^\d*$/.test(value)) {
       return;
     }
@@ -690,7 +982,6 @@ const CustomerList = () => {
         city: "",
       });
       setSuccessMessage("Customer added successfully!");
-      // Keep form open but focus on phone field again
       setTimeout(() => {
         if (addFormPhoneInputRef.current) {
           addFormPhoneInputRef.current.focus();
@@ -706,7 +997,6 @@ const CustomerList = () => {
         error.response?.data?.phone?.[0] ||
         "Failed to add customer";
       setErrorMessage(errorMessage);
-      // Focus back on phone field after error
       setTimeout(() => {
         if (addFormPhoneInputRef.current) {
           addFormPhoneInputRef.current.focus();
@@ -904,6 +1194,8 @@ const CustomerList = () => {
     setNameSearchInput("");
     setSurnameSearch("");
     setSurnameSearchInput("");
+    setPendingNameSearch("");
+    setPendingSurnameSearch("");
 
     // Reset page
     setCurrentPage(1);
@@ -1004,7 +1296,6 @@ const CustomerList = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           {/* Row 1: Quick Search - Phone, Name, Surname, Organization */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-            {/* ... your existing filter inputs ... */}
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
@@ -1016,6 +1307,7 @@ const CustomerList = () => {
                 onKeyDown={handlePhoneSearchKeyDown}
                 className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
                 maxLength="10"
+                autoFocus={true}
               />
               {phoneSearchInput !== phoneSearch && phoneSearchInput && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -1026,40 +1318,24 @@ const CustomerList = () => {
 
             <div className="relative">
               <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <input
-                ref={nameSearchInputRef}
-                type="text"
+              <SearchableDropdown
+                value={pendingNameSearch}
+                onChange={setPendingNameSearch}
+                fetchUrl="/api/customers/unique_names/"
                 placeholder="First name"
-                value={nameSearchInput}
-                onChange={handleNameSearchChange}
-                onKeyDown={handleNameSearchKeyDown}
-                className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
+                className="pl-9"
               />
-              {nameSearchInput !== nameSearch && nameSearchInput && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                </div>
-              )}
             </div>
-
             <div className="relative">
               <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <input
-                ref={surnameSearchInputRef}
-                type="text"
+              <SearchableDropdown
+                value={pendingSurnameSearch}
+                onChange={setPendingSurnameSearch}
+                fetchUrl="/api/customers/unique_surnames/"
                 placeholder="Surname"
-                value={surnameSearchInput}
-                onChange={handleSurnameSearchChange}
-                onKeyDown={handleSurnameSearchKeyDown}
-                className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
+                className="pl-9"
               />
-              {surnameSearchInput !== surnameSearch && surnameSearchInput && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                </div>
-              )}
             </div>
-
             <div className="relative">
               <input
                 type="text"
@@ -1189,6 +1465,7 @@ const CustomerList = () => {
                   ))}
               </select>
 
+
               <input
                 type="date"
                 value={pendingDateFrom}
@@ -1204,6 +1481,15 @@ const CustomerList = () => {
                 className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white"
                 placeholder="To"
               />
+
+              {/* KPI: Total Customers */}
+              <div className="flex items-center bg-blue-50 border border-blue-200 rounded-lg px-2 py-2 shadow-sm">
+                <Users className="w-5 h-5 text-blue-500 mr-2" />
+                <div className="flex flex-col items-start">
+                  <span className="text-xs text-gray-500">Total Customers</span>
+                  <span className="text-sm font-semibold text-blue-600">{data?.count ?? 0}</span>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1648,7 +1934,6 @@ const CustomerList = () => {
                   setNewContact({ ...newContact, pincode: value });
                 }}
                 onBlur={() => {
-                  // Validate on blur (when user clicks away)
                   if (newContact.pincode && newContact.pincode.length !== 6) {
                     alert("Pincode must be exactly 6 digits");
                   }
@@ -1726,7 +2011,6 @@ const CustomerList = () => {
               {existingCustomerId ? (
                 <button
                   onClick={async () => {
-                    // Always send company_type as ID
                     let submitContact = { ...newContact };
                     if (
                       typeof submitContact.company_type === "string" &&

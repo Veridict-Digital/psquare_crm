@@ -30,6 +30,7 @@ export const CallPopupProvider = ({ children }) => {
   const [editAssumptionName, setEditAssumptionName] = useState('');
   const [currentDropdown, setCurrentDropdown] = useState('');
   const [externalSaveFn, setExternalSaveFn] = useState(null);
+  const [isEditingLastCall, setIsEditingLastCall] = useState(false);
 
   // Separate assumption lists
   const { data: assumptions, refetch: refetchAssumptions } = useQuery({
@@ -76,10 +77,8 @@ export const CallPopupProvider = ({ children }) => {
 
   const openPopup = (data, saveFn = null) => {
     console.log('openPopup called with data:', data);
-    
     let customerData = null;
     let leadData = null;
-    
     if (data.phone) {
       if (data.status) {
         leadData = data;
@@ -93,16 +92,15 @@ export const CallPopupProvider = ({ children }) => {
         leadData = null;
       }
     }
-    
     setCustomer(customerData);
     setLead(leadData);
     setIsVisible(true);
     setIsEmbedded(false);
-
+    // Set editing mode
+    setIsEditingLastCall(!!data.isEditing);
     // If a save function is passed (for editing), store it
     if (saveFn) setExternalSaveFn(() => saveFn);
     else setExternalSaveFn(null);
-    
     if (!isRunning) {
       setTimer(data.timer || 0);
       setNotes(data.notes || '');
@@ -124,7 +122,6 @@ export const CallPopupProvider = ({ children }) => {
       setSelectedAssumption3(data.selectedAssumption3 || []);
       setOrderId(data.orderId || '');
     }
-    
     console.log('Customer set to:', customerData);
     console.log('Lead set to:', leadData);
     console.log('Call ID (db):', callId);
@@ -486,7 +483,8 @@ export const CallPopupProvider = ({ children }) => {
       showManageAssumptionsModal, setShowManageAssumptionsModal, 
       editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, 
       editingAssumption, editAssumptionName, setEditAssumptionName, 
-      callId, currentDropdown, setCurrentDropdown 
+      callId, currentDropdown, setCurrentDropdown, 
+      isEditingLastCall
     }}>
       {children}
       <CallPopup />
