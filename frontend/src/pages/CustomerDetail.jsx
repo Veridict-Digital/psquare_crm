@@ -1095,7 +1095,6 @@ const CustomerDetail = () => {
                   type="date"
                   value={
                     customer?.appointment_date ||
-                    customer?.created_at?.split("T")[0] ||
                     ""
                   }
                   onChange={(e) => {

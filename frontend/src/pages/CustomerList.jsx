@@ -2344,9 +2344,7 @@ useEffect(() => {
                             ? new Date(
                                 customer.appointment_date,
                               ).toLocaleDateString()
-                            : new Date(
-                                customer.created_at,
-                              ).toLocaleDateString()}
+                            : "—"}
                         </div>
                       )}
                     </td>
