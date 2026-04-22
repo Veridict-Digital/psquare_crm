@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../api/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallPopup } from "../context/CallPopupContext";
+import { toast } from 'react-hot-toast'; 
 import {
   User,
   Phone,
@@ -166,45 +167,47 @@ const CustomerDetail = () => {
   });
 
   // Edit call log mutation - always updates existing record
-  const editCallLogMutation = useMutation({
-    mutationFn: (data) => axios.put(`/api/calllogs/${data.id}/`, data),
-    onMutate: async (updatedCallLog) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-      await queryClient.cancelQueries(["customer-details", id]);
-
-      // Snapshot the previous value
-      const previousDetails = queryClient.getQueryData([
-        "customer-details",
-        id,
-      ]);
-
-      // Optimistically update the call log in cache
-      if (previousDetails && previousDetails.call_logs) {
-        queryClient.setQueryData(["customer-details", id], {
-          ...previousDetails,
-          call_logs: previousDetails.call_logs.map((log) =>
-            log.id === updatedCallLog.id ? { ...log, ...updatedCallLog } : log,
-          ),
-        });
-      }
-
-      // Return context for rollback
-      return { previousDetails };
+  // Edit call log mutation - FIXED VERSION
+// Edit call log mutation - FIXED VERSION
+const editCallLogMutation = useMutation({
+    mutationFn: async (callData) => {
+        // CRITICAL: Use the call log ID correctly
+        const callLogId = callData.id;  // This should be the call log ID
+        
+        console.log("Updating call log:", callLogId);
+        console.log("Call data:", callData);
+        
+        // Calculate duration in seconds (timer is in seconds)
+        const durationSeconds = callData.duration;
+        
+        // Prepare update data
+        const updateData = {
+            note: callData.note || "",
+            assumption: callData.assumption || [],
+            assumption2: callData.assumption2 || [],
+            assumption3: callData.assumption3 || [],
+            order_id: callData.order_id || null,
+            duration: durationSeconds,  // Send as seconds (number)
+            status: 'Completed',
+        };
+        
+        console.log("Sending update data:", updateData);
+        
+        // Make the PUT request to update existing call log
+        const response = await axios.put(`/api/calllogs/${callLogId}/`, updateData);
+        return response.data;
     },
-    onError: (err, updatedCallLog, context) => {
-      // Rollback to previous value
-      if (context?.previousDetails) {
-        queryClient.setQueryData(
-          ["customer-details", id],
-          context.previousDetails,
-        );
-      }
+    onSuccess: () => {
+        queryClient.invalidateQueries(["customer-details", id]);
+        toast.success("Call log updated successfully");
     },
-    onSettled: () => {
-      // Always refetch after mutation for consistency
-      queryClient.invalidateQueries(["customer-details", id]);
+    onError: (error) => {
+        console.error("Failed to update call log:", error);
+        console.error("Error response:", error.response?.data);
+        toast.error(error.response?.data?.duration?.[0] || error.response?.data?.error || "Failed to update call log");
+        queryClient.invalidateQueries(["customer-details", id]);
     },
-  });
+});
 
   const customer = customerDetails?.customer;
   const summary = customerDetails?.summary;
@@ -297,49 +300,38 @@ const CustomerDetail = () => {
   };
 
   // Edit last call functionality - always uses call log ID for update
-  const handleEditLastCall = () => {
+  // FIXED: Edit last call function
+const handleEditLastCall = () => {
     if (callLogs.length > 0) {
-      const recentCall = callLogs[0];
-
-      // CRITICAL: Use the CURRENT customer ID, not the one from the call log
-      const currentCustomerId = customer?.id;
-
-      console.log(
-        "Editing last call - Customer ID from page:",
-        currentCustomerId,
-      );
-      console.log(
-        "Editing last call - Customer ID from call log:",
-        recentCall.customer,
-      );
-      console.log("Full call log:", recentCall);
-
-      // Validate customer exists
-      if (!currentCustomerId) {
-        console.error("No customer ID found in current page");
-        toast.error("Cannot edit call: Customer information missing");
-        return;
-      }
-
-      const callData = {
-        id: currentCustomerId,
-        name: customer?.name,
-        surname: customer?.surname,
-        phone: customer?.phone,
-        notes: recentCall.note || "",
-        selectedAssumption: recentCall.assumption || [],
-        selectedAssumption2: recentCall.assumption2 || [],
-        selectedAssumption3: recentCall.assumption3 || [],
-        orderId: recentCall.order_id || "",
-        callId: recentCall.call_id,
-        timer: Math.round(recentCall.duration_minutes * 60) || 0,
-        isEditing: true,
-        isRunning: false,
-        dbId: recentCall.id, // Pass DB id for edit (renamed for clarity)
-      };
-      openPopup(callData, editCallLogMutation.mutateAsync);
+        const recentCall = callLogs[0];
+        
+        console.log("Editing call log:", recentCall);
+        
+        const callData = {
+            // Customer info for display
+            id: customer?.id,  // Customer ID
+            name: customer?.name,
+            surname: customer?.surname,
+            phone: customer?.phone,
+            
+            // Call log data to edit
+            notes: recentCall.note || "",
+            selectedAssumption: recentCall.assumption || [],
+            selectedAssumption2: recentCall.assumption2 || [],
+            selectedAssumption3: recentCall.assumption3 || [],
+            orderId: recentCall.order_id || "",
+            timer: Math.round(recentCall.duration_minutes * 60) || 0,
+            
+            // CRITICAL: IDs for edit mode
+            isEditing: true,           // Flag to indicate edit mode
+            callId: recentCall.call_id, // The call_id string from database
+            dbId: recentCall.id,       // The database primary key
+        };
+        
+        console.log("Opening popup with edit data:", callData);
+        openPopup(callData, editCallLogMutation.mutateAsync);
     }
-  };
+};
 
   if (isLoading)
     return (

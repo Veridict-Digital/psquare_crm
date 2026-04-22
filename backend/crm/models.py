@@ -483,16 +483,14 @@ class CallLog(models.Model):
         if not self.customer:
             raise ValidationError('Customer is required for all call logs')
     
-    def save(self, *args, **kwargs):
-        self.clean()  # Validate before saving
-        if not self.call_id:
-            import uuid
-            self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
-        else:
-            if CallLog.objects.filter(call_id=self.call_id).exists():
-                import uuid
-                self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
-        super().save(*args, **kwargs)
+def save(self, *args, **kwargs):
+    self.clean()
+    # ONLY generate call_id if it doesn't exist (new record)
+    if not self.call_id:
+        import uuid
+        self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
+    # DO NOT regenerate call_id for existing records
+    super().save(*args, **kwargs)
     
     def __str__(self):
         if self.customer:

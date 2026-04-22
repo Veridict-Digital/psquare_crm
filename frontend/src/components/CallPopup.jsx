@@ -271,7 +271,7 @@ const CallPopup = () => {
               </>
             )}
             {isEditingLastCall && (
-              <button onClick={() => { console.log('Save Info button clicked'); saveInfo(); }} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Save Info</button>
+              <button onClick={() => { console.log('Save Info button clicked'); saveInfo(true); }} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Save Info</button>
             )}
             {customer && <button onClick={placeOrder} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Place Order</button>}
             {lead && <button onClick={convertToCustomer} className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">Convert to Customer</button>}
@@ -501,7 +501,7 @@ const CallPopup = () => {
     )}
     {isEditingLastCall && (
       <button
-        onClick={() => { console.log('Save Info button clicked (floating)'); saveInfo(); }}
+        onClick={() => { console.log('Save Info button clicked (floating)'); saveInfo(true); }}
         className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

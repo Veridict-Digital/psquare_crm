@@ -1491,7 +1491,7 @@ class CallLogViewSet(viewsets.ModelViewSet):
         data = request.data.copy()
         data['employee'] = request.user.id
         
-        # CRITICAL FIX: Require customer ID - don't allow orphaned logs
+        # CRITICAL: Require customer ID
         customer_id = data.get('customer')
         
         if not customer_id:
@@ -1510,10 +1510,10 @@ class CallLogViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Remove lead field if present (to avoid confusion)
+        # Remove lead field
         data.pop('lead', None)
         
-        # Only set status to 'In Progress' if not provided by frontend
+        # Set status
         if 'status' not in data or not data['status']:
             data['status'] = 'In Progress'
         data['saved_at'] = timezone.now()
@@ -1523,21 +1523,36 @@ class CallLogViewSet(viewsets.ModelViewSet):
             from datetime import timedelta
             data['duration'] = timedelta(seconds=int(data['duration']))
         
+        # IMPORTANT: Check if this is an edit operation
         call_id = data.get('call_id')
+        is_editing = data.get('is_editing', False)  # Frontend should send this flag
+        
         existing_call_log = None
         
-        # Check if call log with this call_id already exists (for editing)
-        if call_id:
+        # ONLY find existing if this is an edit operation
+        if call_id and is_editing:
             try:
                 existing_call_log = CallLog.objects.get(call_id=call_id)
+                print(f"Editing existing call log: {call_id}")
             except CallLog.DoesNotExist:
+                print(f"Call log with call_id {call_id} not found, creating new")
                 pass
         
         if existing_call_log:
-            # Update existing call log
+            # UPDATE existing call log
+            # Remove fields that shouldn't be updated
+            data.pop('created_at', None)
+            data.pop('date', None)
+            
+            # Don't change call_id
+            if 'call_id' in data:
+                data.pop('call_id')
+            
             serializer = self.get_serializer(existing_call_log, data=data, partial=True)
         else:
-            # Create new call log
+            # CREATE new call log
+            # Remove is_editing flag before saving
+            data.pop('is_editing', None)
             serializer = self.get_serializer(data=data)
         
         try:

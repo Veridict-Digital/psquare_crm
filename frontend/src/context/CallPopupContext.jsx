@@ -77,56 +77,84 @@ export const CallPopupProvider = ({ children }) => {
 
   const openPopup = (data, saveFn = null) => {
     console.log('openPopup called with data:', data);
+    
     let customerData = null;
     let leadData = null;
+    
     if (data.phone) {
-      if (data.status) {
-        leadData = data;
-        customerData = null;
-      } else {
-        customerData = {
-          ...data,
-          id: data.id,
-          customer_id: data.id
-        };
-        leadData = null;
-      }
+        if (data.status) {
+            leadData = data;
+            customerData = null;
+        } else {
+            customerData = {
+                ...data,
+                id: data.id,
+                customer_id: data.id
+            };
+            leadData = null;
+        }
     }
+    
     setCustomer(customerData);
     setLead(leadData);
     setIsVisible(true);
     setIsEmbedded(false);
-    // Set editing mode
-    setIsEditingLastCall(!!data.isEditing);
+    
+    // Set editing mode based on isEditing flag
+    const isEditMode = !!data.isEditing;
+    setIsEditingLastCall(isEditMode);
+    console.log('Edit mode:', isEditMode);
+    
     // If a save function is passed (for editing), store it
     if (saveFn) setExternalSaveFn(() => saveFn);
     else setExternalSaveFn(null);
+    
     if (!isRunning) {
-      setTimer(data.timer || 0);
-      setNotes(data.notes || '');
-      // For editing existing calls, data.dbId is the database ID (from call log), fallback to data.id
-      if (data.dbId && typeof data.dbId === 'number') {
-        setCallId(data.dbId);
-        setCallIdString(data.call_id || data.callId);
-      } else if (data.id && typeof data.id === 'number') {
-        setCallId(data.id);
-        setCallIdString(data.call_id || data.callId);
-      } else {
-        // This is a new call - generate string ID, database ID will come from save response
-        const newStringId = Date.now().toString();
-        setCallId(null); // Database ID not known yet
-        setCallIdString(data.callId || newStringId);
-      }
-      setSelectedAssumption(data.selectedAssumption || []);
-      setSelectedAssumption2(data.selectedAssumption2 || []);
-      setSelectedAssumption3(data.selectedAssumption3 || []);
-      setOrderId(data.orderId || '');
+        setTimer(data.timer || 0);
+        setNotes(data.notes || '');
+        
+        // CRITICAL: Handle call ID for edit mode
+        if (isEditMode) {
+            // For editing existing calls
+            if (data.callId) {
+                // This is the call_id string from the database
+                setCallIdString(data.callId);
+                console.log('Set callIdString for edit:', data.callId);
+            }
+            
+            // Store the database ID if provided (for the update endpoint)
+            if (data.dbId) {
+                setCallId(data.dbId);
+                console.log('Set database ID for edit:', data.dbId);
+            } else if (data.id && typeof data.id === 'number' && data.id > 1000) {
+                // If id looks like a database ID (likely > 1000), use it
+                setCallId(data.id);
+                console.log('Set database ID from id field:', data.id);
+            } else {
+                // No database ID yet - this might be a problem
+                console.warn('Edit mode but no database ID provided');
+                setCallId(null);
+            }
+        } else {
+            // New call - generate a temporary ID
+            const newStringId = Date.now().toString();
+            setCallIdString(data.callId || newStringId);
+            setCallId(null); // Database ID not known yet
+            console.log('New call - generated ID:', newStringId);
+        }
+        
+        setSelectedAssumption(data.selectedAssumption || []);
+        setSelectedAssumption2(data.selectedAssumption2 || []);
+        setSelectedAssumption3(data.selectedAssumption3 || []);
+        setOrderId(data.orderId || '');
     }
+    
     console.log('Customer set to:', customerData);
     console.log('Lead set to:', leadData);
+    console.log('Is editing:', isEditMode);
     console.log('Call ID (db):', callId);
     console.log('Call ID (string):', callIdString);
-  };
+};
 
   const startEmbeddedCall = (data) => {
     if (data.phone) {
@@ -167,36 +195,37 @@ export const CallPopupProvider = ({ children }) => {
     setIsRunning(false);
   };
 
-  const saveInfo = async () => {
+  const saveInfo = async (isEditing = false) => {
     // If editing and externalSaveFn is provided, use it for instant update
     if (externalSaveFn && callId) {
-      // Compose the payload for edit
-      const payload = {
-        id: callId, // always the DB id
-        note: notes,
-        duration: timer,
-        order_id: orderId,
-        assumption: selectedAssumption,
-        assumption2: selectedAssumption2,
-        assumption3: selectedAssumption3,
-      };
-      try {
-        await externalSaveFn(payload);
-        return callId;
-      } catch (e) {
-        alert('Failed to update call log.');
-        return null;
-      }
+        // Compose the payload for edit
+        const payload = {
+            id: callId, // always the DB id
+            note: notes,
+            duration: timer,
+            order_id: orderId,
+            assumption: selectedAssumption,
+            assumption2: selectedAssumption2,
+            assumption3: selectedAssumption3,
+        };
+        try {
+            await externalSaveFn(payload);
+            return callId;
+        } catch (e) {
+            alert('Failed to update call log.');
+            return null;
+        }
     }
-    console.log('saveInfo called');
+    
+    console.log('saveInfo called with isEditing:', isEditing);
     console.log('callId (db):', callId);
     console.log('callIdString:', callIdString);
     console.log('Current customer:', customer);
 
     if (!callIdString) {
-      console.log('No callIdString, returning early');
-      alert('No call ID found. Please start a call first.');
-      return null;
+        console.log('No callIdString, returning early');
+        alert('No call ID found. Please start a call first.');
+        return null;
     }
 
     let isValid = false;
@@ -204,160 +233,142 @@ export const CallPopupProvider = ({ children }) => {
     let leadId = null;
 
     if (customer && customer.id) {
-      isValid = true;
-      customerId = customer.id;
-      console.log('Using customer ID:', customerId);
+        isValid = true;
+        customerId = customer.id;
+        console.log('Using customer ID:', customerId);
     } else if (lead && lead.id) {
-      isValid = true;
-      leadId = lead.id;
-      console.log('Using lead ID:', leadId);
+        isValid = true;
+        leadId = lead.id;
+        console.log('Using lead ID:', leadId);
     }
 
     if (!isValid) {
-      alert('Cannot save call log: No valid customer or lead selected.');
-      console.error('Missing customer/lead:', { customer, lead });
-      return null;
+        alert('Cannot save call log: No valid customer or lead selected.');
+        console.error('Missing customer/lead:', { customer, lead });
+        return null;
     }
 
     try {
-      const callLogData = {
-        duration: timer,
-        note: notes,
-        status: 'In Progress',
-        call_id: callIdString,
-      };
+        const callLogData = {
+            duration: timer,
+            note: notes,
+            status: 'In Progress',
+            call_id: callIdString,
+        };
 
-      if (customerId) {
-        callLogData.customer = customerId;
-        delete callLogData.lead;
-      } else if (leadId) {
-        callLogData.lead = leadId;
-      }
+        if (customerId) {
+            callLogData.customer = customerId;
+            delete callLogData.lead;
+        } else if (leadId) {
+            callLogData.lead = leadId;
+        }
 
-      if (orderId && orderId.trim()) {
-        callLogData.order_id = orderId.trim();
-      }
+        if (orderId && orderId.trim()) {
+            callLogData.order_id = orderId.trim();
+        }
 
-      if (selectedAssumption && selectedAssumption.length > 0) {
-        callLogData.assumption = selectedAssumption;
-      }
-      if (selectedAssumption2 && selectedAssumption2.length > 0) {
-        callLogData.assumption2 = selectedAssumption2;
-      }
-      if (selectedAssumption3 && selectedAssumption3.length > 0) {
-        callLogData.assumption3 = selectedAssumption3;
-      }
+        if (selectedAssumption && selectedAssumption.length > 0) {
+            callLogData.assumption = selectedAssumption;
+        }
+        if (selectedAssumption2 && selectedAssumption2.length > 0) {
+            callLogData.assumption2 = selectedAssumption2;
+        }
+        if (selectedAssumption3 && selectedAssumption3.length > 0) {
+            callLogData.assumption3 = selectedAssumption3;
+        }
 
-      console.log('Sending callLogData:', callLogData);
+        // CRITICAL: Add is_editing flag if this is an edit operation
+        if (isEditing && callId) {
+            callLogData.is_editing = true;
+            console.log('Sending as EDIT operation with call_id:', callIdString);
+        } else {
+            console.log('Sending as NEW call operation');
+        }
 
-      const response = await axios.post('/api/calllogs/save_info/', callLogData);
-      console.log('Save info response:', response);
+        console.log('Sending callLogData:', callLogData);
 
-      // CRITICAL: Save the database ID from the response
-      if (response.data && response.data.id) {
-        console.log('Received database ID from API:', response.data.id);
-        setCallId(response.data.id); // Store the database ID for future updates
-        return response.data.id;
-      }
+        const response = await axios.post('/api/calllogs/save_info/', callLogData);
+        console.log('Save info response:', response);
 
-      queryClient.invalidateQueries(['call-logs']);
-      queryClient.invalidateQueries(['customer-details']);
+        // CRITICAL: Save the database ID from the response
+        if (response.data && response.data.id) {
+            console.log('Received database ID from API:', response.data.id);
+            setCallId(response.data.id); // Store the database ID for future updates
+            
+            // Also store the call_id if returned
+            if (response.data.call_id) {
+                setCallIdString(response.data.call_id);
+            }
+            
+            return response.data.id;
+        }
 
-      return null;
+        queryClient.invalidateQueries(['call-logs']);
+        queryClient.invalidateQueries(['customer-details']);
+
+        return null;
     } catch (error) {
-      console.error('Error saving info:', error.response?.data || error.message);
-      alert(`Failed to save info: ${error.response?.data?.error || error.message}`);
-      return null;
+        console.error('Error saving info:', error.response?.data || error.message);
+        alert(`Failed to save info: ${error.response?.data?.error || error.message}`);
+        return null;
     }
-  };
+};
 
   const endCall = async () => {
     let latestCallId = callId;
-    // If info is not saved (no callId but timer > 0), save it first and get the new callId
+    
+    // If info is not saved (no callId but timer > 0), save it first
     if ((!callId || callId === null) && timer > 0 && callIdString) {
-      const newId = await saveInfo();
-      if (newId) {
-        latestCallId = newId;
-        setCallId(newId);
-      }
+        // Pass isEditing flag if this was an edit operation
+        const newId = await saveInfo(isEditingLastCall);
+        if (newId) {
+            latestCallId = newId;
+            setCallId(newId);
+        }
     }
 
     // Now update the call as completed if callId exists
     if (latestCallId && timer > 0) {
-      try {
-        const callLogData = {
-          duration: timer,
-          note: notes,
-          status: 'Completed',
-        };
-
-        if (customer && customer.id) {
-          callLogData.customer = customer.id;
-        } else if (lead && lead.id) {
-          callLogData.lead = lead.id;
-        }
-
-        if (orderId && orderId.trim()) {
-          callLogData.order_id = orderId.trim();
-        }
-
-        if (selectedAssumption && selectedAssumption.length > 0) {
-          callLogData.assumption = selectedAssumption;
-        }
-        if (selectedAssumption2 && selectedAssumption2.length > 0) {
-          callLogData.assumption2 = selectedAssumption2;
-        }
-        if (selectedAssumption3 && selectedAssumption3.length > 0) {
-          callLogData.assumption3 = selectedAssumption3;
-        }
-
-        await axios.put(`/api/calllogs/${latestCallId}/`, callLogData);
-        queryClient.invalidateQueries(['call-logs']);
-        queryClient.invalidateQueries(['customer-details']);
-      } catch (error) {
-        // If 404, fallback to POST (create new)
-        if (error.response && error.response.status === 404) {
-          try {
+        try {
             const callLogData = {
-              duration: timer,
-              note: notes,
-              status: 'Completed',
-              call_id: callIdString,
+                duration: timer,
+                note: notes,
+                status: 'Completed',
             };
+
             if (customer && customer.id) {
-              callLogData.customer = customer.id;
+                callLogData.customer = customer.id;
             } else if (lead && lead.id) {
-              callLogData.lead = lead.id;
+                callLogData.lead = lead.id;
             }
+
             if (orderId && orderId.trim()) {
-              callLogData.order_id = orderId.trim();
+                callLogData.order_id = orderId.trim();
             }
+
             if (selectedAssumption && selectedAssumption.length > 0) {
-              callLogData.assumption = selectedAssumption;
+                callLogData.assumption = selectedAssumption;
             }
             if (selectedAssumption2 && selectedAssumption2.length > 0) {
-              callLogData.assumption2 = selectedAssumption2;
+                callLogData.assumption2 = selectedAssumption2;
             }
             if (selectedAssumption3 && selectedAssumption3.length > 0) {
-              callLogData.assumption3 = selectedAssumption3;
+                callLogData.assumption3 = selectedAssumption3;
             }
-            await axios.post('/api/calllogs/', callLogData);
+
+            console.log('Ending call with data:', callLogData);
+            await axios.put(`/api/calllogs/${latestCallId}/`, callLogData);
             queryClient.invalidateQueries(['call-logs']);
             queryClient.invalidateQueries(['customer-details']);
-          } catch (postError) {
-            console.error('Error ending call (fallback POST):', postError.response?.data || postError.message);
-            alert(`Failed to end call: ${postError.response?.data?.error || postError.message}`);
-          }
-        } else {
-          console.error('Error ending call:', error.response?.data || error.message);
-          alert(`Failed to end call: ${error.response?.data?.error || error.message}`);
+        } catch (error) {
+            console.error('Error ending call:', error.response?.data || error.message);
+            alert(`Failed to end call: ${error.response?.data?.error || error.message}`);
         }
-      }
     }
 
     // Reset all call state
     resetCallState();
-  };
+};
 
   // Create, edit, delete for each assumption type
   const createNewAssumption = async () => {
