@@ -476,18 +476,19 @@ const CallPopup = () => {
 
   {/* Compact Call Controls */}
   <div className="flex flex-wrap gap-2 mb-3 p-2 bg-gray-50 rounded-lg">
-    {!isRunning ? (
-      <button
-        onClick={startTimer}
-        className="inline-flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-        </svg>
-        Start
-      </button>
-    ) : (
-      <>
+  {!isEditingLastCall && (
+    <>
+      {!isRunning ? (
+        <button
+          onClick={startTimer}
+          className="inline-flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+          </svg>
+          Start
+        </button>
+      ) : (
         <button
           onClick={endCall}
           className="inline-flex items-center gap-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm"
@@ -497,8 +498,9 @@ const CallPopup = () => {
           </svg>
           End
         </button>
-      </>
-    )}
+      )}
+    </>
+  )}
     {isEditingLastCall && (
       <button
         onClick={() => { console.log('Save Info button clicked (floating)'); saveInfo(true); }}

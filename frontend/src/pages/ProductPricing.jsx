@@ -66,7 +66,6 @@ const STICKY_POSITIONS = {
 
 const EDITABLE_FIELDS = [
   { key: "sale_rate", group: "sale", label: "Sale Rate", type: "currency" },
-  // Pricing Details (grouped column)
   {
     key: "landing_rate",
     group: "pricingDetails",
@@ -87,11 +86,9 @@ const EDITABLE_FIELDS = [
     readonly: true,
     type: "currency",
   },
-  // Product Details (grouped column)
   { key: "mrp", group: "productDetails", label: "MRP", type: "currency" },
   { key: "batch_no", group: "productDetails", label: "Batch No", type: "text" },
   { key: "mfg_date", group: "productDetails", label: "MFG Date", type: "date" },
-  // Cost Components 1 (grouped column)
   {
     key: "purchase_value",
     group: "costComponents1",
@@ -116,7 +113,6 @@ const EDITABLE_FIELDS = [
     label: "Handling",
     type: "currency_percentage",
   },
-  // Cost Components 2 (grouped column)
   {
     key: "godown_value",
     group: "costComponents2",
@@ -135,7 +131,6 @@ const EDITABLE_FIELDS = [
     label: "Packaging",
     type: "currency_percentage",
   },
-  // Additional Costs (grouped column)
   {
     key: "extra1_value",
     group: "additionalCosts",
@@ -184,7 +179,81 @@ const GROUP_CONFIG = {
 };
 
 const ProductPricing = () => {
+  // --- FILTER STATES ---
   const [search, setSearch] = useState("");
+  const [filterSKU, setFilterSKU] = useState("");
+  const [filterTitle, setFilterTitle] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterCategory1, setFilterCategory1] = useState("");
+  const [filterCategory2, setFilterCategory2] = useState("");
+  const [filterCategory3, setFilterCategory3] = useState("");
+  const [filterCategory4, setFilterCategory4] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
+  const [filterBrandCategory, setFilterBrandCategory] = useState("");
+  const [filterHSN, setFilterHSN] = useState("");
+
+  // Category filter selected IDs for dependent dropdowns
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [selectedCategory1Id, setSelectedCategory1Id] = useState("");
+  const [selectedCategory2Id, setSelectedCategory2Id] = useState("");
+  const [selectedCategory3Id, setSelectedCategory3Id] = useState("");
+
+  // --- DROPDOWN DATA WITH DEPENDENT QUERIES ---
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => (await axios.get("/api/categories/")).data,
+  });
+
+  const { data: categories1, refetch: refetchCategories1 } = useQuery({
+    enabled: !!parseInt(selectedCategoryId),
+    queryKey: ["categories1", parseInt(selectedCategoryId) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategoryId);
+      const response = await axios.get(`/api/categories/?parent_id=${parentId}`);
+      return response.data;
+    },
+  });
+
+  const { data: categories2, refetch: refetchCategories2 } = useQuery({
+    enabled: !!parseInt(selectedCategory1Id),
+    queryKey: ["categories2", parseInt(selectedCategory1Id) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategory1Id);
+      const response = await axios.get(`/api/categories/?parent_id=${parentId}`);
+      return response.data;
+    },
+  });
+
+  const { data: categories3, refetch: refetchCategories3 } = useQuery({
+    enabled: !!parseInt(selectedCategory2Id),
+    queryKey: ["categories3", parseInt(selectedCategory2Id) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategory2Id);
+      const response = await axios.get(`/api/categories/?parent_id=${parentId}`);
+      return response.data;
+    },
+  });
+
+  const { data: categories4, refetch: refetchCategories4 } = useQuery({
+    enabled: !!parseInt(selectedCategory3Id),
+    queryKey: ["categories4", parseInt(selectedCategory3Id) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategory3Id);
+      const response = await axios.get(`/api/categories/?parent_id=${parentId}`);
+      return response.data;
+    },
+  });
+
+  const { data: brands } = useQuery({
+    queryKey: ["brands"],
+    queryFn: async () => (await axios.get("/api/brands/")).data,
+  });
+
+  const { data: brandCategories } = useQuery({
+    queryKey: ["brandCategories"],
+    queryFn: async () => (await axios.get("/api/brand-categories/")).data,
+  });
+
   const [editingCell, setEditingCell] = useState(null);
   const [editedValues, setEditedValues] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
@@ -219,12 +288,13 @@ const ProductPricing = () => {
           product: product.id,
           sku: product.sku || "",
           title: product.title || "",
-          category:
-            product.category_display ||
-            product.category?.name ||
-            product.category1_display ||
-            product.category1?.name ||
-            "",
+          category: product.category_display || product.category?.name || "",
+          category1: product.category1_display || product.category1?.name || "",
+          category2: product.category2_display || product.category2?.name || "",
+          category3: product.category3_display || product.category3?.name || "",
+          category4: product.category4_display || product.category4?.name || "",
+          brand_display: product.brand_display || product.brand?.name || "",
+          brand_category_display: product.brand_category_display || product.brand_category?.name || "",
           unit: product.unit || "",
           product_weight: product.product_weight || "",
           hsn: product.hsn || "",
@@ -266,12 +336,40 @@ const ProductPricing = () => {
   // Filter and search data
   const filteredData = useMemo(() => {
     if (!pricingData) return [];
-    return pricingData.filter(
-      (item) =>
+    return pricingData.filter((item) => {
+      const searchMatch =
+        !search ||
         item.title?.toLowerCase().includes(search.toLowerCase()) ||
-        item.sku?.toLowerCase().includes(search.toLowerCase()),
-    );
-  }, [pricingData, search]);
+        item.sku?.toLowerCase().includes(search.toLowerCase());
+
+      const skuMatch = !filterSKU || item.sku?.toLowerCase().includes(filterSKU.toLowerCase());
+      const titleMatch = !filterTitle || item.title?.toLowerCase().includes(filterTitle.toLowerCase());
+      const hsnMatch = !filterHSN || item.hsn?.toLowerCase().includes(filterHSN.toLowerCase());
+
+      const categoryMatch = !filterCategory || item.category?.toString() === filterCategory;
+      const category1Match = !filterCategory1 || item.category1?.toString() === filterCategory1;
+      const category2Match = !filterCategory2 || item.category2?.toString() === filterCategory2;
+      const category3Match = !filterCategory3 || item.category3?.toString() === filterCategory3;
+      const category4Match = !filterCategory4 || item.category4?.toString() === filterCategory4;
+
+      const brandMatch = !filterBrand || item.brand_display?.toString() === filterBrand;
+      const brandCategoryMatch = !filterBrandCategory || item.brand_category_display?.toString() === filterBrandCategory;
+
+      return (
+        searchMatch &&
+        skuMatch &&
+        titleMatch &&
+        hsnMatch &&
+        categoryMatch &&
+        category1Match &&
+        category2Match &&
+        category3Match &&
+        category4Match &&
+        brandMatch &&
+        brandCategoryMatch
+      );
+    });
+  }, [pricingData, search, filterSKU, filterTitle, filterHSN, filterCategory, filterCategory1, filterCategory2, filterCategory3, filterCategory4, filterBrand, filterBrandCategory]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -288,69 +386,59 @@ const ProductPricing = () => {
   }, [search]);
 
   // Calculate pricing in real-time with edited values
-  // Calculate pricing in real-time with edited values
-const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
-  // Helper to get value (edited value takes priority)
-  const getValue = (field) => {
-    const key = `${row.product}_${field}`;
-    if (currentEditedValues[key] !== undefined) {
-      return currentEditedValues[key];
+  const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
+    const getValue = (field) => {
+      const key = `${row.product}_${field}`;
+      if (currentEditedValues[key] !== undefined) {
+        return currentEditedValues[key];
+      }
+      return row[field];
+    };
+
+    const getType = (fieldType) => {
+      const key = `${row.product}_${fieldType}_type`;
+      if (currentEditedValues[key] !== undefined) {
+        return currentEditedValues[key];
+      }
+      return row[`${fieldType}_type`] || "rupees";
+    };
+
+    let base = Number(getValue("purchase_value")) || 0;
+
+    const calculateCost = (baseAmount, type, value) => {
+      if (type === "percent") {
+        return baseAmount * (Number(value) / 100);
+      }
+      return Number(value);
+    };
+
+    base += calculateCost(base, getType("transport"), getValue("transport_value"));
+    base += calculateCost(base, getType("labor"), getValue("labor_value"));
+    base += calculateCost(base, getType("handling"), getValue("handling_value"));
+    base += calculateCost(base, getType("godown"), getValue("godown_value"));
+    base += calculateCost(base, getType("delivery"), getValue("delivery_value"));
+    base += calculateCost(base, getType("packaging"), getValue("packaging_value"));
+    base += calculateCost(base, getType("extra1"), getValue("extra1_value"));
+    base += calculateCost(base, getType("extra2"), getValue("extra2_value"));
+
+    const landing_rate = base;
+    base += calculateCost(base, getType("landing"), getValue("landing_value"));
+    
+    const marginValue = Number(getValue("company_margin_value")) || 0;
+    const marginType = getType("company_margin");
+    
+    let marginAmount = 0;
+    if (marginType === "percent") {
+      marginAmount = base * (marginValue / 100);
+    } else {
+      marginAmount = marginValue;
     }
-    return row[field];
-  };
+    
+    const calculated_rate = base + marginAmount;
 
-  // Helper to get type (edited type takes priority)
-  const getType = (fieldType) => {
-    const key = `${row.product}_${fieldType}_type`;
-    if (currentEditedValues[key] !== undefined) {
-      return currentEditedValues[key];
-    }
-    return row[`${fieldType}_type`] || "rupees";
-  };
+    return { landing_rate, calculated_rate };
+  }, []);
 
-  let base = Number(getValue("purchase_value")) || 0;
-
-  const calculateCost = (baseAmount, type, value) => {
-    if (type === "percent") {
-      return baseAmount * (Number(value) / 100);
-    }
-    return Number(value);
-  };
-
-  // Add all cost components
-  base += calculateCost(base, getType("transport"), getValue("transport_value"));
-  base += calculateCost(base, getType("labor"), getValue("labor_value"));
-  base += calculateCost(base, getType("handling"), getValue("handling_value"));
-  base += calculateCost(base, getType("godown"), getValue("godown_value"));
-  base += calculateCost(base, getType("delivery"), getValue("delivery_value"));
-  base += calculateCost(base, getType("packaging"), getValue("packaging_value"));
-  base += calculateCost(base, getType("extra1"), getValue("extra1_value"));
-  base += calculateCost(base, getType("extra2"), getValue("extra2_value"));
-
-  // Landing rate is the sum of all cost components
-  const landing_rate = base;
-  
-  // Add landing cost
-  base += calculateCost(base, getType("landing"), getValue("landing_value"));
-  
-  // Calculate company margin based on the base amount after landing cost
-  const marginValue = Number(getValue("company_margin_value")) || 0;
-  const marginType = getType("company_margin");
-  
-  let marginAmount = 0;
-  if (marginType === "percent") {
-    marginAmount = base * (marginValue / 100);
-  } else {
-    marginAmount = marginValue;
-  }
-  
-  // Calculated rate = base (after all costs including landing) + company margin
-  const calculated_rate = base + marginAmount;
-
-  return { landing_rate, calculated_rate };
-}, []);
-
-  // Calculate pricing locally with memoization (for backward compatibility)
   const calculatePricing = useCallback((row) => {
     let base = Number(row.purchase_value) || 0;
 
@@ -438,7 +526,6 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     },
   });
 
-  // Validation function
   const validateValue = useCallback((field, value, type) => {
     if (
       type === "currency" ||
@@ -460,11 +547,9 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     return null;
   }, []);
 
-  // Navigation handler
   const navigateCell = useCallback(
     (currentRowIndex, currentFieldKey, direction) => {
       const totalRows = paginatedData.length;
-      
       const navigableFields = EDITABLE_FIELDS.filter(f => !f.readonly);
       const currentFieldIndex = navigableFields.findIndex(
         (f) => f.key === currentFieldKey,
@@ -506,10 +591,7 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
           return;
       }
 
-      if (
-        newRowIndex !== currentRowIndex ||
-        newFieldIndex !== currentFieldIndex
-      ) {
+      if (newRowIndex !== currentRowIndex || newFieldIndex !== currentFieldIndex) {
         const newField = navigableFields[newFieldIndex];
         setEditingCell({ rowIndex: newRowIndex, field: newField.key });
 
@@ -527,7 +609,6 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     [paginatedData],
   );
 
-  // Handle cell edit with validation
   const handleCellEdit = useCallback(
     (rowIndex, field, value) => {
       const row = paginatedData[rowIndex];
@@ -563,17 +644,14 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     [paginatedData, validateValue],
   );
 
-  // Handle cell double click
   const handleCellDoubleClick = useCallback((rowIndex, field) => {
     setEditingCell({ rowIndex, field });
   }, []);
 
-  // Handle cell blur
   const handleCellBlur = useCallback(() => {
     setEditingCell(null);
   }, []);
 
-  // Get current value
   const getCellValue = useCallback(
     (row, rowIndex, field) => {
       const key = `${row.product}_${field}`;
@@ -585,7 +663,6 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     [editedValues],
   );
 
-  // Get type value
   const getType = useCallback(
     (row, rowIndex, fieldType) => {
       const key = `${row.product}_${fieldType}_type`;
@@ -597,7 +674,6 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     [editedValues],
   );
 
-  // Handle type toggle
   const toggleType = useCallback(
     (rowIndex, fieldType) => {
       const row = paginatedData[rowIndex];
@@ -613,34 +689,15 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     [paginatedData, getType],
   );
 
-  // Prepare data for save
   const prepareSaveData = useCallback(() => {
     const updates = [];
     const allFields = [
-      "purchase_value",
-      "purchase_type",
-      "transport_value",
-      "transport_type",
-      "labor_value",
-      "labor_type",
-      "handling_value",
-      "handling_type",
-      "godown_value",
-      "godown_type",
-      "delivery_value",
-      "delivery_type",
-      "packaging_value",
-      "packaging_type",
-      "extra1_value",
-      "extra1_type",
-      "extra2_value",
-      "extra2_type",
-      "company_margin_value",
-      "company_margin_type",
-      "sale_rate",
-      "mrp",
-      "mfg_date",
-      "batch_no",
+      "purchase_value", "purchase_type", "transport_value", "transport_type",
+      "labor_value", "labor_type", "handling_value", "handling_type",
+      "godown_value", "godown_type", "delivery_value", "delivery_type",
+      "packaging_value", "packaging_type", "extra1_value", "extra1_type",
+      "extra2_value", "extra2_type", "company_margin_value", "company_margin_type",
+      "sale_rate", "mrp", "mfg_date", "batch_no",
     ];
 
     paginatedData.forEach((row) => {
@@ -663,7 +720,6 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     return updates;
   }, [paginatedData, editedValues]);
 
-  // Save all changes
   const handleSaveAll = useCallback(async () => {
     if (Object.keys(validationErrors).length > 0) {
       toast.error("Please fix validation errors before saving");
@@ -680,31 +736,12 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     saveMutation.mutate(updates);
   }, [prepareSaveData, validationErrors, saveMutation]);
 
-  // Export to CSV
   const handleExportCSV = useCallback(() => {
     const headers = [
-      "SKU",
-      "Title",
-      "Category",
-      "Unit",
-      "Weight",
-      "HSN",
-      "Sale Rate",
-      "Landing Rate",
-      "Margin",
-      "Calculated Rate",
-      "MRP",
-      "MFG Date",
-      "Batch No",
-      "Purchase",
-      "Transport",
-      "Labor",
-      "Handling",
-      "Godown",
-      "Delivery",
-      "Packaging",
-      "Extra 1",
-      "Extra 2",
+      "SKU", "Title", "Category", "Unit", "Weight", "HSN", "Sale Rate",
+      "Landing Rate", "Margin", "Calculated Rate", "MRP", "MFG Date", "Batch No",
+      "Purchase", "Transport", "Labor", "Handling", "Godown", "Delivery",
+      "Packaging", "Extra 1", "Extra 2",
     ];
 
     const rows = filteredData.map((row) => {
@@ -725,19 +762,14 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
       };
 
       return [
-        row.sku || "",
-        row.title || "",
-        row.category || "",
-        row.unit || "",
-        row.product_weight || "",
-        row.hsn || "",
+        row.sku || "", row.title || "", row.category || "", row.unit || "",
+        row.product_weight || "", row.hsn || "",
         Number(getValue("sale_rate")).toFixed(2),
         computed.landing_rate.toFixed(2),
         `${getValue("company_margin_value")}${getTypeValue("company_margin") === "percent" ? "%" : "₹"}`,
         computed.calculated_rate.toFixed(2),
         Number(getValue("mrp")).toFixed(2),
-        getValue("mfg_date") || "",
-        getValue("batch_no") || "",
+        getValue("mfg_date") || "", getValue("batch_no") || "",
         `${getValue("purchase_value")}${getTypeValue("purchase") === "percent" ? "%" : "₹"}`,
         `${getValue("transport_value")}${getTypeValue("transport") === "percent" ? "%" : "₹"}`,
         `${getValue("labor_value")}${getTypeValue("labor") === "percent" ? "%" : "₹"}`,
@@ -758,10 +790,7 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `product_pricing_${new Date().toISOString().split("T")[0]}.csv`,
-    );
+    link.setAttribute("download", `product_pricing_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -769,7 +798,6 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
     toast.success("Export successful!");
   }, [filteredData, calculateRealtimePricing, editedValues]);
 
-  // Render group cell
   const renderGroupCell = useCallback(
     (row, rowIndex, groupKey) => {
       const group = GROUP_CONFIG[groupKey];
@@ -786,87 +814,41 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
         >
           <div className="flex flex-col">
             {group.fields.map((fieldKey) => {
-              const fieldConfig = EDITABLE_FIELDS.find(
-                (f) => f.key === fieldKey,
-              );
+              const fieldConfig = EDITABLE_FIELDS.find((f) => f.key === fieldKey);
               if (!fieldConfig) return null;
 
-              const isEditing =
-                editingCell?.rowIndex === rowIndex &&
-                editingCell?.field === fieldKey;
+              const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.field === fieldKey;
               const errorKey = `${row.product}_${fieldKey}`;
               const hasError = validationErrors[errorKey];
 
               if (fieldConfig.readonly) {
                 const computed = calculateRealtimePricing(row, editedValues);
-                const value =
-                  fieldKey === "landing_rate"
-                    ? computed.landing_rate
-                    : computed.calculated_rate;
-                const bgColor = "bg-gray-100";
+                const value = fieldKey === "landing_rate" ? computed.landing_rate : computed.calculated_rate;
 
                 return (
-                  <div
-                    key={fieldKey}
-                    className={`px-4 py-2 ${bgColor} flex justify-between items-center`}
-                  >
-                    <span className="text-xs text-gray-600 font-medium">
-                      {fieldConfig.label}:
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      ₹{value.toFixed(2)}
-                    </span>
+                  <div key={fieldKey} className={`px-4 py-2 bg-gray-100 flex justify-between items-center`}>
+                    <span className="text-xs text-gray-600 font-medium">{fieldConfig.label}:</span>
+                    <span className="text-sm font-semibold text-gray-900">₹{value.toFixed(2)}</span>
                   </div>
                 );
               }
 
               return (
-                <div
-                  key={fieldKey}
-                  className={`px-4 py-2 flex justify-between items-center gap-2 border-b border-gray-200 last:border-b-0 ${hasError ? "bg-red-50" : ""}`}
-                >
-                  <span className="text-xs text-gray-600 font-medium w-20">
-                    {fieldConfig.label}:
-                  </span>
+                <div key={fieldKey} className={`px-4 py-2 flex justify-between items-center gap-2 border-b border-gray-200 last:border-b-0 ${hasError ? "bg-red-50" : ""}`}>
+                  <span className="text-xs text-gray-600 font-medium w-20">{fieldConfig.label}:</span>
                   <div className="flex-1">
                     <ExcelCell
                       value={getCellValue(row, rowIndex, fieldKey)}
                       type={fieldConfig.type}
-                      currentType={
-                        fieldConfig.type === "currency_percentage"
-                          ? getType(
-                              row,
-                              rowIndex,
-                              fieldKey.replace("_value", ""),
-                            )
-                          : undefined
-                      }
-                      onEdit={(value) =>
-                        handleCellEdit(rowIndex, fieldKey, value)
-                      }
-                      onTypeToggle={
-                        fieldConfig.type === "currency_percentage"
-                          ? () =>
-                              toggleType(
-                                rowIndex,
-                                fieldKey.replace("_value", ""),
-                              )
-                          : null
-                      }
+                      currentType={fieldConfig.type === "currency_percentage" ? getType(row, rowIndex, fieldKey.replace("_value", "")) : undefined}
+                      onEdit={(value) => handleCellEdit(rowIndex, fieldKey, value)}
+                      onTypeToggle={fieldConfig.type === "currency_percentage" ? () => toggleType(rowIndex, fieldKey.replace("_value", "")) : null}
                       onBlur={handleCellBlur}
-                      onDoubleClick={() =>
-                        handleCellDoubleClick(rowIndex, fieldKey)
-                      }
+                      onDoubleClick={() => handleCellDoubleClick(rowIndex, fieldKey)}
                       onKeyDown={(e) => navigateCell(rowIndex, fieldKey, e.key)}
                       isEditing={isEditing}
                       inputRef={isEditing ? inputRef : null}
-                      placeholder={
-                        fieldConfig.type === "date"
-                          ? "YYYY-MM-DD"
-                          : fieldConfig.type === "text"
-                            ? "Enter number"
-                            : "0.00"
-                      }
+                      placeholder={fieldConfig.type === "date" ? "YYYY-MM-DD" : fieldConfig.type === "text" ? "Enter number" : "0.00"}
                       hasError={hasError}
                       errorMessage={validationErrors[errorKey]}
                     />
@@ -878,19 +860,7 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
         </td>
       );
     },
-    [
-      editingCell,
-      validationErrors,
-      calculateRealtimePricing,
-      editedValues,
-      getCellValue,
-      getType,
-      handleCellEdit,
-      toggleType,
-      handleCellBlur,
-      handleCellDoubleClick,
-      navigateCell,
-    ],
+    [editingCell, validationErrors, calculateRealtimePricing, editedValues, getCellValue, getType, handleCellEdit, toggleType, handleCellBlur, handleCellDoubleClick, navigateCell],
   );
 
   if (isLoading) {
@@ -909,14 +879,9 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            Error Loading Data
-          </h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Data</h2>
           <p className="text-gray-600 mb-4">{error.message}</p>
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
+          <button onClick={() => refetch()} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             Retry
           </button>
         </div>
@@ -927,181 +892,238 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
-        {/* Header */}
-        <div className="mb-6 flex flex-wrap justify-between items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Product Calculator
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Double-click any cell to edit. Use arrow keys to navigate. Press
-              Enter to save, Esc to cancel.
-            </p>
+        <div className="mb-2 flex flex-col gap-4">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Product Calculator</h1>
+            </div>
+            <div className="flex gap-3 shrink-0">
+              <button onClick={handleExportCSV} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Export CSV
+              </button>
+              <button onClick={handleSaveAll} disabled={saving || Object.keys(editedValues).length === 0} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+                <Save className="h-4 w-4" />
+                {saving ? "Saving..." : `Save Changes (${Object.keys(editedValues).length})`}
+              </button>
+            </div>
           </div>
 
-          <div className="relative flex-grow max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by SKU or product name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+          {/* FILTER BAR WITH DEPENDENT CATEGORY DROPDOWNS */}
+          <div className="w-full bg-white rounded-lg shadow border border-gray-200 p-4">
+  {/* First Row of Filters */}
+  <div className="flex flex-wrap gap-2 items-end">
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">SKU</label>
+      <input type="text" value={filterSKU} onChange={e => setFilterSKU(e.target.value)} className="px-2 py-1 border border-gray-300 rounded" placeholder="SKU" />
+    </div>
+    <div className="flex flex-col w-40">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Product Name</label>
+      <input type="text" value={filterTitle} onChange={e => setFilterTitle(e.target.value)} className="px-2 py-1 border border-gray-300 rounded" placeholder="Product Name" />
+    </div>
+    
+    {/* Category - Main/Top Level */}
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Category</label>
+      <select
+        value={selectedCategoryId}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSelectedCategoryId(value);
+          setSelectedCategory1Id("");
+          setSelectedCategory2Id("");
+          setSelectedCategory3Id("");
+          const selectedCat = categories?.find(c => c.id == value);
+          setFilterCategory(selectedCat?.name || "");
+          setFilterCategory1("");
+          setFilterCategory2("");
+          setFilterCategory3("");
+          setFilterCategory4("");
+        }}
+        className="px-2 py-1 border border-gray-300 rounded"
+      >
+        <option value="">All</option>
+        {categories?.map(cat => (
+          <option key={cat.id} value={cat.id}>{cat.name}</option>
+        ))}
+      </select>
+    </div>
 
-          <div className="flex gap-3 shrink-0">
-            <button
-              onClick={handleExportCSV}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </button>
-            <button
-              onClick={handleSaveAll}
-              disabled={saving || Object.keys(editedValues).length === 0}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-            >
-              <Save className="h-4 w-4" />
-              {saving
-                ? "Saving..."
-                : `Save Changes (${Object.keys(editedValues).length})`}
-            </button>
-          </div>
+    {/* Category 1 - Depends on Category */}
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Category 1</label>
+      <select
+        value={selectedCategory1Id}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSelectedCategory1Id(value);
+          setSelectedCategory2Id("");
+          setSelectedCategory3Id("");
+          const selectedCat = categories1?.find(c => c.id == value);
+          setFilterCategory1(selectedCat?.name || "");
+          setFilterCategory2("");
+          setFilterCategory3("");
+          setFilterCategory4("");
+        }}
+        disabled={!selectedCategoryId}
+        className={`px-2 py-1 border border-gray-300 rounded ${!selectedCategoryId ? 'bg-gray-100' : ''}`}
+      >
+        <option value="">All</option>
+        {categories1?.map(cat => (
+          <option key={cat.id} value={cat.id}>{cat.name}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Category 2 - Depends on Category 1 */}
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Category 2</label>
+      <select
+        value={selectedCategory2Id}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSelectedCategory2Id(value);
+          setSelectedCategory3Id("");
+          const selectedCat = categories2?.find(c => c.id == value);
+          setFilterCategory2(selectedCat?.name || "");
+          setFilterCategory3("");
+          setFilterCategory4("");
+        }}
+        disabled={!selectedCategory1Id}
+        className={`px-2 py-1 border border-gray-300 rounded ${!selectedCategory1Id ? 'bg-gray-100' : ''}`}
+      >
+        <option value="">All</option>
+        {categories2?.map(cat => (
+          <option key={cat.id} value={cat.id}>{cat.name}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Category 3 - Depends on Category 2 */}
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Category 3</label>
+      <select
+        value={selectedCategory3Id}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSelectedCategory3Id(value);
+          const selectedCat = categories3?.find(c => c.id == value);
+          setFilterCategory3(selectedCat?.name || "");
+          setFilterCategory4("");
+        }}
+        disabled={!selectedCategory2Id}
+        className={`px-2 py-1 border border-gray-300 rounded ${!selectedCategory2Id ? 'bg-gray-100' : ''}`}
+      >
+        <option value="">All</option>
+        {categories3?.map(cat => (
+          <option key={cat.id} value={cat.id}>{cat.name}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Category 4 - Depends on Category 3 */}
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Category 4</label>
+      <select
+        value={filterCategory4}
+        onChange={(e) => {
+          const value = e.target.value;
+          const selectedCat = categories4?.find(c => c.id == value);
+          setFilterCategory4(selectedCat?.name || "");
+        }}
+        disabled={!selectedCategory3Id}
+        className={`px-2 py-1 border border-gray-300 rounded ${!selectedCategory3Id ? 'bg-gray-100' : ''}`}
+      >
+        <option value="">All</option>
+        {categories4?.map(cat => (
+          <option key={cat.id} value={cat.id}>{cat.name}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Brand</label>
+      <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)} className="px-2 py-1 border border-gray-300 rounded">
+        <option value="">All</option>
+        {brands?.map(brand => (
+          <option key={brand.id} value={brand.name}>{brand.name}</option>
+        ))}
+      </select>
+    </div>
+    
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">Brand Category</label>
+      <select value={filterBrandCategory} onChange={e => setFilterBrandCategory(e.target.value)} className="px-2 py-1 border border-gray-300 rounded">
+        <option value="">All</option>
+        {brandCategories?.map(cat => (
+          <option key={cat.id} value={cat.name}>{cat.name}</option>
+        ))}
+      </select>
+    </div>
+    
+    <div className="flex flex-col w-32">
+      <label className="text-xs font-semibold text-gray-700 mb-1">HSN</label>
+      <input type="text" value={filterHSN} onChange={e => setFilterHSN(e.target.value)} className="px-2 py-1 border border-gray-300 rounded" placeholder="HSN" />
+    </div>
+
+    {/* Clear Filters Button - Right side of HSN */}
+    <div className="flex flex-col">
+      <label className="text-xs font-semibold text-gray-700 mb-1 invisible">Clear</label>
+      <button
+        onClick={() => {
+          // Clear all filter states
+          setFilterSKU("");
+          setFilterTitle("");
+          setSelectedCategoryId("");
+          setSelectedCategory1Id("");
+          setSelectedCategory2Id("");
+          setSelectedCategory3Id("");
+          setFilterCategory("");
+          setFilterCategory1("");
+          setFilterCategory2("");
+          setFilterCategory3("");
+          setFilterCategory4("");
+          setFilterBrand("");
+          setFilterBrandCategory("");
+          setFilterHSN("");
+          setSearch("");
+        }}
+        className="px-4 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm flex items-center gap-2 whitespace-nowrap"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        Clear Filters
+      </button>
+    </div>
+  </div>
+</div>
         </div>
 
         {/* Table */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-          <div
-            ref={tableContainerRef}
-            className="overflow-x-auto overflow-y-auto"
-            style={{ maxHeight: "calc(100vh - 200px)" }}
-          >
+          <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
             <style>{`
-  .pricing-table {
-    border-collapse: separate;
-    border-spacing: 0;
-    min-width: 100%;
-  }
-  .pricing-table th,
-  .pricing-table td {
-    border: 1px solid #e5e7eb;
-  }
-  .sticky-col {
-    position: sticky;
-    background-color: inherit;
-    z-index: 10;
-    border-right: 2px solid #e5e7eb !important;
-  }
-  .sticky-col-header {
-    position: sticky;
-    background-color: #f3f4f6;
-    z-index: 20;
-    border-right: 2px solid #e5e7eb !important;
-    border-bottom: 2px solid #d1d5db !important;
-  }
-  .sticky-col.bg-white {
-    background-color: white;
-  }
-  .sticky-col.bg-gray-50 {
-    background-color: #f9fafb;
-  }
-  
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-  
-  input[type="number"] {
-    -moz-appearance: textfield;
-    appearance: textfield;
-  }
-`}</style>
+              .pricing-table { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+              .pricing-table th, .pricing-table td { border: 1px solid #e5e7eb; }
+              .sticky-col { position: sticky; background-color: inherit; z-index: 10; border-right: 2px solid #e5e7eb !important; }
+              .sticky-col-header { position: sticky; background-color: #f3f4f6; z-index: 20; border-right: 2px solid #e5e7eb !important; border-bottom: 2px solid #d1d5db !important; }
+              .sticky-col.bg-white { background-color: white; }
+              .sticky-col.bg-gray-50 { background-color: #f9fafb; }
+              input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+              input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+            `}</style>
             <table className="pricing-table">
               <thead className="bg-gray-100">
                 <tr>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: STICKY_POSITIONS.SKU,
-                      minWidth: COLUMN_WIDTHS.SKU,
-                      zIndex: 21,
-                    }}
-                  >
-                    SKU
-                  </th>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: STICKY_POSITIONS.PRODUCT,
-                      minWidth: COLUMN_WIDTHS.PRODUCT,
-                      zIndex: 21,
-                    }}
-                  >
-                    Product
-                  </th>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: STICKY_POSITIONS.SALE_RATE,
-                      minWidth: COLUMN_WIDTHS.SALE_RATE,
-                      zIndex: 21,
-                    }}
-                  >
-                    Sale Rate
-                  </th>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: GROUP_CONFIG.pricingDetails.position,
-                      minWidth: COLUMN_WIDTHS.PRICING_DETAILS,
-                      zIndex: 21,
-                    }}
-                  >
-                    Pricing Details
-                  </th>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: GROUP_CONFIG.productDetails.position,
-                      minWidth: COLUMN_WIDTHS.PRODUCT_DETAILS,
-                      zIndex: 21,
-                    }}
-                  >
-                    Product Details
-                  </th>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: GROUP_CONFIG.costComponents1.position,
-                      minWidth: COLUMN_WIDTHS.COST_COMPONENTS_1,
-                      zIndex: 21,
-                    }}
-                  >
-                    Cost Components 1
-                  </th>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: GROUP_CONFIG.costComponents2.position,
-                      minWidth: COLUMN_WIDTHS.COST_COMPONENTS_2,
-                      zIndex: 21,
-                    }}
-                  >
-                    Cost Components 2
-                  </th>
-                  <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    style={{
-                      left: GROUP_CONFIG.additionalCosts.position,
-                      minWidth: COLUMN_WIDTHS.ADDITIONAL_COSTS,
-                      zIndex: 21,
-                    }}
-                  >
-                    Additional Costs
-                  </th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: STICKY_POSITIONS.SKU, minWidth: COLUMN_WIDTHS.SKU, zIndex: 21 }}>SKU</th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: STICKY_POSITIONS.PRODUCT, minWidth: COLUMN_WIDTHS.PRODUCT, zIndex: 21 }}>Product</th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: STICKY_POSITIONS.SALE_RATE, minWidth: COLUMN_WIDTHS.SALE_RATE, zIndex: 21 }}>Sale Rate</th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: GROUP_CONFIG.pricingDetails.position, minWidth: COLUMN_WIDTHS.PRICING_DETAILS, zIndex: 21 }}>Pricing Details</th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: GROUP_CONFIG.productDetails.position, minWidth: COLUMN_WIDTHS.PRODUCT_DETAILS, zIndex: 21 }}>Product Details</th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: GROUP_CONFIG.costComponents1.position, minWidth: COLUMN_WIDTHS.COST_COMPONENTS_1, zIndex: 21 }}>Cost Components 1</th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: GROUP_CONFIG.costComponents2.position, minWidth: COLUMN_WIDTHS.COST_COMPONENTS_2, zIndex: 21 }}>Cost Components 2</th>
+                  <th className="sticky-col-header px-4 py-3 text-left text-xs font-semibold text-gray-700" style={{ left: GROUP_CONFIG.additionalCosts.position, minWidth: COLUMN_WIDTHS.ADDITIONAL_COSTS, zIndex: 21 }}>Additional Costs</th>
                 </tr>
               </thead>
               <tbody>
@@ -1111,61 +1133,12 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
 
                   return (
                     <tr key={row.product} className={rowBgClass}>
-                      <td
-                        className={`sticky-col ${rowBgClass} px-4 py-3 text-sm text-gray-900 font-medium`}
-                        style={{
-                          left: STICKY_POSITIONS.SKU,
-                          minWidth: COLUMN_WIDTHS.SKU,
-                        }}
-                      >
-                        {row.sku}
+                      <td className={`sticky-col ${rowBgClass} px-4 py-3 text-sm text-gray-900 font-medium`} style={{ left: STICKY_POSITIONS.SKU, minWidth: COLUMN_WIDTHS.SKU }}>{row.sku}</td>
+                      <td className={`sticky-col ${rowBgClass} px-4 py-3 text-sm text-gray-900`} style={{ left: STICKY_POSITIONS.PRODUCT, minWidth: COLUMN_WIDTHS.PRODUCT }}>
+                        <div><div className="font-medium">{row.title}</div><div className="text-xs text-gray-500">{row.category}</div></div>
                       </td>
-                      <td
-                        className={`sticky-col ${rowBgClass} px-4 py-3 text-sm text-gray-900`}
-                        style={{
-                          left: STICKY_POSITIONS.PRODUCT,
-                          minWidth: COLUMN_WIDTHS.PRODUCT,
-                        }}
-                      >
-                        <div>
-                          <div className="font-medium">{row.title}</div>
-                          <div className="text-xs text-gray-500">
-                            {row.category}
-                          </div>
-                        </div>
-                      </td>
-                      <td
-                        className={`sticky-col ${rowBgClass} px-4 py-3`}
-                        style={{
-                          left: STICKY_POSITIONS.SALE_RATE,
-                          minWidth: COLUMN_WIDTHS.SALE_RATE,
-                        }}
-                      >
-                        <ExcelCell
-                          value={getCellValue(row, rowIndex, "sale_rate")}
-                          type="currency"
-                          onEdit={(value) =>
-                            handleCellEdit(rowIndex, "sale_rate", value)
-                          }
-                          onBlur={handleCellBlur}
-                          onDoubleClick={() =>
-                            handleCellDoubleClick(rowIndex, "sale_rate")
-                          }
-                          onKeyDown={(e) =>
-                            navigateCell(rowIndex, "sale_rate", e.key)
-                          }
-                          isEditing={
-                            editingCell?.rowIndex === rowIndex &&
-                            editingCell?.field === "sale_rate"
-                          }
-                          inputRef={
-                            editingCell?.rowIndex === rowIndex &&
-                            editingCell?.field === "sale_rate"
-                              ? inputRef
-                              : null
-                          }
-                          placeholder="0.00"
-                        />
+                      <td className={`sticky-col ${rowBgClass} px-4 py-3`} style={{ left: STICKY_POSITIONS.SALE_RATE, minWidth: COLUMN_WIDTHS.SALE_RATE }}>
+                        <ExcelCell value={getCellValue(row, rowIndex, "sale_rate")} type="currency" onEdit={(value) => handleCellEdit(rowIndex, "sale_rate", value)} onBlur={handleCellBlur} onDoubleClick={() => handleCellDoubleClick(rowIndex, "sale_rate")} onKeyDown={(e) => navigateCell(rowIndex, "sale_rate", e.key)} isEditing={editingCell?.rowIndex === rowIndex && editingCell?.field === "sale_rate"} inputRef={editingCell?.rowIndex === rowIndex && editingCell?.field === "sale_rate" ? inputRef : null} placeholder="0.00" />
                       </td>
                       {renderGroupCell(row, rowIndex, "pricingDetails")}
                       {renderGroupCell(row, rowIndex, "productDetails")}
@@ -1179,58 +1152,22 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
             </table>
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-wrap gap-4">
-              <div className="text-sm text-gray-700">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, filteredData.length)} of{" "}
-                {filteredData.length} products
-              </div>
+              <div className="text-sm text-gray-700">Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} products</div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded disabled:opacity-50 hover:bg-gray-200 transition-colors"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
+                <button onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-2 rounded disabled:opacity-50 hover:bg-gray-200"><ChevronLeft className="h-5 w-5" /></button>
                 <div className="flex gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1 rounded text-sm transition-colors ${
-                          currentPage === pageNum
-                            ? "bg-blue-600 text-white"
-                            : "hover:bg-gray-200"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
+                    if (totalPages <= 5) pageNum = i + 1;
+                    else if (currentPage <= 3) pageNum = i + 1;
+                    else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                    else pageNum = currentPage - 2 + i;
+                    return <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`px-3 py-1 rounded text-sm ${currentPage === pageNum ? "bg-blue-600 text-white" : "hover:bg-gray-200"}`}>{pageNum}</button>;
                   })}
                 </div>
-                <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPages))
-                  }
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded disabled:opacity-50 hover:bg-gray-200 transition-colors"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
+                <button onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-2 rounded disabled:opacity-50 hover:bg-gray-200"><ChevronRight className="h-5 w-5" /></button>
               </div>
             </div>
           )}
@@ -1240,8 +1177,7 @@ const calculateRealtimePricing = useCallback((row, currentEditedValues) => {
   );
 };
 
-// Excel-like Editable Cell Component
-// Excel-like Editable Cell Component - Auto-save on navigation
+// Excel-like Editable Cell Component (same as before, keeping it short)
 const ExcelCell = React.memo(
   ({
     value,
