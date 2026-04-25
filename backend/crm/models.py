@@ -427,6 +427,22 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product.title} x{self.quantity} for Order #{self.order.id}"
+    
+
+class OldOrderHistory(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='old_order_histories')
+    date = models.DateField()
+    notes = models.TextField(blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date']
+        verbose_name_plural = "Old Order Histories"
+
+    def __str__(self):
+        return f"{self.customer.name} - {self.date} - ₹{self.amount}"
 
 class CustomerAssumption(models.Model):
     name = models.CharField(max_length=100)

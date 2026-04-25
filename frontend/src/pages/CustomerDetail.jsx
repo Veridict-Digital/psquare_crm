@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../api/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallPopup } from "../context/CallPopupContext";
-import { toast } from 'react-hot-toast'; 
+import { toast } from "react-hot-toast";
 import {
   User,
   Phone,
@@ -20,6 +20,12 @@ import {
   Check,
 } from "lucide-react";
 import { fetchCustomerTypes } from "../api/customerTypes";
+import {
+  Calendar as CalendarIcon,
+  FileText,
+  DollarSign,
+  MoreVertical,
+} from "lucide-react";
 
 const CustomerDetail = () => {
   const { id } = useParams();
@@ -48,6 +54,17 @@ const CustomerDetail = () => {
   const [tempSurname, setTempSurname] = useState("");
   const [customerTypes, setCustomerTypes] = useState([]);
   const [copiedPhone, setCopiedPhone] = useState(null); // State for copy feedback
+  const [oldOrders, setOldOrders] = useState([]);
+  const [showAddOldOrder, setShowAddOldOrder] = useState(false);
+  const [editingOldOrder, setEditingOldOrder] = useState(null);
+  const [oldOrderForm, setOldOrderForm] = useState({
+    date: "",
+    notes: "",
+    amount: "",
+  });
+  const [showOldOrderHistory, setShowOldOrderHistory] = useState(true); // Default to Old Order History
+  const [oldOrdersPage, setOldOrdersPage] = useState(1);
+  const [isAdmin, setIsAdmin] = useState(false);
   const itemsPerPage = 5;
 
   // Fetch customer details
@@ -60,6 +77,121 @@ const CustomerDetail = () => {
     queryFn: () =>
       axios.get(`/api/customers/${id}/details/`).then((res) => res.data),
   });
+
+  useEffect(() => {
+    // Get user from localStorage or your auth context
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    setIsAdmin(user.role === "Admin");
+  }, []);
+
+  // Fetch old order histories
+  const { data: oldOrderHistoriesData } = useQuery({
+    queryKey: ["old-order-histories", id],
+    queryFn: () =>
+      axios
+        .get(`/api/old-order-histories/?customer_id=${id}`)
+        .then((res) => res.data),
+    enabled: !!id,
+  });
+
+  // Add old order history mutation
+  const addOldOrderMutation = useMutation({
+    mutationFn: (data) => axios.post("/api/old-order-histories/", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["old-order-histories", id]);
+      setShowAddOldOrder(false);
+      setOldOrderForm({ date: "", notes: "", amount: "" });
+      toast.success("Old order added successfully");
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.error || "Failed to add old order");
+    },
+  });
+
+  // Update old order history mutation
+  const updateOldOrderMutation = useMutation({
+    mutationFn: ({ id, data }) =>
+      axios.put(`/api/old-order-histories/${id}/`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["old-order-histories", id]);
+      setEditingOldOrder(null);
+      setOldOrderForm({ date: "", notes: "", amount: "" });
+      toast.success("Old order updated successfully");
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.error || "Failed to update old order");
+    },
+  });
+
+  // Delete old order history mutation
+  const deleteOldOrderMutation = useMutation({
+    mutationFn: (orderId) =>
+      axios.delete(`/api/old-order-histories/${orderId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["old-order-histories", id]);
+      toast.success("Old order deleted successfully");
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.error || "Failed to delete old order");
+    },
+  });
+
+  // Add this useEffect to set old orders when data loads
+  useEffect(() => {
+    if (oldOrderHistoriesData) {
+      setOldOrders(oldOrderHistoriesData);
+    }
+  }, [oldOrderHistoriesData]);
+
+  // Add handler functions
+  const handleAddOldOrder = () => {
+    if (!oldOrderForm.date || !oldOrderForm.amount) {
+      toast.error("Date and amount are required");
+      return;
+    }
+    addOldOrderMutation.mutate({
+      customer: id,
+      date: oldOrderForm.date,
+      notes: oldOrderForm.notes,
+      amount: parseFloat(oldOrderForm.amount),
+    });
+  };
+
+  const handleEditOldOrder = (order) => {
+    setEditingOldOrder(order.id);
+    setOldOrderForm({
+      date: order.date,
+      notes: order.notes || "",
+      amount: order.amount,
+    });
+  };
+
+  const handleUpdateOldOrder = () => {
+    if (!oldOrderForm.date || !oldOrderForm.amount) {
+      toast.error("Date and amount are required");
+      return;
+    }
+    updateOldOrderMutation.mutate({
+      id: editingOldOrder,
+      data: {
+        date: oldOrderForm.date,
+        notes: oldOrderForm.notes,
+        amount: parseFloat(oldOrderForm.amount),
+      },
+    });
+  };
+
+  const handleDeleteOldOrder = (orderId) => {
+    if (window.confirm("Are you sure you want to delete this old order?")) {
+      deleteOldOrderMutation.mutate(orderId);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingOldOrder(null);
+    setShowAddOldOrder(false);
+    setOldOrderForm({ date: "", notes: "", amount: "" });
+  };
 
   // Fetch employees
   const { data: employees } = useQuery({
@@ -168,46 +300,53 @@ const CustomerDetail = () => {
 
   // Edit call log mutation - always updates existing record
   // Edit call log mutation - FIXED VERSION
-// Edit call log mutation - FIXED VERSION
-const editCallLogMutation = useMutation({
+  // Edit call log mutation - FIXED VERSION
+  const editCallLogMutation = useMutation({
     mutationFn: async (callData) => {
-        // CRITICAL: Use the call log ID correctly
-        const callLogId = callData.id;  // This should be the call log ID
-        
-        console.log("Updating call log:", callLogId);
-        console.log("Call data:", callData);
-        
-        // Calculate duration in seconds (timer is in seconds)
-        const durationSeconds = callData.duration;
-        
-        // Prepare update data
-        const updateData = {
-            note: callData.note || "",
-            assumption: callData.assumption || [],
-            assumption2: callData.assumption2 || [],
-            assumption3: callData.assumption3 || [],
-            order_id: callData.order_id || null,
-            duration: durationSeconds,  // Send as seconds (number)
-            status: 'Completed',
-        };
-        
-        console.log("Sending update data:", updateData);
-        
-        // Make the PUT request to update existing call log
-        const response = await axios.put(`/api/calllogs/${callLogId}/`, updateData);
-        return response.data;
+      // CRITICAL: Use the call log ID correctly
+      const callLogId = callData.id; // This should be the call log ID
+
+      console.log("Updating call log:", callLogId);
+      console.log("Call data:", callData);
+
+      // Calculate duration in seconds (timer is in seconds)
+      const durationSeconds = callData.duration;
+
+      // Prepare update data
+      const updateData = {
+        note: callData.note || "",
+        assumption: callData.assumption || [],
+        assumption2: callData.assumption2 || [],
+        assumption3: callData.assumption3 || [],
+        order_id: callData.order_id || null,
+        duration: durationSeconds, // Send as seconds (number)
+        status: "Completed",
+      };
+
+      console.log("Sending update data:", updateData);
+
+      // Make the PUT request to update existing call log
+      const response = await axios.put(
+        `/api/calllogs/${callLogId}/`,
+        updateData,
+      );
+      return response.data;
     },
     onSuccess: () => {
-        queryClient.invalidateQueries(["customer-details", id]);
-        toast.success("Call log updated successfully");
+      queryClient.invalidateQueries(["customer-details", id]);
+      toast.success("Call log updated successfully");
     },
     onError: (error) => {
-        console.error("Failed to update call log:", error);
-        console.error("Error response:", error.response?.data);
-        toast.error(error.response?.data?.duration?.[0] || error.response?.data?.error || "Failed to update call log");
-        queryClient.invalidateQueries(["customer-details", id]);
+      console.error("Failed to update call log:", error);
+      console.error("Error response:", error.response?.data);
+      toast.error(
+        error.response?.data?.duration?.[0] ||
+          error.response?.data?.error ||
+          "Failed to update call log",
+      );
+      queryClient.invalidateQueries(["customer-details", id]);
     },
-});
+  });
 
   const customer = customerDetails?.customer;
   const summary = customerDetails?.summary;
@@ -301,37 +440,37 @@ const editCallLogMutation = useMutation({
 
   // Edit last call functionality - always uses call log ID for update
   // FIXED: Edit last call function
-const handleEditLastCall = () => {
+  const handleEditLastCall = () => {
     if (callLogs.length > 0) {
-        const recentCall = callLogs[0];
-        
-        console.log("Editing call log:", recentCall);
-        
-        const callData = {
-            // Customer info for display
-            id: customer?.id,  // Customer ID
-            name: customer?.name,
-            surname: customer?.surname,
-            phone: customer?.phone,
-            
-            // Call log data to edit
-            notes: recentCall.note || "",
-            selectedAssumption: recentCall.assumption || [],
-            selectedAssumption2: recentCall.assumption2 || [],
-            selectedAssumption3: recentCall.assumption3 || [],
-            orderId: recentCall.order_id || "",
-            timer: Math.round(recentCall.duration_minutes * 60) || 0,
-            
-            // CRITICAL: IDs for edit mode
-            isEditing: true,           // Flag to indicate edit mode
-            callId: recentCall.call_id, // The call_id string from database
-            dbId: recentCall.id,       // The database primary key
-        };
-        
-        console.log("Opening popup with edit data:", callData);
-        openPopup(callData, editCallLogMutation.mutateAsync);
+      const recentCall = callLogs[0];
+
+      console.log("Editing call log:", recentCall);
+
+      const callData = {
+        // Customer info for display
+        id: customer?.id, // Customer ID
+        name: customer?.name,
+        surname: customer?.surname,
+        phone: customer?.phone,
+
+        // Call log data to edit
+        notes: recentCall.note || "",
+        selectedAssumption: recentCall.assumption || [],
+        selectedAssumption2: recentCall.assumption2 || [],
+        selectedAssumption3: recentCall.assumption3 || [],
+        orderId: recentCall.order_id || "",
+        timer: Math.round(recentCall.duration_minutes * 60) || 0,
+
+        // CRITICAL: IDs for edit mode
+        isEditing: true, // Flag to indicate edit mode
+        callId: recentCall.call_id, // The call_id string from database
+        dbId: recentCall.id, // The database primary key
+      };
+
+      console.log("Opening popup with edit data:", callData);
+      openPopup(callData, editCallLogMutation.mutateAsync);
     }
-};
+  };
 
   if (isLoading)
     return (
@@ -873,7 +1012,10 @@ const handleEditLastCall = () => {
                           // Already handled in onChange, just close
                           setShowAddPhone(false);
                           setNewPhoneNumber("");
-                        } else if (newPhoneNumber.length > 0 && newPhoneNumber.length < 10) {
+                        } else if (
+                          newPhoneNumber.length > 0 &&
+                          newPhoneNumber.length < 10
+                        ) {
                           setPhoneError("Phone number must be 10 digits.");
                         }
                       }}
@@ -899,7 +1041,9 @@ const handleEditLastCall = () => {
                     />
                   </div>
                   {phoneError && (
-                    <div className="text-xs text-red-500 mt-1">{phoneError}</div>
+                    <div className="text-xs text-red-500 mt-1">
+                      {phoneError}
+                    </div>
                   )}
                 </div>
               )}
@@ -1085,10 +1229,7 @@ const handleEditLastCall = () => {
               <div className="flex items-center space-x-2">
                 <input
                   type="date"
-                  value={
-                    customer?.appointment_date ||
-                    ""
-                  }
+                  value={customer?.appointment_date || ""}
                   onChange={(e) => {
                     updateMutation.mutate({ appointment_date: e.target.value });
                   }}
@@ -1645,7 +1786,7 @@ const handleEditLastCall = () => {
 
           {/* Right container - Order History (40%) - Keep exactly as you had */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
-            {/* Order History Section */}
+            {/* Order History Section - Fixed at top */}
             <div className="flex-none">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
@@ -1694,109 +1835,107 @@ const handleEditLastCall = () => {
                 </p>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col mb-4">
-                <div className="flex-1 overflow-y-auto mb-2">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Order ID
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Notes
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          PayStatus
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Paid
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Due
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {orders
-                        .slice(
-                          (ordersPage - 1) * itemsPerPage,
-                          ordersPage * itemsPerPage,
-                        )
-                        .map((order) => (
-                          <tr key={order.id} className="hover:bg-gray-50">
-                            <td className="px-2 py-1 whitespace-nowrap">
-                              <Link
-                                to={`/orders/${order.id}`}
-                                className="text-blue-600 hover:text-blue-900 font-medium text-xs"
-                              >
-                                {order.order_id || `ORD-${order.id}`}
-                              </Link>
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
-                              {new Date(order.order_date).toLocaleDateString()}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap">
-                              <span
-                                className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
-                                  order.status === "Delivered"
-                                    ? "bg-green-100 text-green-800"
-                                    : order.status === "Dispatched"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {order.status}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
-                              {(() => {
-                                const matchingCall = callLogs.find(
-                                  (call) =>
-                                    call.order_id == order.order_id &&
-                                    call.order_placed === "Yes",
+              <div className="flex-none mb-2 max-h-[250px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Order ID
+                      </th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Notes
+                      </th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        PayStatus
+                      </th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Paid
+                      </th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Due
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {orders
+                      .slice(
+                        (ordersPage - 1) * itemsPerPage,
+                        ordersPage * itemsPerPage,
+                      )
+                      .map((order) => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            <Link
+                              to={`/orders/${order.id}`}
+                              className="text-blue-600 hover:text-blue-900 font-medium text-xs"
+                            >
+                              {order.order_id || `ORD-${order.id}`}
+                            </Link>
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                            {new Date(order.order_date).toLocaleDateString()}
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            <span
+                              className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
+                                order.status === "Delivered"
+                                  ? "bg-green-100 text-green-800"
+                                  : order.status === "Dispatched"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                            {(() => {
+                              const matchingCall = callLogs.find(
+                                (call) =>
+                                  call.order_id == order.order_id &&
+                                  call.order_placed === "Yes",
+                              );
+                              if (
+                                matchingCall &&
+                                matchingCall.assumption3_names &&
+                                matchingCall.assumption3_names.length > 0
+                              ) {
+                                return matchingCall.assumption3_names.join(
+                                  ", ",
                                 );
-                                if (
-                                  matchingCall &&
-                                  matchingCall.assumption3_names &&
-                                  matchingCall.assumption3_names.length > 0
-                                ) {
-                                  return matchingCall.assumption3_names.join(
-                                    ", ",
-                                  );
-                                }
-                                return "-";
-                              })()}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
-                              {order.payment_status}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
-                              ₹{order.total_amount}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
-                              ₹{order.paid_amount}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
-                              ₹{order.total_amount - order.paid_amount}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
+                              }
+                              return "-";
+                            })()}
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                            {order.payment_status}
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                            ₹{order.total_amount}
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                            ₹{order.paid_amount}
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                            ₹{order.total_amount - order.paid_amount}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
 
                 {/* Pagination for Orders */}
                 {orders.length > itemsPerPage && (
-                  <div className="flex-none flex justify-between items-center mt-2">
+                  <div className="flex justify-between items-center mt-2">
                     <button
                       onClick={() => setOrdersPage(Math.max(1, ordersPage - 1))}
                       disabled={ordersPage === 1}
@@ -1830,15 +1969,270 @@ const handleEditLastCall = () => {
             )}
 
             {/* Divider */}
-            <div className="flex-none border-t border-gray-200 my-4"></div>
+            <div className="flex-none border-t border-gray-200 my-1"></div>
+
+            {/* Toggle Section */}
+            <div className="flex-none mb-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setShowOldOrderHistory(true)}
+                    className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${
+                      showOldOrderHistory
+                        ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/25"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    <FileText className="h-3 w-3 inline mr-2" />
+                    Old Order History
+                  </button>
+                  <button
+                    onClick={() => setShowOldOrderHistory(false)}
+                    className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${
+                      !showOldOrderHistory
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Phone className="h-3 w-3 inline mr-2" />
+                    Call History
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAddOldOrder(!showAddOldOrder);
+                    setEditingOldOrder(null);
+                    setOldOrderForm({ date: "", notes: "", amount: "" });
+                  }}
+                  className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-medium rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm"
+                >
+                  <Plus className="h-3 w-3 mr-2" />
+                  Add Old Order
+                </button>
+                <div className="text-sm text-gray-500">
+                  {showOldOrderHistory
+                    ? `${oldOrders.length} old order${oldOrders.length !== 1 ? "s" : ""}`
+                    : `${callLogs.length} call${callLogs.length !== 1 ? "s" : ""}`}
+                </div>
+              </div>
+            </div>
+
+            {/* Old Order History Section */}
+            {showOldOrderHistory && (
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Add Form - Only show for admin */}
+                {(showAddOldOrder || editingOldOrder) && isAdmin && (
+                  <div className="flex-none mb-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={oldOrderForm.date}
+                          onChange={(e) =>
+                            setOldOrderForm({
+                              ...oldOrderForm,
+                              date: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Amount * (₹)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={oldOrderForm.amount}
+                          onChange={(e) =>
+                            setOldOrderForm({
+                              ...oldOrderForm,
+                              amount: e.target.value,
+                            })
+                          }
+                          placeholder="Enter amount"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Notes
+                        </label>
+                        <input
+                          type="text"
+                          value={oldOrderForm.notes}
+                          onChange={(e) =>
+                            setOldOrderForm({
+                              ...oldOrderForm,
+                              notes: e.target.value,
+                            })
+                          }
+                          placeholder="Optional notes"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-1 flex justify-end space-x-2">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={
+                          editingOldOrder
+                            ? handleUpdateOldOrder
+                            : handleAddOldOrder
+                        }
+                        disabled={
+                          addOldOrderMutation.isPending ||
+                          updateOldOrderMutation.isPending
+                        }
+                        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-colors disabled:opacity-50"
+                      >
+                        {editingOldOrder ? "Update" : "Add"} Old Order
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Old Orders Table */}
+                {oldOrders.length === 0 ? (
+                  <div className="flex-1 flex flex-col justify-center items-center py-12">
+                    <svg
+                      className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <p className="text-gray-500 text-lg">
+                      No old orders found for this customer.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 overflow-y-auto mb-2">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Date
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Notes
+                            </th>
+                            <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Amount
+                            </th>
+                            {/* Only show Actions column for admin */}
+                            {isAdmin && (
+                              <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {oldOrders
+                            .slice(
+                              (oldOrdersPage - 1) * itemsPerPage,
+                              oldOrdersPage * itemsPerPage,
+                            )
+                            .map((order) => (
+                              <tr key={order.id} className="hover:bg-gray-50">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-900">
+                                  {new Date(order.date).toLocaleDateString()}
+                                </td>
+                                <td className="px-2 py-1 text-sm text-gray-900 max-w-md">
+                                  {order.notes || "-"}
+                                </td>
+                                <td className="px-2 py-1 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
+                                  ₹{parseFloat(order.amount).toFixed(2)}
+                                </td>
+                                {/* Only show action buttons for admin */}
+                                {isAdmin && (
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm font-medium text-right">
+                                    <button
+                                      onClick={() => handleEditOldOrder(order)}
+                                      className="text-blue-600 hover:text-blue-900 mr-3"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleDeleteOldOrder(order.id)
+                                      }
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination for Old Orders */}
+                    {oldOrders.length > itemsPerPage && (
+                      <div className="flex-none flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+                        <button
+                          onClick={() =>
+                            setOldOrdersPage(Math.max(1, oldOrdersPage - 1))
+                          }
+                          disabled={oldOrdersPage === 1}
+                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm text-gray-600">
+                          Page {oldOrdersPage} of{" "}
+                          {Math.ceil(oldOrders.length / itemsPerPage)}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setOldOrdersPage(
+                              Math.min(
+                                Math.ceil(oldOrders.length / itemsPerPage),
+                                oldOrdersPage + 1,
+                              ),
+                            )
+                          }
+                          disabled={
+                            oldOrdersPage ===
+                            Math.ceil(oldOrders.length / itemsPerPage)
+                          }
+                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Call History Section */}
-            <div className="flex-none">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
+            {!showOldOrderHistory && (
+              <div className="flex-1 flex flex-col min-h-0">
+                {callLogs.length === 0 ? (
+                  <div className="flex-1 flex flex-col justify-center items-center py-12">
                     <svg
-                      className="w-6 h-6 text-white"
+                      className="w-16 h-16 text-gray-300 mx-auto mb-4"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1850,133 +2244,112 @@ const handleEditLastCall = () => {
                         d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                       />
                     </svg>
+                    <p className="text-gray-500 text-lg">
+                      No call logs found for this customer.
+                    </p>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Call History
-                  </h2>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {callLogs.length} call{callLogs.length !== 1 ? "s" : ""}
-                </div>
-              </div>
-            </div>
-
-            {callLogs.length === 0 ? (
-              <div className="flex-1 flex flex-col justify-center items-center py-4">
-                <svg
-                  className="w-12 h-12 text-gray-300 mb-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                  />
-                </svg>
-                <p className="text-gray-500 text-sm">
-                  No call logs found for this customer.
-                </p>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col">
-                <div className="flex-1 overflow-y-auto mb-2">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Employee
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Duration
-                        </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {callLogs
-                        .slice(
-                          (callLogsPage - 1) * itemsPerPage,
-                          callLogsPage * itemsPerPage,
-                        )
-                        .map((call) => (
-                          <tr key={call.id} className="hover:bg-gray-50">
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
-                              {new Date(call.date).toLocaleDateString()}
-                              <br />
-                              <span className="text-gray-500 text-xs">
-                                {new Date(call.date).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
-                              {call.employee_name || "Unknown"}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
-                              {formatDuration(call.duration_minutes)}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap">
-                              <span
-                                className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
-                                  call.status === "Completed"
-                                    ? "bg-green-100 text-green-800"
-                                    : call.status === "Follow-up"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {call.status}
-                              </span>
-                            </td>
+                ) : (
+                  <>
+                    <div className="flex-1 overflow-y-auto mb-2">
+                      <table className="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Date
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Employee
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Duration
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Status
+                            </th>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {callLogs
+                            .slice(
+                              (callLogsPage - 1) * itemsPerPage,
+                              callLogsPage * itemsPerPage,
+                            )
+                            .map((call) => (
+                              <tr key={call.id} className="hover:bg-gray-50">
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                                  {new Date(call.date).toLocaleDateString()}
+                                  <br />
+                                  <span className="text-gray-500 text-xs">
+                                    {new Date(call.date).toLocaleTimeString(
+                                      [],
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      },
+                                    )}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                                  {call.employee_name || "Unknown"}
+                                </td>
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                                  {formatDuration(call.duration_minutes)}
+                                </td>
+                                <td className="px-2 py-1 whitespace-nowrap">
+                                  <span
+                                    className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
+                                      call.status === "Completed"
+                                        ? "bg-green-100 text-green-800"
+                                        : call.status === "Follow-up"
+                                          ? "bg-yellow-100 text-yellow-800"
+                                          : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {call.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
 
-                {/* Pagination for Call Logs */}
-                {callLogs.length > itemsPerPage && (
-                  <div className="flex-none flex justify-between items-center mt-2">
-                    <button
-                      onClick={() =>
-                        setCallLogsPage(Math.max(1, callLogsPage - 1))
-                      }
-                      disabled={callLogsPage === 1}
-                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-xs text-gray-600">
-                      Page {callLogsPage} of{" "}
-                      {Math.ceil(callLogs.length / itemsPerPage)}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setCallLogsPage(
-                          Math.min(
-                            Math.ceil(callLogs.length / itemsPerPage),
-                            callLogsPage + 1,
-                          ),
-                        )
-                      }
-                      disabled={
-                        callLogsPage ===
-                        Math.ceil(callLogs.length / itemsPerPage)
-                      }
-                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
+                    {/* Pagination for Call Logs */}
+                    {callLogs.length > itemsPerPage && (
+                      <div className="flex-none flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+                        <button
+                          onClick={() =>
+                            setCallLogsPage(Math.max(1, callLogsPage - 1))
+                          }
+                          disabled={callLogsPage === 1}
+                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm text-gray-600">
+                          Page {callLogsPage} of{" "}
+                          {Math.ceil(callLogs.length / itemsPerPage)}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setCallLogsPage(
+                              Math.min(
+                                Math.ceil(callLogs.length / itemsPerPage),
+                                callLogsPage + 1,
+                              ),
+                            )
+                          }
+                          disabled={
+                            callLogsPage ===
+                            Math.ceil(callLogs.length / itemsPerPage)
+                          }
+                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

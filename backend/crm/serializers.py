@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -289,6 +289,11 @@ class OrderSerializer(serializers.ModelSerializer):
             'applied_combos': {'required': False}
         }
 
+class OldOrderHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OldOrderHistory
+        fields = ['id', 'customer', 'date', 'notes', 'amount', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
 class CustomerAssumptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerAssumption

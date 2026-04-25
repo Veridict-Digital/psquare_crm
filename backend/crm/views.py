@@ -16,8 +16,8 @@ import io
 from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing
-from .serializers import UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory
+from .serializers import OldOrderHistorySerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -742,6 +742,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         # Get call logs for this customer
         call_logs = CallLog.objects.filter(customer=customer).select_related('employee').order_by('-date')
+
+        old_order_histories = OldOrderHistory.objects.filter(customer=customer).order_by('-date')
         
         # For non-admin, only show their own call logs
         if user.role != 'Admin':
@@ -802,6 +804,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             },
             'call_logs': call_logs_data,
             'orders': orders_data,
+            'old_order_histories': OldOrderHistorySerializer(old_order_histories, many=True).data,
         })
 
     @action(detail=True, methods=['post'])
@@ -1348,6 +1351,29 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+# ========== OLD ORDER HISTORY VIEWSETS ==========
+class OldOrderHistoryViewSet(viewsets.ModelViewSet):
+    serializer_class = OldOrderHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = OldOrderHistory.objects.all()
+        customer_id = self.request.query_params.get('customer_id')
+        if customer_id:
+            queryset = queryset.filter(customer_id=customer_id)
+        return queryset.order_by('-date')
+
+    def perform_create(self, serializer):
+        customer_id = self.request.data.get('customer')
+        if customer_id:
+            try:
+                customer = Customer.objects.get(id=customer_id)
+                serializer.save(customer=customer)
+            except Customer.DoesNotExist:
+                raise serializers.ValidationError({'customer': 'Customer does not exist'})
+        else:
+            raise serializers.ValidationError({'customer': 'Customer is required'})
 
 # ========== CUSTOMER ASSUMPTION VIEWSETS ==========
 class CustomerAssumptionViewSet(viewsets.ModelViewSet):
