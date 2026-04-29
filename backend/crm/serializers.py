@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory
+from .models import BrandCategory1, Flavour, Residual, User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -81,9 +81,16 @@ class ProductSerializer(serializers.ModelSerializer):
     category2_display = serializers.CharField(source='category2.name', read_only=True, allow_null=True)
     category3_display = serializers.CharField(source='category3.name', read_only=True, allow_null=True)
     category4_display = serializers.CharField(source='category4.name', read_only=True, allow_null=True)
-
+    
     brand_display = serializers.CharField(source='brand.name', read_only=True)
     brand_category_display = serializers.CharField(source='brand_category.name', read_only=True)
+    
+    # ADD THESE NEW FIELDS for the frontend filters
+    flavour_display = serializers.CharField(source='flavour.name', read_only=True, allow_null=True)
+    residual_display = serializers.CharField(source='residual.name', read_only=True, allow_null=True)
+    brand_category1_display = serializers.CharField(source='brand_category1.name', read_only=True, allow_null=True)
+    unit_display = serializers.CharField(source='unit', read_only=True, allow_null=True)
+    packing_weight_unit_display = serializers.CharField(source='packing_weight_unit.name', read_only=True)
     
     class Meta:
         model = Product
@@ -91,8 +98,21 @@ class ProductSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'cost': {'write_only': True},
             'image': {'required': False, 'allow_null': True},
-            'brand': {'required': False, 'allow_null': True},  # Changed from brand_name
-            'brand_category': {'required': False, 'allow_null': True},  # Changed from brand_category
+            'brand': {'required': False, 'allow_null': True},
+            'brand_category': {'required': False, 'allow_null': True},
+            'flavour': {'required': False, 'allow_null': True},
+            'residual': {'required': False, 'allow_null': True},
+            'brand_category1': {'required': False, 'allow_null': True},
+            'pointer1': {'required': False, 'allow_null': True},
+            'pointer2': {'required': False, 'allow_null': True},
+            'pointer3': {'required': False, 'allow_null': True},
+            'pointer4': {'required': False, 'allow_null': True},
+            'pointer5': {'required': False, 'allow_null': True},
+            'length_cm': {'required': False, 'allow_null': True},
+            'breadth_cm': {'required': False, 'allow_null': True},
+            'height_cm': {'required': False, 'allow_null': True},
+            'packing_weight': {'required': False, 'allow_null': True},
+            'packing_weight_unit': {'required': False, 'allow_null': True},
         }
 
     def to_representation(self, instance):
@@ -102,10 +122,40 @@ class ProductSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request:
                 response['image'] = request.build_absolute_uri(instance.image.url)
+        
+        # Ensure unit is properly handled
+        if instance.unit:
+            if hasattr(instance.unit, 'name'):
+                response['unit_display'] = instance.unit.name
+                response['unit'] = instance.unit.name
+            else:
+                response['unit_display'] = instance.unit
+                response['unit'] = instance.unit
+        else:
+            response['unit_display'] = ''
+            response['unit'] = ''
+        
+        # Ensure flavour is properly handled
+        if instance.flavour:
+            response['flavour_display'] = instance.flavour.name
+        else:
+            response['flavour_display'] = ''
+        
+        # Ensure residual is properly handled
+        if instance.residual:
+            response['residual_display'] = instance.residual.name
+        else:
+            response['residual_display'] = ''
+        
+        # Ensure brand_category1 is properly handled
+        if instance.brand_category1:
+            response['brand_category1_display'] = instance.brand_category1.name
+        else:
+            response['brand_category1_display'] = ''
+        
         return response
 
 # ProductPricing Serializer
-# ProductPricing Serializer - FIXED VERSION
 class ProductPricingSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
@@ -117,6 +167,13 @@ class ProductPricingSerializer(serializers.ModelSerializer):
     product_weight = serializers.CharField(source='product.product_weight', read_only=True)
     unit = serializers.CharField(source='product.unit', read_only=True)
     hsn = serializers.CharField(source='product.hsn', read_only=True)
+    
+    # ADD THESE NEW FIELDS
+    flavour_display = serializers.CharField(source='product.flavour.name', read_only=True, allow_null=True)
+    residual_display = serializers.CharField(source='product.residual.name', read_only=True, allow_null=True)
+    brand_category1_display = serializers.CharField(source='product.brand_category1.name', read_only=True, allow_null=True)
+    gst_rate_display = serializers.CharField(source='product.gst_rate.rate', read_only=True, allow_null=True)
+    unit_display = serializers.CharField(source='product.unit', read_only=True)
 
     class Meta:
         model = ProductPricing
@@ -124,6 +181,8 @@ class ProductPricingSerializer(serializers.ModelSerializer):
             'id', 'product', 'product_title', 'product_sku', 'category_display',
             'category1_display', 'category2_display', 'category3_display', 'category4_display',
             'product_weight', 'unit', 'hsn',
+            'flavour_display', 'residual_display', 'brand_category1_display', 
+            'gst_rate_display', 'unit_display',  # ADD THESE
             # Cost components
             'purchase_type', 'purchase_value',
             'transport_type', 'transport_value',
@@ -131,21 +190,22 @@ class ProductPricingSerializer(serializers.ModelSerializer):
             'handling_type', 'handling_value',
             'godown_type', 'godown_value',
             'delivery_type', 'delivery_value',
-            'packaging_type', 'packaging_value',  # ✅ ADDED
-            'extra1_type', 'extra1_value',        # ✅ ADDED
-            'extra2_type', 'extra2_value',        # ✅ ADDED
+            'packaging_type', 'packaging_value',
+            'extra1_type', 'extra1_value',
+            'extra2_type', 'extra2_value',
             'landing_type', 'landing_value',
             'company_margin_type', 'company_margin_value',
             # Computed
             'landing_rate', 'calculated_rate', 'sale_rate', 'mrp', 'mfg_date', 'batch_no',
             'created_at', 'updated_at'
-
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'landing_rate', 'calculated_rate', 
             'hsn', 'product_title', 'product_sku', 'category_display', 
             'category1_display', 'category2_display', 'category3_display', 
-            'category4_display', 'product_weight', 'unit'
+            'category4_display', 'product_weight', 'unit',
+            'flavour_display', 'residual_display', 'brand_category1_display', 
+            'gst_rate_display', 'unit_display'  # ADD THESE
         ]
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -158,6 +218,29 @@ class BrandCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = BrandCategory
         fields = ['id', 'name', 'description']
+
+class FlavourSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Flavour
+        fields = ['id', 'name', 'description', 'is_active']
+
+
+class ResidualSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Residual
+        fields = ['id', 'name', 'description', 'is_active']
+
+
+class BrandCategory1Serializer(serializers.ModelSerializer):
+    parent_name = serializers.CharField(source='parent.name', read_only=True)
+    children_count = serializers.SerializerMethodField()
+    
+    def get_children_count(self, obj):
+        return obj.children.count()
+    
+    class Meta:
+        model = BrandCategory1
+        fields = ['id', 'name', 'description', 'parent', 'parent_name', 'is_active', 'children_count', 'created_at', 'updated_at']
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_title = serializers.CharField(source='product.title', read_only=True)
@@ -402,6 +485,8 @@ class CombinationGiftSerializer(serializers.ModelSerializer):
         model = CombinationGift
         fields = ['id', 'product', 'product_title', 'quantity']
 
+# In serializers.py - Update ProductCombinationSerializer
+
 class ProductCombinationSerializer(serializers.ModelSerializer):
     items = CombinationItemSerializer(many=True, read_only=True)
     rewards = CombinationRewardSerializer(many=True, read_only=True)
@@ -427,12 +512,28 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductCombination
-        fields = ['id', 'name', 'description', 'is_active', 'created_at', 'combo_weight', 'curriar_purchase_point', 'curriar_dispatch_point', 'items', 'rewards', 'gifts', 'items_data', 'rewards_data', 'gifts_data']
+        fields = [
+            'id', 'name', 'description', 'is_active', 'created_at', 
+            'combo_weight', 'curriar_purchase_point', 'curriar_dispatch_point',
+            'parking_charge_type', 'parking_charge_value',
+            'transportation_charge_type', 'transportation_charge_value',
+            'handling_charge_type', 'handling_charge_value',
+            'delivery_charge_type', 'delivery_charge_value',
+            'extra_charge_type', 'extra_charge_value',
+            'total_charges', 'final_combo_price','manual_combo_price',
+            'items', 'rewards', 'gifts', 
+            'items_data', 'rewards_data', 'gifts_data'
+        ]
 
     def create(self, validated_data):
         items_data = validated_data.pop('items_data', [])
         rewards_data = validated_data.pop('rewards_data', [])
         gifts_data = validated_data.pop('gifts_data', [])
+        
+        # Calculate total charges and final price
+        # You can add calculation logic here or in the model save method
+        validated_data['total_charges'] = 0  # Will be calculated
+        validated_data['final_combo_price'] = 0  # Will be calculated
 
         combination = ProductCombination.objects.create(**validated_data)
 
@@ -463,10 +564,12 @@ class ProductCombinationSerializer(serializers.ModelSerializer):
         # Create combination gifts
         for gift_data in gifts_data:
             product_id = gift_data.get('product')
+            quantity = gift_data.get('quantity', 1)
             if product_id:
                 CombinationGift.objects.create(
                     combination=combination,
-                    product_id=int(product_id)
+                    product_id=int(product_id),
+                    quantity=quantity
                 )
 
         return combination

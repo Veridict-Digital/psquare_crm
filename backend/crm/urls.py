@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, UnitViewSet, CustomerTypeViewSet, BrandViewSet, BrandCategoryViewSet, ProductPricingViewSet, PhoneViewSet, OldOrderHistoryViewSet
+from .views import FlavourViewSet, PackingUnitViewSet, ResidualViewSet, UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, UnitViewSet, CustomerTypeViewSet, BrandViewSet, BrandCategoryViewSet,BrandCategory1ViewSet, ProductPricingViewSet, PhoneViewSet, OldOrderHistoryViewSet
 from .auth_views import send_registration_otp, verify_registration_otp, send_password_reset_otp, verify_password_reset_otp
 
 router = DefaultRouter()
@@ -19,10 +19,14 @@ router.register(r'categories', CategoryViewSet)
 # In your urls.py, register the new viewsets
 router.register(r'brands', BrandViewSet, basename='brand')
 router.register(r'brand-categories', BrandCategoryViewSet, basename='brand-category')
+router.register(r'flavours', FlavourViewSet)
+router.register(r'residuals', ResidualViewSet)
+router.register(r'brand-categories-1', BrandCategory1ViewSet)
 router.register(r'organizationtypes', OrganizationTypeViewSet)
 router.register(r'gstrates', GSTRateViewSet)
 router.register(r'productcombinations', ProductCombinationViewSet)
-router.register(r'units', UnitViewSet)
+router.register(r'units', UnitViewSet , basename='unit')
+router.register(r'packing-units', PackingUnitViewSet , basename='packing-unit')
 router.register(r'customertypes', CustomerTypeViewSet)
 router.register(r'productpricings', ProductPricingViewSet)
 router.register(r'phones', PhoneViewSet)

@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.pagination import PageNumberPagination
-from .models import Category
+from .models import BrandCategory1, Category, Flavour, Residual
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 import pandas as pd
@@ -17,7 +17,7 @@ from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
 from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory
-from .serializers import OldOrderHistorySerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer
+from .serializers import BrandCategory1Serializer, FlavourSerializer, OldOrderHistorySerializer, ResidualSerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -1270,6 +1270,35 @@ class BrandCategoryViewSet(viewsets.ModelViewSet):
     serializer_class = BrandCategorySerializer
     permission_classes = [IsAuthenticated]
 
+class FlavourViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing flavours"""
+    queryset = Flavour.objects.filter(is_active=True)
+    serializer_class = FlavourSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class ResidualViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing residuals"""
+    queryset = Residual.objects.filter(is_active=True)
+    serializer_class = ResidualSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class BrandCategory1ViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing brand category 1"""
+    queryset = BrandCategory1.objects.filter(is_active=True)
+    serializer_class = BrandCategory1Serializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = BrandCategory1.objects.filter(is_active=True)
+        parent_id = self.request.query_params.get('parent_id')
+        if parent_id:
+            queryset = queryset.filter(parent_id=parent_id)
+        else:
+            queryset = queryset.filter(parent__isnull=True)
+        return queryset
+
 
 # ========== ORDER VIEWSET ==========
 class OrderViewSet(viewsets.ModelViewSet):
@@ -1704,10 +1733,22 @@ class ProductCombinationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 # ========== UNIT VIEWSET ==========
+# views.py - Update both ViewSets
 class UnitViewSet(viewsets.ModelViewSet):
-    queryset = Unit.objects.filter(is_active=True)
+    """Product units only"""
     serializer_class = UnitSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Unit.objects.filter(is_active=True, unit_type__in=['product', 'both'])
+
+class PackingUnitViewSet(viewsets.ModelViewSet):
+    """Packing units only"""
+    serializer_class = UnitSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Unit.objects.filter(is_active=True, unit_type__in=['packing', 'both'])
 
 class ProductPricingViewSet(viewsets.ModelViewSet):
     queryset = ProductPricing.objects.select_related('product__category', 'product__gst_rate').all()

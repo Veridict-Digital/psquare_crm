@@ -130,9 +130,16 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+# models.py - Update the Unit model
 class Unit(models.Model):
+    UNIT_TYPE_CHOICES = [
+        ('product', 'Product Unit'),
+        ('packing', 'Packing Unit'),
+        ('both', 'Both'),
+    ]
     name = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True, null=True)
+    unit_type = models.CharField(max_length=10, choices=UNIT_TYPE_CHOICES, default='both')
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -181,6 +188,57 @@ class BrandCategory(models.Model):
     def __str__(self):
         return self.name
 
+
+# Add these new models after your existing BrandCategory model
+
+class Flavour(models.Model):
+    """Flavour model - similar to Brand"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'flavours'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class Residual(models.Model):
+    """Residual model - similar to Brand"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'residuals'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class BrandCategory1(models.Model):
+    """Brand Category 1 model - second level brand category"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'brand_categories_1'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
 class Product(models.Model):
 
     pid = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Product ID
@@ -200,6 +258,7 @@ class Product(models.Model):
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Purchase Price (formerly cost)
     product_volume = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Product Volume
     unit = models.CharField(max_length=20, blank=True, null=True)  # Unit (e.g., kg, liter, piece)
+    packing_weight_unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name='packing_weight_products')
     product_weight = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Product Weight
     gst_rate = models.ForeignKey(GSTRate, on_delete=models.SET_NULL, null=True, blank=True)
     gst_calculated_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # GST Calculated Amount
@@ -212,8 +271,22 @@ class Product(models.Model):
     video_link = models.URLField(max_length=500, blank=True, null=True)
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     brand_category = models.ForeignKey(BrandCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
-    flavour = models.CharField(max_length=100, blank=True, null=True)
-    residual = models.CharField(max_length=100, blank=True, null=True)
+    flavour = models.ForeignKey('Flavour', on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    residual = models.ForeignKey('Residual', on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    brand_category1 = models.ForeignKey('BrandCategory1', on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+        # Add 5 pointer fields for product highlights/features
+    pointer1 = models.CharField(max_length=500, blank=True, null=True)
+    pointer2 = models.CharField(max_length=500, blank=True, null=True)
+    pointer3 = models.CharField(max_length=500, blank=True, null=True)
+    pointer4 = models.CharField(max_length=500, blank=True, null=True)
+    pointer5 = models.CharField(max_length=500, blank=True, null=True)
+    # Add dimension fields (in cm)
+    length_cm = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Length in centimeters")
+    breadth_cm = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Breadth/Width in centimeters")
+    height_cm = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Height in centimeters")
+    
+    # Add packing weight field
+    packing_weight = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Packing weight in same unit as product_weight")
 
 
     def save(self, *args, **kwargs):
@@ -557,6 +630,27 @@ class ProductCombination(models.Model):
     combo_weight = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     curriar_purchase_point = models.CharField(max_length=100, blank=True, null=True)
     curriar_dispatch_point = models.CharField(max_length=100, blank=True, null=True)
+    # New charge fields with type and value
+    parking_charge_type = models.CharField(max_length=10, choices=[('percent', '%'), ('rupees', '₹')], default='rupees')
+    parking_charge_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    transportation_charge_type = models.CharField(max_length=10, choices=[('percent', '%'), ('rupees', '₹')], default='rupees')
+    transportation_charge_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    handling_charge_type = models.CharField(max_length=10, choices=[('percent', '%'), ('rupees', '₹')], default='rupees')
+    handling_charge_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    delivery_charge_type = models.CharField(max_length=10, choices=[('percent', '%'), ('rupees', '₹')], default='rupees')
+    delivery_charge_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    extra_charge_type = models.CharField(max_length=10, choices=[('percent', '%'), ('rupees', '₹')], default='rupees')
+    extra_charge_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Computed total charges field (optional)
+    total_charges = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    final_combo_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    manual_combo_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
 
 
     def __str__(self):
