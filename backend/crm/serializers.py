@@ -92,6 +92,9 @@ class ProductSerializer(serializers.ModelSerializer):
     unit_display = serializers.CharField(source='unit', read_only=True, allow_null=True)
     packing_weight_unit_display = serializers.CharField(source='packing_weight_unit.name', read_only=True)
     
+    # ADD THIS FIELD - This is the important one for the frontend!
+    packing_weight_unit_id = serializers.IntegerField(source='packing_weight_unit.id', read_only=True, allow_null=True)
+    
     class Meta:
         model = Product
         fields = '__all__'
@@ -152,6 +155,14 @@ class ProductSerializer(serializers.ModelSerializer):
             response['brand_category1_display'] = instance.brand_category1.name
         else:
             response['brand_category1_display'] = ''
+        
+        # Ensure packing_weight_unit_id is properly set
+        if instance.packing_weight_unit:
+            response['packing_weight_unit_id'] = instance.packing_weight_unit.id
+            response['packing_weight_unit_display'] = instance.packing_weight_unit.name
+        else:
+            response['packing_weight_unit_id'] = None
+            response['packing_weight_unit_display'] = None
         
         return response
 

@@ -1,29 +1,904 @@
-import React, { useState, useEffect } from "react";
-import axios from "../api/axios";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import {
+  Search,
+  Save,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
   Plus,
   Trash2,
   Edit,
-  Save,
   X,
-  Calculator,
+  Percent,
   Package,
-  DollarSign,
-  TrendingUp,
-  ShoppingCart,
 } from "lucide-react";
+import axios from "../api/axios";
+import { toast } from "react-hot-toast";
+import { useSidebar } from "../context/SidebarContext";
+
+// Constants for column widths
+const COLUMN_WIDTHS = {
+  COMBO_NAME: 100,
+  PAID_ITEMS: 100,
+  FREE_ITEMS: 200,
+  CHARGES: 180,
+  COST_BREAKDOWN: 280,
+};
+
+const STICKY_POSITIONS = {
+  COMBO_NAME: 0,
+  PAID_ITEMS: COLUMN_WIDTHS.COMBO_NAME,
+  FREE_ITEMS: COLUMN_WIDTHS.COMBO_NAME + COLUMN_WIDTHS.PAID_ITEMS,
+};
+
+// Define editable fields for the combo table
+const EDITABLE_FIELDS = [
+  {
+    key: "manual_combo_price",
+    group: "costBreakdown",
+    label: "Manual Price",
+    type: "currency",
+  },
+  {
+    key: "parking_charge_value",
+    group: "charges",
+    label: "Packing",
+    type: "currency_percentage",
+  },
+  {
+    key: "transportation_charge_value",
+    group: "charges",
+    label: "Extra 1",
+    type: "currency_percentage",
+  },
+  {
+    key: "handling_charge_value",
+    group: "charges",
+    label: "Handling",
+    type: "currency_percentage",
+  },
+  {
+    key: "delivery_charge_value",
+    group: "charges",
+    label: "Delivery",
+    type: "currency_percentage",
+  },
+  {
+    key: "extra_charge_value",
+    group: "charges",
+    label: "Extra",
+    type: "currency_percentage",
+  },
+];
+
+const GROUP_CONFIG = {
+  charges: {
+    fields: [
+      "parking_charge_value",
+      "transportation_charge_value",
+      "handling_charge_value",
+      "delivery_charge_value",
+      "extra_charge_value",
+    ],
+    position: STICKY_POSITIONS.CHARGES,
+    label: "Charges",
+    width: COLUMN_WIDTHS.CHARGES,
+  },
+  costBreakdown: {
+    fields: ["manual_combo_price"],
+    position: STICKY_POSITIONS.COST_BREAKDOWN,
+    label: "Cost Breakdown",
+    width: COLUMN_WIDTHS.COST_BREAKDOWN,
+  },
+};
+
+// ExcelCell component - defined outside ProductCombinations
+const ExcelCell = ({
+  value,
+  type = "text",
+  currentType = "rupees",
+  onEdit,
+  onTypeToggle,
+  onBlur,
+  onDoubleClick,
+  onKeyDown,
+  isEditing,
+  inputRef: externalRef,
+  placeholder,
+  hasError,
+  errorMessage,
+}) => {
+  const [inputValue, setInputValue] = useState(value);
+  const [focusOnToggle, setFocusOnToggle] = useState(false);
+  const localRef = useRef(null);
+  const toggleRef = useRef(null);
+  const hasSavedRef = useRef(false);
+  // Add this with your other state declarations;
+
+  const saveCurrentValue = useCallback(() => {
+    if (hasSavedRef.current) return;
+
+    if (type === "text") {
+      onEdit(inputValue);
+      hasSavedRef.current = true;
+    } else {
+      const numValue = parseFloat(inputValue);
+      if (!isNaN(numValue)) {
+        onEdit(numValue);
+        hasSavedRef.current = true;
+      } else if (
+        inputValue === "" ||
+        inputValue === null ||
+        inputValue === undefined
+      ) {
+        onEdit(0);
+        hasSavedRef.current = true;
+      }
+    }
+  }, [inputValue, type, onEdit]);
+
+  const handleChange = useCallback((e) => {
+    setInputValue(e.target.value);
+    hasSavedRef.current = false;
+  }, []);
+
+  // Handle keyboard navigation for charge fields
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (!focusOnToggle) {
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          (e.key === "ArrowUp" || e.key === "ArrowDown")
+        ) {
+          e.preventDefault();
+          if (onTypeToggle) {
+            onTypeToggle();
+            setTimeout(() => {
+              const refToUse = externalRef || localRef;
+              if (refToUse?.current) refToUse.current.focus();
+            }, 10);
+          }
+          return;
+        }
+
+        if (
+          ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)
+        ) {
+          e.preventDefault();
+          saveCurrentValue();
+          onBlur();
+          setTimeout(() => onKeyDown(e), 10);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          saveCurrentValue();
+          onBlur();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          setInputValue(value);
+          onBlur();
+        } else if (e.key === "Tab") {
+          saveCurrentValue();
+          onBlur();
+          setTimeout(() => onKeyDown(e), 10);
+        } else {
+          onKeyDown(e);
+        }
+      }
+    },
+    [
+      focusOnToggle,
+      saveCurrentValue,
+      onBlur,
+      onKeyDown,
+      value,
+      onTypeToggle,
+      externalRef,
+    ],
+  );
+
+  const handleBlur = useCallback(() => {
+    if (!focusOnToggle) {
+      saveCurrentValue();
+      onBlur();
+    }
+  }, [focusOnToggle, saveCurrentValue, onBlur]);
+
+  const handleToggleKeyDown = useCallback(
+    (e) => {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        onTypeToggle();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setFocusOnToggle(false);
+        saveCurrentValue();
+        onBlur();
+        setTimeout(() => onKeyDown(e), 10);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setFocusOnToggle(false);
+        setTimeout(() => {
+          const refToUse = externalRef || localRef;
+          if (refToUse?.current) refToUse.current.focus();
+        }, 10);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        onTypeToggle();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setFocusOnToggle(false);
+        setInputValue(value);
+        onBlur();
+      }
+    },
+    [onTypeToggle, saveCurrentValue, onBlur, onKeyDown, externalRef, value],
+  );
+
+  const handleToggleClick = useCallback(
+    (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onTypeToggle();
+      setTimeout(() => {
+        if (toggleRef.current) toggleRef.current.focus();
+      }, 10);
+    },
+    [onTypeToggle],
+  );
+
+  const getDisplayValue = useCallback(() => {
+    if (value === undefined || value === null || value === "") {
+      return placeholder ? (
+        <span className="text-gray-400 italic">{placeholder}</span>
+      ) : (
+        ""
+      );
+    }
+    switch (type) {
+      case "percentage":
+        return `${Number(value).toFixed(2)}%`;
+      case "currency":
+        return `₹${Number(value).toFixed(2)}`;
+      case "currency_percentage":
+        if (currentType === "percent") return `${Number(value).toFixed(2)}%`;
+        return `₹${Number(value).toFixed(2)}`;
+      default:
+        return value;
+    }
+  }, [value, type, currentType, placeholder]);
+
+  // Reset input value when editing starts
+  useEffect(() => {
+    if (isEditing) {
+      setInputValue(value);
+      hasSavedRef.current = false;
+    }
+  }, [isEditing, value]);
+
+  // Focus when editing starts
+  useEffect(() => {
+    if (isEditing) {
+      const refToUse = externalRef || localRef;
+      setTimeout(() => {
+        if (refToUse?.current) {
+          refToUse.current.focus();
+          refToUse.current.select();
+        }
+      }, 10);
+    }
+  }, [isEditing, externalRef]);
+
+  if (!isEditing) {
+    return (
+      <div
+        onDoubleClick={onDoubleClick}
+        className={`cursor-pointer px-2 py-1 rounded min-w-[100px] flex items-center justify-between gap-2 ${hasError ? "bg-red-50" : "hover:bg-blue-50"}`}
+        style={{ minHeight: "34px", height: "34px", transition: "none" }}
+      >
+        <span
+          className={`text-sm font-medium truncate ${hasError ? "text-red-600" : "text-gray-900"}`}
+        >
+          {getDisplayValue()}
+        </span>
+        {onTypeToggle &&
+          (currentType === "percent" || currentType === "rupees") && (
+            <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 flex-shrink-0">
+              {currentType === "percent" ? "%" : "₹"}
+            </span>
+          )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative"
+      style={{ minHeight: "34px", height: "34px", width: "100%" }}
+    >
+      <div
+        className="px-2 py-1 invisible"
+        style={{
+          minHeight: "34px",
+          height: "34px",
+          visibility: "hidden",
+          width: "100%",
+        }}
+      >
+        <span className="text-sm">{getDisplayValue()}</span>
+      </div>
+      <div
+        className="absolute inset-0 flex items-center gap-1"
+        style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+      >
+        {type === "text" ? (
+          <input
+            ref={(node) => {
+              if (externalRef) externalRef.current = node;
+              localRef.current = node;
+            }}
+            type="text"
+            value={inputValue || ""}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className={`px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${hasError ? "border-red-500 focus:ring-red-500" : "border-blue-500 focus:ring-blue-500"}`}
+            style={{
+              width: "100%",
+              minWidth: "80px",
+              maxWidth: "100%",
+              height: "30px",
+              borderWidth: "2px",
+              boxSizing: "border-box",
+            }}
+          />
+        ) : (
+          <>
+            <input
+              ref={(node) => {
+                if (externalRef) externalRef.current = node;
+                localRef.current = node;
+              }}
+              type="number"
+              step="0.01"
+              value={inputValue}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className={`px-2 py-1 rounded focus:outline-none focus:ring-2 text-sm ${hasError ? "border-red-500 focus:ring-red-500" : "border-blue-500 focus:ring-blue-500"}`}
+              style={{
+                width: "100%",
+                minWidth: "80px",
+                maxWidth: "100%",
+                height: "30px",
+                borderWidth: "2px",
+                boxSizing: "border-box",
+              }}
+            />
+            {onTypeToggle && (
+              <button
+                ref={toggleRef}
+                onClick={handleToggleClick}
+                onKeyDown={handleToggleKeyDown}
+                onBlur={() => {
+                  if (focusOnToggle) {
+                    setFocusOnToggle(false);
+                    saveCurrentValue();
+                    onBlur();
+                  }
+                }}
+                className="p-1 text-xs bg-gray-100 rounded hover:bg-gray-200 flex items-center gap-1 transition-colors justify-center border border-gray-300 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ height: "30px", minWidth: "32px", width: "32px" }}
+                title={
+                  currentType === "percent"
+                    ? "Switch to rupees (use ↑/↓ arrows)"
+                    : "Switch to percentage (use ↑/↓ arrows)"
+                }
+                type="button"
+              >
+                {currentType === "percent" ? (
+                  <Percent className="h-3 w-3" />
+                ) : (
+                  "₹"
+                )}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      {hasError && errorMessage && (
+        <div className="absolute z-10 mt-1 px-2 py-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded whitespace-nowrap">
+          {errorMessage}
+        </div>
+      )}
+    </div>
+  );
+};
+
+ExcelCell.displayName = "ExcelCell";
+
+// Inline editable charge input for Cost Breakdown
+const CostBreakdownChargeInput = ({
+  chargeKey,
+  value,
+  typeValue,
+  onChange,
+  onTypeToggle,
+  displayValue,
+  onKeyDown,
+  onBlur,
+  isEditing: externalIsEditing,
+  onEditStart,
+  onEditEnd,
+}) => {
+  const [editing, setEditing] = React.useState(false);
+  const [inputValue, setInputValue] = React.useState(value);
+  const inputRef = React.useRef(null);
+  const buttonRef = React.useRef(null);
+
+  const labelMap = {
+    parking: "Packing",
+    transportation: "Transport",
+    handling: "Handling",
+    delivery: "Delivery",
+    extra: "Extra",
+  };
+
+  React.useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  React.useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  const handleBlur = () => {
+    setEditing(false);
+    const numValue = parseFloat(inputValue);
+    if (!isNaN(numValue) && numValue !== value) {
+      onChange(numValue);
+    } else if (isNaN(numValue) && inputValue !== value) {
+      onChange(0);
+    }
+    if (onEditEnd) onEditEnd();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      setEditing(false);
+      const numValue = parseFloat(inputValue);
+      if (!isNaN(numValue) && numValue !== value) {
+        onChange(numValue);
+      } else if (isNaN(numValue)) {
+        onChange(0);
+      }
+      if (onKeyDown) {
+        setTimeout(() => onKeyDown(e, chargeKey), 10);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setEditing(false);
+      setInputValue(value);
+    } else if (
+      e.key === "ArrowRight" ||
+      e.key === "ArrowLeft" ||
+      e.key === "ArrowUp" ||
+      e.key === "ArrowDown"
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      setEditing(false);
+      const numValue = parseFloat(inputValue);
+      if (!isNaN(numValue) && numValue !== value) {
+        onChange(numValue);
+      } else if (isNaN(numValue)) {
+        onChange(0);
+      }
+      if (onKeyDown) {
+        setTimeout(() => onKeyDown(e, chargeKey), 10);
+      }
+    } else if (
+      (e.ctrlKey || e.metaKey) &&
+      (e.key === "ArrowUp" || e.key === "ArrowDown")
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      onTypeToggle();
+      // Keep focus on input after toggle
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      }, 10);
+    }
+  };
+
+  const handleTypeToggle = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onTypeToggle();
+    // Keep focus on input after toggle if editing
+    if (editing) {
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      }, 10);
+    }
+  };
+
+  const handleDoubleClick = () => {
+    setEditing(true);
+    if (onEditStart) onEditStart(chargeKey);
+  };
+
+  const getDisplayLabel = () => {
+    return (
+      labelMap[chargeKey] ||
+      chargeKey.charAt(0).toUpperCase() + chargeKey.slice(1)
+    );
+  };
+
+  const formatValue = () => {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return typeValue === "percent" ? "0%" : "₹0";
+    return typeValue === "percent" ? `${numValue}%` : `₹${numValue}`;
+  };
+
+  const formatDisplayValue = () => {
+    if (displayValue !== undefined && displayValue !== null) {
+      return `₹${parseFloat(displayValue).toFixed(2)}`;
+    }
+    return "₹0.00";
+  };
+
+  // If externally controlled editing mode
+  if (externalIsEditing !== undefined) {
+    if (externalIsEditing && !editing) {
+      setEditing(true);
+    } else if (!externalIsEditing && editing) {
+      setEditing(false);
+    }
+  }
+
+  return (
+    <div
+      className="flex justify-between items-center text-xs text-gray-500 group cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded transition-colors"
+      onDoubleClick={handleDoubleClick}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        // Allow toggling without entering edit mode first
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          (e.key === "ArrowUp" || e.key === "ArrowDown")
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          onTypeToggle();
+        }
+      }}
+    >
+      <span className="text-gray-600">{getDisplayLabel()}:</span>
+      <div className="flex items-center gap-1">
+        {editing ? (
+          <>
+            <input
+              ref={inputRef}
+              type="number"
+              step="0.01"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="w-16 px-1 py-0.5 border border-blue-400 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+              style={{ minWidth: 50 }}
+            />
+            <button
+              type="button"
+              ref={buttonRef}
+              onClick={handleTypeToggle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleTypeToggle(e);
+                } else if (e.key === "ArrowRight") {
+                  e.preventDefault();
+                  if (inputRef.current) inputRef.current.focus();
+                }
+              }}
+              className="ml-1 px-1 py-0.5 border rounded text-xs bg-gray-100 hover:bg-gray-200"
+              tabIndex={-1}
+            >
+              {typeValue === "percent" ? "%" : "₹"}
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-gray-700">{formatValue()}</span>
+            <span className="text-gray-400 text-[10px]">
+              {typeValue === "percent" ? "(of net)" : "(fixed)"}
+            </span>
+            <span className="ml-1 text-blue-600 font-bold">
+              {formatDisplayValue()}
+            </span>
+            <button
+              type="button"
+              onClick={handleTypeToggle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleTypeToggle(e);
+                }
+              }}
+              className="ml-1 px-1 py-0.5 border rounded text-[10px] bg-gray-100 hover:bg-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
+              tabIndex={-1}
+            >
+              {typeValue === "percent" ? "₹" : "%"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Searchable Product Dropdown Component
+const SearchableProductDropdown = ({
+  value,
+  onChange,
+  products,
+  placeholder = "Select Product",
+  className = "w-36",
+  required = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const dropdownRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  // Find selected product
+  const selectedProduct = useMemo(() => {
+    return products.find((p) => String(p.id) === String(value));
+  }, [value, products]);
+
+  // Filter products by title or SKU
+  const filteredProducts = useMemo(() => {
+    if (!search.trim()) return products;
+    const query = search.toLowerCase();
+    return products.filter((p) => {
+      const title = (p.title || "").toLowerCase();
+      const sku = (p.sku || "").toLowerCase();
+      return title.includes(query) || sku.includes(query);
+    });
+  }, [search, products]);
+
+  // Update fixed position of the dropdown menu
+  const updateCoords = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const dropdownWidth = 288; // w-72 is 288px
+      let left = rect.left;
+      
+      // Auto-align left/right to prevent screen overflow
+      if (left + dropdownWidth > window.innerWidth) {
+        left = Math.max(10, rect.right - dropdownWidth);
+      }
+      
+      // Auto-align top/bottom to prevent screen overflow
+      const dropdownHeight = 300; // estimated max height
+      let top = rect.bottom;
+      if (top + dropdownHeight > window.innerHeight && rect.top - dropdownHeight > 0) {
+        top = rect.top - dropdownHeight;
+      }
+
+      setCoords({ top, left });
+    }
+  }, []);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      updateCoords();
+      window.addEventListener("resize", updateCoords);
+      window.addEventListener("scroll", updateCoords, true);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("resize", updateCoords);
+      window.removeEventListener("scroll", updateCoords, true);
+    };
+  }, [isOpen, updateCoords]);
+
+  // Clear search on close
+  useEffect(() => {
+    if (!isOpen) {
+      setSearch("");
+    }
+  }, [isOpen]);
+
+  const handleSelect = (productId) => {
+    onChange({ target: { value: productId } });
+    setIsOpen(false);
+  };
+
+  return (
+    <div className={`relative inline-block ${className}`} ref={dropdownRef}>
+      {/* Trigger Button */}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-1.5 py-1 border rounded text-xs bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 min-h-[28px] text-left cursor-pointer transition-colors"
+      >
+        <span className="truncate">
+          {selectedProduct ? `${selectedProduct.title} (${selectedProduct.sku})` : placeholder}
+        </span>
+        <span className="ml-1 text-gray-400 flex-shrink-0">
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </span>
+      </button>
+
+      {/* Hidden input for native HTML5 form validation if required */}
+      {required && (
+        <input
+          type="text"
+          value={value || ""}
+          required
+          tabIndex={-1}
+          className="absolute opacity-0 pointer-events-none"
+          style={{ width: "100%", height: "1px", bottom: 0, left: 0 }}
+          onChange={() => {}}
+        />
+      )}
+
+      {/* Dropdown Menu - rendered with position: fixed to float above overflow-hidden containers */}
+      {isOpen && (
+        <div
+          className="rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[9999] border border-gray-200"
+          style={{
+            position: "fixed",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: "288px",
+          }}
+        >
+          <div className="p-2 border-b bg-gray-50 rounded-t-md">
+            <div className="relative">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search product..."
+                className="w-full pl-7 pr-7 py-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                autoFocus
+              />
+              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                <Search className="h-3.5 w-3.5 text-gray-400" />
+              </div>
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+          <ul className="max-h-60 overflow-y-auto py-1 text-xs">
+            {filteredProducts.length === 0 ? (
+              <li className="px-3 py-2 text-gray-500 text-center">No products found</li>
+            ) : (
+              filteredProducts.map((p) => {
+                const isSelected = String(p.id) === String(value);
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(String(p.id))}
+                      className={`w-full text-left px-3 py-1.5 hover:bg-blue-50 focus:outline-none focus:bg-blue-50 flex flex-col transition-colors ${
+                        isSelected ? "bg-blue-50 font-semibold text-blue-600" : "text-gray-700"
+                      }`}
+                    >
+                      <span className="font-medium truncate">{p.title}</span>
+                      <span className="text-[10px] text-gray-500 truncate">SKU: {p.sku}</span>
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ProductCombinations = () => {
+  // State variables
   const [combinations, setCombinations] = useState([]);
   const [products, setProducts] = useState([]);
   const [productPricings, setProductPricings] = useState({});
+  const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingCombination, setEditingCombination] = useState(null);
-  const [selectedProducts, setSelectedProducts] = useState({});
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
+  const [unitConversionMap, setUnitConversionMap] = useState({});
 
+  // Table editing states
+  const [editingCell, setEditingCell] = useState(null);
+  const [editedValues, setEditedValues] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
+  const inputRef = useRef(null);
+  const tableContainerRef = useRef(null);
+
+  // Filter states
+  const [search, setSearch] = useState("");
+  const [filterName, setFilterName] = useState("");
+  const [activeFilters, setActiveFilters] = useState({
+    search: "",
+    filterName: "",
+  });
+  const [editingChargeField, setEditingChargeField] = useState(null);
+  // Handle keyboard navigation for charge fields
+  const handleChargeKeyDown = useCallback((e, currentChargeKey) => {
+    const chargeKeys = [
+      "parking",
+      "transportation",
+      "handling",
+      "delivery",
+      "extra",
+    ];
+    const currentIndex = chargeKeys.indexOf(currentChargeKey);
+    let nextIndex = currentIndex;
+
+    switch (e.key) {
+      case "ArrowDown":
+      case "ArrowRight":
+        nextIndex = currentIndex + 1;
+        break;
+      case "ArrowUp":
+      case "ArrowLeft":
+        nextIndex = currentIndex - 1;
+        break;
+      default:
+        return;
+    }
+
+    if (nextIndex >= 0 && nextIndex < chargeKeys.length) {
+      e.preventDefault();
+      setEditingChargeField(chargeKeys[nextIndex]);
+    }
+  }, []);
+
+  // Form state for create/edit modal
   const [formData, setFormData] = useState({
     name: "",
     combo_weight: "",
@@ -34,7 +909,6 @@ const ProductCombinations = () => {
     items: [],
     rewards: [],
     gifts: [],
-    // Charge fields (for calculation display only)
     parking_charge_type: "rupees",
     parking_charge_value: 0,
     transportation_charge_type: "rupees",
@@ -45,14 +919,17 @@ const ProductCombinations = () => {
     delivery_charge_value: 0,
     extra_charge_type: "rupees",
     extra_charge_value: 0,
-    // Manual final price (actual selling price)
-    manual_combo_price: "", // This is what the combo will actually sell for
+    manual_combo_price: "",
   });
 
+  const { isOpen } = useSidebar();
+
+  // Fetch data on mount
   useEffect(() => {
     fetchCombinations();
     fetchProducts();
     fetchProductPricings();
+    fetchUnits();
     checkUserRole();
   }, []);
 
@@ -67,6 +944,7 @@ const ProductCombinations = () => {
       setCombinations(response.data);
     } catch (error) {
       console.error("Error fetching combinations:", error);
+      toast.error("Failed to fetch combinations");
     }
   };
 
@@ -81,6 +959,81 @@ const ProductCombinations = () => {
     }
   };
 
+  const fetchUnits = async () => {
+    try {
+      const response = await axios.get("/api/units/");
+      console.log("Units fetched:", response.data);
+      // Store units with their conversion factors
+      setUnits(response.data);
+      // Also create a mapping for quick conversion
+      const unitConversionMap = {};
+      response.data.forEach((unit) => {
+        unitConversionMap[unit.id] = {
+          name: unit.name,
+          conversion_to_kg: parseFloat(unit.conversion_to_kg) || 1,
+          conversion_to_g: parseFloat(unit.conversion_to_kg) * 1000 || 1000,
+        };
+      });
+      setUnitConversionMap(unitConversionMap);
+    } catch (error) {
+      console.error("Error fetching units:", error);
+    }
+  };
+
+  // Helper function to get unit name from unit ID
+  const getUnitName = useCallback(
+    (unitId) => {
+      if (!unitId || !units || units.length === 0) return "kg";
+      const unit = units.find((u) => u.id === unitId);
+      return unit?.name || "kg";
+    },
+    [units],
+  );
+
+  // Dynamic weight conversion function
+  // Dynamic weight conversion function using conversion_to_kg from database
+  const convertWeightToUnit = useCallback(
+    (weight, fromUnitId, toUnitId = null) => {
+      const weightNum = parseFloat(weight) || 0;
+      if (!fromUnitId || weightNum === 0) return 0;
+
+      // Find source unit - ensure ID comparison works with both number and string
+      const fromUnit = units.find((u) => Number(u.id) === Number(fromUnitId));
+      if (!fromUnit) {
+        console.warn(`Unit not found for ID: ${fromUnitId}`);
+        return weightNum;
+      }
+
+      // Get conversion factor from database (handle Decimal from backend)
+      const fromConversion = parseFloat(fromUnit.conversion_to_kg) || 1;
+
+      // Convert to kg
+      const weightInKg = weightNum * fromConversion;
+
+      // If no target unit specified, return weight in kg
+      if (!toUnitId) {
+        return weightInKg;
+      }
+
+      // Find target unit
+      const toUnit = units.find((u) => Number(u.id) === Number(toUnitId));
+      if (!toUnit) {
+        console.warn(`Target unit not found for ID: ${toUnitId}`);
+        return weightInKg;
+      }
+
+      // Get target conversion factor
+      const toConversion = parseFloat(toUnit.conversion_to_kg) || 1;
+
+      // If target conversion is 0 (for non-weight units like dozen), return 0
+      if (toConversion === 0) return 0;
+
+      // Convert from kg to target unit
+      return weightInKg / toConversion;
+    },
+    [units],
+  );
+
   const fetchProductPricings = async () => {
     try {
       const response = await axios.get("/api/productpricings/");
@@ -94,96 +1047,110 @@ const ProductCombinations = () => {
     }
   };
 
-  // Helper function to safely format numbers
+  // Searchable Select Component for Products
+  const SearchableSelect = ({
+    value,
+    onChange,
+    products,
+    placeholder = "Select Product",
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const dropdownRef = useRef(null);
+    const inputRef = useRef(null);
+
+    const filteredProducts = products.filter(
+      (product) =>
+        product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+
+    const selectedProduct = products.find((p) => p.id === parseInt(value));
+
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (
+          dropdownRef.current &&
+          !dropdownRef.current.contains(event.target)
+        ) {
+          setIsOpen(false);
+          setSearchTerm("");
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleSelect = (productId) => {
+      onChange(productId.toString());
+      setIsOpen(false);
+      setSearchTerm("");
+    };
+
+    return (
+      <div className="relative" ref={dropdownRef} style={{ minWidth: "200px" }}>
+        <div
+          className="w-full px-1.5 py-1 border rounded text-xs cursor-pointer flex justify-between items-center bg-white"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <span className={selectedProduct ? "text-gray-900" : "text-gray-400"}>
+            {selectedProduct
+              ? `${selectedProduct.title} (${selectedProduct.sku})`
+              : placeholder}
+          </span>
+          <span className="text-gray-400">{isOpen ? "▲" : "▼"}</span>
+        </div>
+
+        {isOpen && (
+          <div className="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-60 overflow-y-auto">
+            <div className="sticky top-0 bg-white p-1 border-b">
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-2 py-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
+            </div>
+            <div>
+              {filteredProducts.length === 0 ? (
+                <div className="px-2 py-2 text-xs text-gray-500 text-center">
+                  No products found
+                </div>
+              ) : (
+                filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="px-2 py-1.5 hover:bg-blue-50 cursor-pointer text-xs border-b last:border-b-0"
+                    onClick={() => handleSelect(product.id)}
+                  >
+                    <div className="font-medium">{product.title}</div>
+                    <div className="text-gray-500 text-[10px]">
+                      SKU: {product.sku}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const formatNumber = (value) => {
     if (value === null || value === undefined || value === "") return 0;
     const num = parseFloat(value);
     return isNaN(num) ? 0 : num;
   };
 
-  const calculateComboTotal = (items, rewards, gifts) => {
-  let totalItemsValue = 0;
-  let totalRewardsValue = 0;
-  let totalGiftsValue = 0;
-  
-  // For aggregated rates from ALL products
-  let totalMRP = 0;
-  let totalSaleRate = 0;
-  let totalLandingRate = 0;
-  let totalCalculatedRate = 0;
-
-  // Calculate PAID items
-  items.forEach(item => {
-    const product = products.find(p => p.id === parseInt(item.product));
-    if (product) {
-      const pricing = productPricings[product.id];
-      
-      const saleRate = formatNumber(pricing?.sale_rate) || formatNumber(product.price);
-      const itemSaleTotal = saleRate * formatNumber(item.quantity_required);
-      totalItemsValue += itemSaleTotal;
-      
-      // Add paid items to aggregated rates
-      totalMRP += (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) * formatNumber(item.quantity_required);
-      totalSaleRate += saleRate * formatNumber(item.quantity_required);
-      totalLandingRate += (formatNumber(pricing?.landing_rate) || 0) * formatNumber(item.quantity_required);
-      totalCalculatedRate += (formatNumber(pricing?.calculated_rate) || formatNumber(product.price)) * formatNumber(item.quantity_required);
-    }
-  });
-
-  // ADD FREE REWARDS to aggregated rates (but NOT subtracting from net cost)
-  rewards.forEach(reward => {
-    const product = products.find(p => p.id === parseInt(reward.product));
-    if (product) {
-      const pricing = productPricings[product.id];
-      const productValue = formatNumber(pricing?.sale_rate) || formatNumber(product.price);
-      totalRewardsValue += productValue * formatNumber(reward.quantity_free);
-      
-      // Add rewards to aggregated rates only (for display purposes)
-      totalMRP += (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) * formatNumber(reward.quantity_free);
-      totalSaleRate += productValue * formatNumber(reward.quantity_free);
-      totalLandingRate += (formatNumber(pricing?.landing_rate) || 0) * formatNumber(reward.quantity_free);
-      totalCalculatedRate += (formatNumber(pricing?.calculated_rate) || formatNumber(product.price)) * formatNumber(reward.quantity_free);
-    }
-  });
-
-  // ADD GIFTS to aggregated rates
-  gifts.forEach(gift => {
-    const product = products.find(p => p.id === parseInt(gift.product));
-    if (product) {
-      const pricing = productPricings[product.id];
-      const productValue = formatNumber(pricing?.sale_rate) || formatNumber(product.price);
-      totalGiftsValue += productValue * (formatNumber(gift.quantity) || 1);
-      
-      // Add gifts to aggregated rates
-      totalMRP += (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) * (formatNumber(gift.quantity) || 1);
-      totalSaleRate += productValue * (formatNumber(gift.quantity) || 1);
-      totalLandingRate += (formatNumber(pricing?.landing_rate) || 0) * (formatNumber(gift.quantity) || 1);
-      totalCalculatedRate += (formatNumber(pricing?.calculated_rate) || formatNumber(product.price)) * (formatNumber(gift.quantity) || 1);
-    }
-  });
-
-  return {
-    totalCost: totalItemsValue,  // Total paid items cost
-    rewardValue: totalRewardsValue,  // Total free rewards value
-    giftValue: totalGiftsValue,  // Total gifts value
-    netCost: totalItemsValue,  // REMOVED the subtraction - Net Cost is just paid items
-    customerSavings: totalRewardsValue + totalGiftsValue,  // Total savings
-    customerPays: totalItemsValue,  // Customer pays for paid items only
-    // Aggregated rates from ALL products (paid + free + gifts)
-    totalMRP: totalMRP,
-    totalSaleRate: totalSaleRate,
-    totalLandingRate: totalLandingRate,
-    totalCalculatedRate: totalCalculatedRate
-  };
-};
-
-  // Calculate individual charge based on base amount
   const calculateCharge = (baseAmount, chargeType, chargeValue) => {
     if (!chargeValue || chargeValue === 0) return 0;
-
     const base = formatNumber(baseAmount);
     const value = formatNumber(chargeValue);
-
     if (chargeType === "percent") {
       return (base * value) / 100;
     } else {
@@ -191,32 +1158,46 @@ const ProductCombinations = () => {
     }
   };
 
-  // Calculate all charges and totals
-  const calculateChargesBreakdown = (baseAmount, formData) => {
+  const calculateChargesBreakdown = (
+    baseAmount,
+    combination,
+    editedVals = {},
+  ) => {
+    const getValue = (field) => {
+      const key = `${combination.id || combination.name}_${field}`;
+      if (editedVals[key] !== undefined) return editedVals[key];
+      return combination[field] || 0;
+    };
+    const getType = (fieldType) => {
+      const key = `${combination.id || combination.name}_${fieldType}_type`;
+      if (editedVals[key] !== undefined) return editedVals[key];
+      return combination[`${fieldType}_type`] || "rupees";
+    };
+
     const parking = calculateCharge(
       baseAmount,
-      formData.parking_charge_type,
-      formData.parking_charge_value,
+      getType("parking_charge"),
+      getValue("parking_charge_value"),
     );
     const transportation = calculateCharge(
       baseAmount,
-      formData.transportation_charge_type,
-      formData.transportation_charge_value,
+      getType("transportation_charge"),
+      getValue("transportation_charge_value"),
     );
     const handling = calculateCharge(
       baseAmount,
-      formData.handling_charge_type,
-      formData.handling_charge_value,
+      getType("handling_charge"),
+      getValue("handling_charge_value"),
     );
     const delivery = calculateCharge(
       baseAmount,
-      formData.delivery_charge_type,
-      formData.delivery_charge_value,
+      getType("delivery_charge"),
+      getValue("delivery_charge_value"),
     );
     const extra = calculateCharge(
       baseAmount,
-      formData.extra_charge_type,
-      formData.extra_charge_value,
+      getType("extra_charge"),
+      getValue("extra_charge_value"),
     );
 
     return {
@@ -229,6 +1210,764 @@ const ProductCombinations = () => {
     };
   };
 
+  const calculateComboTotal = (items, rewards, gifts) => {
+    let totalItemsValue = 0;
+    let totalRewardsValue = 0;
+    let totalGiftsValue = 0;
+    let totalMRP = 0;
+    let totalSaleRate = 0;
+    let totalLandingRate = 0;
+    let totalCalculatedRate = 0;
+
+    items.forEach((item) => {
+      const product = products.find((p) => p.id === parseInt(item.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const saleRate =
+          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+        const itemSaleTotal = saleRate * formatNumber(item.quantity_required);
+        totalItemsValue += itemSaleTotal;
+
+        totalMRP +=
+          (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) *
+          formatNumber(item.quantity_required);
+        totalSaleRate += saleRate * formatNumber(item.quantity_required);
+        totalLandingRate +=
+          (formatNumber(pricing?.landing_rate) || 0) *
+          formatNumber(item.quantity_required);
+        totalCalculatedRate +=
+          (formatNumber(pricing?.calculated_rate) ||
+            formatNumber(product.price)) * formatNumber(item.quantity_required);
+      }
+    });
+
+    rewards.forEach((reward) => {
+      const product = products.find((p) => p.id === parseInt(reward.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const productValue =
+          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+        totalRewardsValue += productValue * formatNumber(reward.quantity_free);
+
+        totalMRP +=
+          (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) *
+          formatNumber(reward.quantity_free);
+        totalSaleRate += productValue * formatNumber(reward.quantity_free);
+        totalLandingRate +=
+          (formatNumber(pricing?.landing_rate) || 0) *
+          formatNumber(reward.quantity_free);
+        totalCalculatedRate +=
+          (formatNumber(pricing?.calculated_rate) ||
+            formatNumber(product.price)) * formatNumber(reward.quantity_free);
+      }
+    });
+
+    gifts.forEach((gift) => {
+      const product = products.find((p) => p.id === parseInt(gift.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const productValue =
+          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+        totalGiftsValue += productValue * (formatNumber(gift.quantity) || 1);
+
+        totalMRP +=
+          (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) *
+          (formatNumber(gift.quantity) || 1);
+        totalSaleRate += productValue * (formatNumber(gift.quantity) || 1);
+        totalLandingRate +=
+          (formatNumber(pricing?.landing_rate) || 0) *
+          (formatNumber(gift.quantity) || 1);
+        totalCalculatedRate +=
+          (formatNumber(pricing?.calculated_rate) ||
+            formatNumber(product.price)) * (formatNumber(gift.quantity) || 1);
+      }
+    });
+
+    return {
+      totalCost: totalItemsValue,
+      rewardValue: totalRewardsValue,
+      giftValue: totalGiftsValue,
+      netCost: totalItemsValue,
+      totalMRP: totalMRP,
+      totalSaleRate: totalSaleRate,
+      totalLandingRate: totalLandingRate,
+      totalCalculatedRate: totalCalculatedRate,
+    };
+  };
+
+  // Get combo calculations for display
+  const getComboCalculations = useCallback(
+    (combination, editedVals = {}) => {
+      const comboTotal = calculateComboTotal(
+        combination.items || [],
+        combination.rewards || [],
+        combination.gifts || [],
+      );
+      const chargesBreakdown = calculateChargesBreakdown(
+        comboTotal.netCost,
+        combination,
+        editedVals,
+      );
+      const calculatedPriceWithCharges =
+        comboTotal.netCost + chargesBreakdown.totalCharges;
+
+      const getManualPrice = () => {
+        const key = `${combination.id || combination.name}_manual_combo_price`;
+        if (editedVals[key] !== undefined) return editedVals[key];
+        return combination.manual_combo_price || 0;
+      };
+      const manualPrice = formatNumber(getManualPrice());
+      const profitMargin =
+        manualPrice > 0 && calculatedPriceWithCharges > 0
+          ? ((manualPrice - calculatedPriceWithCharges) /
+              calculatedPriceWithCharges) *
+            100
+          : 0;
+
+      return {
+        netCost: comboTotal.netCost,
+        calculatedPriceWithCharges,
+        manualPrice,
+        profitMargin,
+        totalMRP: comboTotal.totalMRP,
+        totalSaleRate: comboTotal.totalSaleRate,
+        totalLandingRate: comboTotal.totalLandingRate,
+        totalCalculatedRate: comboTotal.totalCalculatedRate,
+        charges: chargesBreakdown,
+      };
+    },
+    [products, productPricings],
+  );
+
+  const getFormCalculations = useCallback(() => {
+    // Calculate total landing rate for purchase items
+    let totalLandingRate = 0;
+
+    // Calculate purchase items total landing rate
+    formData.items.forEach((item) => {
+      const product = products.find((p) => p.id === parseInt(item.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const landingRate = formatNumber(
+          pricing?.landing_rate ?? product?.landing_rate ?? 0,
+        );
+        const quantity = formatNumber(item.quantity_required);
+        totalLandingRate += landingRate * quantity;
+      }
+    });
+
+    // Calculate rewards and gifts values
+    let totalMRP = 0;
+    let totalSaleRate = 0;
+    let totalLandingRateAll = 0;
+    let totalCalculatedRate = 0;
+
+    // Calculate rewards
+    formData.rewards.forEach((reward) => {
+      const product = products.find((p) => p.id === parseInt(reward.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const saleRate =
+          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+        const landingRate = formatNumber(pricing?.landing_rate) || 0;
+
+        totalMRP +=
+          (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) *
+          formatNumber(reward.quantity_free);
+        totalSaleRate += saleRate * formatNumber(reward.quantity_free);
+        totalLandingRateAll += landingRate * formatNumber(reward.quantity_free);
+        totalCalculatedRate +=
+          (formatNumber(pricing?.calculated_rate) ||
+            formatNumber(product.price)) * formatNumber(reward.quantity_free);
+      }
+    });
+
+    // Calculate gifts
+    formData.gifts.forEach((gift) => {
+      const product = products.find((p) => p.id === parseInt(gift.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const saleRate =
+          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+        const landingRate = formatNumber(pricing?.landing_rate) || 0;
+
+        totalMRP +=
+          (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) *
+          (formatNumber(gift.quantity) || 1);
+        totalSaleRate += saleRate * (formatNumber(gift.quantity) || 1);
+        totalLandingRateAll += landingRate * (formatNumber(gift.quantity) || 1);
+        totalCalculatedRate +=
+          (formatNumber(pricing?.calculated_rate) ||
+            formatNumber(product.price)) * (formatNumber(gift.quantity) || 1);
+      }
+    });
+
+    // Calculate purchase items for MRP, Sale Rate, etc.
+    formData.items.forEach((item) => {
+      const product = products.find((p) => p.id === parseInt(item.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const saleRate =
+          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+        const landingRate = formatNumber(pricing?.landing_rate) || 0;
+
+        totalMRP +=
+          (formatNumber(pricing?.mrp) || formatNumber(product.mrp)) *
+          formatNumber(item.quantity_required);
+        totalSaleRate += saleRate * formatNumber(item.quantity_required);
+        totalLandingRateAll +=
+          landingRate * formatNumber(item.quantity_required);
+        totalCalculatedRate +=
+          (formatNumber(pricing?.calculated_rate) ||
+            formatNumber(product.price)) * formatNumber(item.quantity_required);
+      }
+    });
+
+    // Calculate charges
+    const parkingCharge = parseFloat(formData.parking_charge_value) || 0;
+    const transportationCharge =
+      parseFloat(formData.transportation_charge_value) || 0;
+    const handlingCharge = parseFloat(formData.handling_charge_value) || 0;
+    const deliveryCharge = parseFloat(formData.delivery_charge_value) || 0;
+    const extraCharge = parseFloat(formData.extra_charge_value) || 0;
+
+    const totalCharges =
+      parkingCharge +
+      transportationCharge +
+      handlingCharge +
+      deliveryCharge +
+      extraCharge;
+    const calculatedPriceWithCharges = totalLandingRate + totalCharges;
+    const manualPrice = parseFloat(formData.manual_combo_price) || 0;
+
+    // Determine which price to use for profit calculation
+    // If manual price is entered and > 0, use manual price, otherwise use calculated price
+    const sellingPrice =
+      manualPrice > 0 ? manualPrice : calculatedPriceWithCharges;
+
+    // Calculate profit based on Landing Rate vs Selling Price
+    const profitAmount = sellingPrice - totalLandingRate;
+    const profitMargin =
+      totalLandingRate > 0 ? (profitAmount / totalLandingRate) * 100 : 0;
+
+    return {
+      netCost: totalLandingRate,
+      calculatedPriceWithCharges,
+      manualPrice,
+      sellingPrice, // The price used for profit calculation
+      profitMargin,
+      profitAmount,
+      totalMRP: totalMRP,
+      totalSaleRate: totalSaleRate,
+      totalLandingRate: totalLandingRateAll,
+      totalCalculatedRate: totalCalculatedRate,
+      charges: {
+        parking: parkingCharge,
+        transportation: transportationCharge,
+        handling: handlingCharge,
+        delivery: deliveryCharge,
+        extra: extraCharge,
+        totalCharges: totalCharges,
+      },
+    };
+  }, [formData, products, productPricings]);
+
+  // Filter combinations
+  const filteredData = useMemo(() => {
+    const { search: activeSearch, filterName: activeName } = activeFilters;
+    return combinations.filter((combo) => {
+      const searchMatch =
+        !activeSearch ||
+        combo.name?.toLowerCase().includes(activeSearch.toLowerCase());
+      const nameMatch =
+        !activeName ||
+        combo.name?.toLowerCase().includes(activeName.toLowerCase());
+      return searchMatch && nameMatch;
+    });
+  }, [combinations, activeFilters]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = useMemo(() => {
+    return filteredData.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage,
+    );
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  // Apply filters
+  const handleApplyFilters = useCallback(() => {
+    setActiveFilters({ search, filterName });
+    setCurrentPage(1);
+    toast.success("Filters applied");
+  }, [search, filterName]);
+
+  // Clear filters
+  const handleClearFilters = useCallback(() => {
+    setSearch("");
+    setFilterName("");
+    setActiveFilters({ search: "", filterName: "" });
+    setCurrentPage(1);
+  }, []);
+
+  // Validate value
+  const validateValue = useCallback((field, value, type) => {
+    if (
+      type === "currency" ||
+      type === "currency_percentage" ||
+      type === "percentage"
+    ) {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue)) return "Must be a valid number";
+      if (numValue < 0) return "Must be greater than or equal to 0";
+      if (numValue > 999999999) return "Value too large";
+    }
+    return null;
+  }, []);
+
+  // Handle cell edit
+  const handleCellEdit = useCallback(
+    (row, field, value) => {
+      const fieldConfig = EDITABLE_FIELDS.find((f) => f.key === field);
+      const key = `${row.id || row.name}_${field}`;
+
+      const error = validateValue(field, value, fieldConfig?.type);
+      if (error) {
+        setValidationErrors((prev) => ({ ...prev, [key]: error }));
+        toast.error(error);
+        return;
+      }
+
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[key];
+        return newErrors;
+      });
+
+      setEditedValues((prev) => ({ ...prev, [key]: value }));
+    },
+    [validateValue],
+  );
+
+  // Get cell value
+  const getCellValue = useCallback(
+    (row, field) => {
+      const key = `${row.id || row.name}_${field}`;
+      if (editedValues[key] !== undefined) return editedValues[key];
+      return row[field] || 0;
+    },
+    [editedValues],
+  );
+
+  // Get charge type
+  const getChargeType = useCallback(
+    (row, fieldType) => {
+      const key = `${row.id || row.name}_${fieldType}_type`;
+      if (editedValues[key] !== undefined) return editedValues[key];
+      return row[`${fieldType}_type`] || "rupees";
+    },
+    [editedValues],
+  );
+
+  // Toggle charge type
+  const toggleChargeType = useCallback(
+    (row, fieldType) => {
+      const currentType = getChargeType(row, fieldType);
+      const newType = currentType === "percent" ? "rupees" : "percent";
+      const typeKey = `${row.id || row.name}_${fieldType}_type`;
+      setEditedValues((prev) => ({ ...prev, [typeKey]: newType }));
+    },
+    [getChargeType],
+  );
+
+  // Navigate between cells
+  const navigateCell = useCallback(
+    (currentRowIndex, currentFieldKey, direction, totalRows) => {
+      const navigableFields = EDITABLE_FIELDS;
+      const currentFieldIndex = navigableFields.findIndex(
+        (f) => f.key === currentFieldKey,
+      );
+
+      let newRowIndex = currentRowIndex;
+      let newFieldIndex = currentFieldIndex;
+
+      switch (direction) {
+        case "ArrowRight":
+          if (currentFieldIndex < navigableFields.length - 1) {
+            newFieldIndex = currentFieldIndex + 1;
+          } else if (currentRowIndex < totalRows - 1) {
+            newRowIndex = currentRowIndex + 1;
+            newFieldIndex = 0;
+          }
+          break;
+        case "ArrowLeft":
+          if (currentFieldIndex > 0) {
+            newFieldIndex = currentFieldIndex - 1;
+          } else if (currentRowIndex > 0) {
+            newRowIndex = currentRowIndex - 1;
+            newFieldIndex = navigableFields.length - 1;
+          }
+          break;
+        case "ArrowDown":
+          if (currentRowIndex < totalRows - 1) {
+            newRowIndex = currentRowIndex + 1;
+            newFieldIndex = currentFieldIndex;
+          }
+          break;
+        case "ArrowUp":
+          if (currentRowIndex > 0) {
+            newRowIndex = currentRowIndex - 1;
+            newFieldIndex = currentFieldIndex;
+          }
+          break;
+        default:
+          return;
+      }
+
+      if (
+        newRowIndex !== currentRowIndex ||
+        newFieldIndex !== currentFieldIndex
+      ) {
+        const newField = navigableFields[newFieldIndex];
+        setEditingCell({ rowIndex: newRowIndex, field: newField.key });
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.scrollIntoView({
+              behavior: "auto",
+              block: "nearest",
+            });
+          }
+        }, 50);
+      }
+    },
+    [],
+  );
+
+  const handleCellDoubleClick = useCallback((rowIndex, field) => {
+    setEditingCell({ rowIndex, field });
+  }, []);
+
+  const handleCellBlur = useCallback(() => {
+    setEditingCell(null);
+  }, []);
+
+  // Save all changes
+  const handleSaveAll = useCallback(async () => {
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error("Please fix validation errors before saving");
+      return;
+    }
+
+    const updates = [];
+
+    for (const row of paginatedData) {
+      const updatedRow = { ...row };
+      let hasChanges = false;
+
+      // Check for value changes
+      for (const field of EDITABLE_FIELDS) {
+        const key = `${row.id || row.name}_${field.key}`;
+        if (editedValues[key] !== undefined) {
+          updatedRow[field.key] = editedValues[key];
+          hasChanges = true;
+        }
+      }
+
+      // Check for type changes
+      const chargeFields = [
+        "parking_charge",
+        "transportation_charge",
+        "handling_charge",
+        "delivery_charge",
+        "extra_charge",
+      ];
+      for (const chargeField of chargeFields) {
+        const typeKey = `${row.id || row.name}_${chargeField}_type`;
+        if (editedValues[typeKey] !== undefined) {
+          updatedRow[`${chargeField}_type`] = editedValues[typeKey];
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges && row.id) {
+        const dataToSend = {
+          id: updatedRow.id,
+          name: updatedRow.name,
+          combo_weight: updatedRow.combo_weight,
+          curriar_purchase_point: updatedRow.curriar_purchase_point,
+          curriar_dispatch_point: updatedRow.curriar_dispatch_point,
+          description: updatedRow.description,
+          is_active: updatedRow.is_active,
+          manual_combo_price: updatedRow.manual_combo_price || 0,
+          parking_charge_type: updatedRow.parking_charge_type || "rupees",
+          parking_charge_value: updatedRow.parking_charge_value || 0,
+          transportation_charge_type:
+            updatedRow.transportation_charge_type || "rupees",
+          transportation_charge_value:
+            updatedRow.transportation_charge_value || 0,
+          handling_charge_type: updatedRow.handling_charge_type || "rupees",
+          handling_charge_value: updatedRow.handling_charge_value || 0,
+          delivery_charge_type: updatedRow.delivery_charge_type || "rupees",
+          delivery_charge_value: updatedRow.delivery_charge_value || 0,
+          extra_charge_type: updatedRow.extra_charge_type || "rupees",
+          extra_charge_value: updatedRow.extra_charge_value || 0,
+          items: updatedRow.items || [],
+          rewards: updatedRow.rewards || [],
+          gifts: updatedRow.gifts || [],
+        };
+
+        updates.push({ id: row.id, data: dataToSend });
+      }
+    }
+
+    if (updates.length === 0) {
+      toast("No changes to save");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const promises = updates.map(({ id, data }) =>
+        axios.put(`/api/productcombinations/${id}/`, data),
+      );
+      await Promise.all(promises);
+      toast.success("Changes saved successfully!");
+      setEditedValues({});
+      setEditingCell(null);
+      setValidationErrors({});
+      await fetchCombinations();
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error(error.response?.data?.message || "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }, [paginatedData, editedValues, validationErrors, fetchCombinations]);
+
+  // Render group cell
+  const renderGroupCell = useCallback(
+    (row, rowIndex, groupKey) => {
+      const group = GROUP_CONFIG[groupKey];
+      const isEvenRow = rowIndex % 2 === 0;
+      const rowBgClass = isEvenRow ? "bg-white" : "bg-gray-50";
+      const calculations = getComboCalculations(row, editedValues);
+
+      if (groupKey === "charges") {
+        return (
+          <td
+            className={`px-2 py-1 ${rowBgClass} border border-gray-300`}
+            style={{ minWidth: group.width }}
+          >
+            <div className="space-y-2">
+              {group.fields.map((fieldKey) => {
+                const fieldConfig = EDITABLE_FIELDS.find(
+                  (f) => f.key === fieldKey,
+                );
+                const chargeType = fieldKey.replace("_value", "");
+                const currentType = getChargeType(row, chargeType);
+                const isEditing =
+                  editingCell?.rowIndex === rowIndex &&
+                  editingCell?.field === fieldKey;
+                const errorKey = `${row.id || row.name}_${fieldKey}`;
+                const hasError = validationErrors[errorKey];
+
+                return (
+                  <div
+                    key={fieldKey}
+                    className="flex justify-between items-center"
+                  >
+                    <span className="text-xs text-gray-600">
+                      {fieldConfig?.label}:
+                    </span>
+                    <div className="w-32">
+                      <ExcelCell
+                        value={getCellValue(row, fieldKey)}
+                        type="currency_percentage"
+                        currentType={currentType}
+                        onEdit={(value) => handleCellEdit(row, fieldKey, value)}
+                        onTypeToggle={() => toggleChargeType(row, chargeType)}
+                        onBlur={handleCellBlur}
+                        onDoubleClick={() =>
+                          handleCellDoubleClick(rowIndex, fieldKey)
+                        }
+                        onKeyDown={(e) =>
+                          navigateCell(
+                            rowIndex,
+                            fieldKey,
+                            e.key,
+                            paginatedData.length,
+                          )
+                        }
+                        isEditing={isEditing}
+                        inputRef={isEditing ? inputRef : null}
+                        placeholder="0"
+                        hasError={hasError}
+                        errorMessage={validationErrors[errorKey]}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </td>
+        );
+      }
+
+      if (groupKey === "costBreakdown") {
+        return (
+          <td
+            className={`px-4 py-2 ${rowBgClass} border border-gray-300`}
+            style={{ minWidth: group.width }}
+          >
+            <div className="space-y-3">
+              {/* Calculated Price */}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium">
+                  Calculated Price:
+                </span>
+                <span className="text-sm font-semibold text-blue-600">
+                  ₹{calculations.calculatedPriceWithCharges.toFixed(2)}
+                </span>
+              </div>
+
+              {/* MRP */}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium">MRP:</span>
+                <span className="text-sm">
+                  ₹{calculations.totalMRP.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Sale Rate */}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium">
+                  Sale Rate:
+                </span>
+                <span className="text-sm">
+                  ₹{calculations.totalSaleRate.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Landing Rate */}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium">
+                  Landing Rate:
+                </span>
+                <span className="text-sm">
+                  ₹{calculations.totalLandingRate.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Calculated Rate */}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium">
+                  Calculated Rate:
+                </span>
+                <span className="text-sm">
+                  ₹{calculations.totalCalculatedRate.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Suggested Rate */}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium">
+                  Suggested Rate:
+                </span>
+                <span className="text-sm font-semibold text-purple-600">
+                  ₹{calculations.totalSaleRate.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Manual Price (Editable) */}
+              {group.fields.map((fieldKey) => {
+                const fieldConfig = EDITABLE_FIELDS.find(
+                  (f) => f.key === fieldKey,
+                );
+                const isEditing =
+                  editingCell?.rowIndex === rowIndex &&
+                  editingCell?.field === fieldKey;
+                const errorKey = `${row.id || row.name}_${fieldKey}`;
+                const hasError = validationErrors[errorKey];
+
+                return (
+                  <div
+                    key={fieldKey}
+                    className="flex justify-between items-center"
+                  >
+                    <span className="text-xs text-gray-500 font-medium">
+                      {fieldConfig?.label}:
+                    </span>
+                    <div className="w-32">
+                      <ExcelCell
+                        value={getCellValue(row, fieldKey)}
+                        type="currency"
+                        onEdit={(value) => handleCellEdit(row, fieldKey, value)}
+                        onBlur={handleCellBlur}
+                        onDoubleClick={() =>
+                          handleCellDoubleClick(rowIndex, fieldKey)
+                        }
+                        onKeyDown={(e) =>
+                          navigateCell(
+                            rowIndex,
+                            fieldKey,
+                            e.key,
+                            paginatedData.length,
+                          )
+                        }
+                        isEditing={isEditing}
+                        inputRef={isEditing ? inputRef : null}
+                        placeholder="0.00"
+                        hasError={hasError}
+                        errorMessage={validationErrors[errorKey]}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Profit Margin */}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                <span className="text-xs font-semibold text-gray-700">
+                  Profit Margin:
+                </span>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`text-sm font-bold ${calculations.profitMargin >= 0 ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {calculations.profitMargin.toFixed(1)}%
+                  </span>
+                  <span className="text-md text-Black font-medium">
+                    ₹
+                    {(
+                      (calculations.profitMargin / 100) *
+                      calculations.calculatedPriceWithCharges
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </td>
+        );
+      }
+      return null;
+    },
+    [
+      editingCell,
+      validationErrors,
+      getCellValue,
+      getChargeType,
+      handleCellEdit,
+      toggleChargeType,
+      handleCellBlur,
+      handleCellDoubleClick,
+      navigateCell,
+      paginatedData.length,
+      getComboCalculations,
+    ],
+  );
+
+  // Form handlers (create/edit modal)
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -260,14 +1999,16 @@ const ProductCombinations = () => {
           `/api/productcombinations/${editingCombination.id}/`,
           dataToSend,
         );
+        toast.success("Combination updated successfully");
       } else {
         await axios.post("/api/productcombinations/", dataToSend);
+        toast.success("Combination created successfully");
       }
       fetchCombinations();
       resetForm();
     } catch (error) {
       console.error("Error saving combination:", error);
-      alert(error.response?.data?.message || "Error saving combination");
+      toast.error(error.response?.data?.message || "Error saving combination");
     }
   };
 
@@ -330,10 +2071,11 @@ const ProductCombinations = () => {
     if (window.confirm("Are you sure you want to delete this combination?")) {
       try {
         await axios.delete(`/api/productcombinations/${id}/`);
+        toast.success("Combination deleted successfully");
         fetchCombinations();
       } catch (error) {
         console.error("Error deleting combination:", error);
-        alert("Error deleting combination");
+        toast.error("Error deleting combination");
       }
     }
   };
@@ -343,7 +2085,7 @@ const ProductCombinations = () => {
       ...formData,
       items: [
         ...formData.items,
-        { product: "", quantity_required: 1, offer_price: null },
+        { product: "", quantity_required: 0, offer_price: null },
       ],
     });
   };
@@ -355,14 +2097,28 @@ const ProductCombinations = () => {
 
   const updateItem = (index, field, value) => {
     const newItems = [...formData.items];
-    newItems[index][field] = value;
+
+    // If field is 'product' and the value is selected (not empty)
+    if (field === "product" && value) {
+      newItems[index][field] = value;
+      // If quantity is 0 or empty, set it to 1
+      if (
+        !newItems[index].quantity_required ||
+        newItems[index].quantity_required === 0
+      ) {
+        newItems[index].quantity_required = 1;
+      }
+    } else {
+      newItems[index][field] = value;
+    }
+
     setFormData({ ...formData, items: newItems });
   };
 
   const addReward = () => {
     setFormData({
       ...formData,
-      rewards: [...formData.rewards, { product: "", quantity_free: 1 }],
+      rewards: [...formData.rewards, { product: "", quantity_free: 0 }],
     });
   };
 
@@ -373,14 +2129,26 @@ const ProductCombinations = () => {
 
   const updateReward = (index, field, value) => {
     const newRewards = [...formData.rewards];
-    newRewards[index][field] = value;
+
+    if (field === "product" && value) {
+      newRewards[index][field] = value;
+      if (
+        !newRewards[index].quantity_free ||
+        newRewards[index].quantity_free === 0
+      ) {
+        newRewards[index].quantity_free = 1;
+      }
+    } else {
+      newRewards[index][field] = value;
+    }
+
     setFormData({ ...formData, rewards: newRewards });
   };
 
   const addGift = () => {
     setFormData({
       ...formData,
-      gifts: [...formData.gifts, { product: "", quantity: 1 }],
+      gifts: [...formData.gifts, { product: "", quantity: 0 }],
     });
   };
 
@@ -391,7 +2159,16 @@ const ProductCombinations = () => {
 
   const updateGift = (index, field, value) => {
     const newGifts = [...formData.gifts];
-    newGifts[index][field] = value;
+
+    if (field === "product" && value) {
+      newGifts[index][field] = value;
+      if (!newGifts[index].quantity || newGifts[index].quantity === 0) {
+        newGifts[index].quantity = 1;
+      }
+    } else {
+      newGifts[index][field] = value;
+    }
+
     setFormData({ ...formData, gifts: newGifts });
   };
 
@@ -400,7 +2177,6 @@ const ProductCombinations = () => {
     const product = products.find((p) => p.id === parseInt(productId));
     const pricing = productPricings[productId];
     if (!product) return null;
-
     return {
       ...product,
       sale_rate:
@@ -409,52 +2185,573 @@ const ProductCombinations = () => {
       calculated_rate:
         formatNumber(pricing?.calculated_rate) || formatNumber(product.price),
       landing_rate: formatNumber(pricing?.landing_rate) || 0,
-      price: formatNumber(product.price),
-      stock_qty: formatNumber(product.stock_qty),
     };
   };
 
-  const comboCalculations = calculateComboTotal(
-    formData.items,
-    formData.rewards,
-    formData.gifts,
-  );
-
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-2"></div>
+          <p className="text-gray-600">Loading product combinations...</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-2 max-w-full bg-gray-50 min-h-screen">
-      {/* Header */}
+  const formCalculations = getFormCalculations();
 
-      <div className="flex justify-between items-center">
-        <div className="flex items-center mb-2">
-          <h1 className="text-3xl font-bold text-black">
-            Product Combinations
-          </h1>
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-full mx-auto">
+        {/* Filter Bar */}
+        <div className="mb-2 w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-4">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Search
+              </label>
+
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="Search by combo name..."
+              />
+            </div>
+
+            <div className="col-span-4">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Combo Name
+              </label>
+
+              <input
+                type="text"
+                value={filterName}
+                onChange={(e) => setFilterName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="Filter combinations..."
+              />
+            </div>
+
+            <div className="col-span-4">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Actions
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleClearFilters}
+                  className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 text-sm font-medium flex items-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  Clear
+                </button>
+
+                <button
+                  onClick={handleApplyFilters}
+                  className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-200 text-sm font-medium flex items-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  Apply
+                </button>
+
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={handleSaveAll}
+                      disabled={
+                        saving || Object.keys(editedValues).length === 0
+                      }
+                      className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2 text-sm"
+                    >
+                      <Save className="h-4 w-4" />
+
+                      {saving
+                        ? "Saving..."
+                        : `Save (${Object.keys(editedValues).length})`}
+                    </button>
+
+                    <button
+                      onClick={() => setShowForm(true)}
+                      className="px-4 py-2.5 bg-[#1a2332] text-white rounded-xl hover:bg-[#2d3748] transition-all flex items-center gap-2 text-sm"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Combo
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-[#1a2332] text-white px-6 py-2 rounded-lg hover:bg-[#2d3748] hover:text-white transition-all duration-200 flex items-center gap-2 font-semibold shadow-lg mb-2"
+
+        {/* Main Table */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div
+            ref={tableContainerRef}
+            className="overflow-auto"
+            
           >
-            <Plus className="h-5 w-5" />
-            Add Combination
-          </button>
-        )}
+            <style>{`
+  .combo-table {
+    width: 100%;
+    border-collapse: collapse;  /* Change from 'separate' to 'collapse' */
+    background: white;
+  }
+
+  .combo-table th,
+  .combo-table td {
+    border: 1px solid #e5e7eb;  /* Add border to all th and td */
+    vertical-align: top;
+  }
+
+  .combo-table th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #1a2332;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 14px 16px;
+    border-bottom: 2px solid #334155;
+    white-space: nowrap;
+  }
+
+  .combo-table td {
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;  /* Add right border to all cells */
+  }
+
+  /* Remove right border from last column to avoid double border */
+  .combo-table td:last-child,
+  .combo-table th:last-child {
+    border-right: none;
+  }
+
+  .combo-table tbody tr {
+    transition: all 0.2s ease;
+  }
+
+  .combo-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .sticky-col {
+    position: sticky;
+    z-index: 10;
+    background: inherit;
+    border-right: 1px solid #d1d5db !important;  /* Stronger border for sticky columns */
+  }
+
+  .sticky-col-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: linear-gradient(to right, #1e293b, #111827);
+    border-right: 1px solid #334155 !important;
+  }
+
+  /* Ensure all columns have visible borders */
+  .combo-table td:not(:last-child) {
+    border-right: 1px solid #e5e7eb;
+  }
+
+  .product-row {
+    display: grid;
+    grid-template-columns: 1fr 50px;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #e5e7eb;
+    min-height: 50px;
+  }
+
+  .product-row:last-child {
+    border-bottom: none;
+  }
+
+  .qty-box {
+    height: 30px;
+    min-width: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .reward-qty {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .gift-qty {
+    background: #ffedd5;
+    color: #c2410c;
+  }
+
+  .empty-text {
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 12px 0;
+    display: block;
+  }
+
+  .more-text {
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+`}</style>
+
+            <table className="combo-table">
+              <thead>
+                <tr>
+                  <th
+                    className="sticky-col-header text-left"
+                    style={{
+                      left: STICKY_POSITIONS.COMBO_NAME,
+                      minWidth: COLUMN_WIDTHS.COMBO_NAME,
+                    }}
+                  >
+                    Combo Name
+                  </th>
+
+                  <th
+                    className="sticky-col-header text-left"
+                    style={{
+                      left: STICKY_POSITIONS.PAID_ITEMS,
+                      minWidth: COLUMN_WIDTHS.PAID_ITEMS,
+                    }}
+                  >
+                    Purchase Product
+                  </th>
+
+                  <th style={{ minWidth: 220 }}>Free Product</th>
+
+                  <th style={{ minWidth: 220 }}>Gifts product</th>
+
+                  <th style={{ minWidth: GROUP_CONFIG.charges.width }}>
+                    Charges
+                  </th>
+
+                  <th style={{ minWidth: GROUP_CONFIG.costBreakdown.width }}>
+                    Cost Breakdown
+                  </th>
+
+                  {isAdmin && <th style={{ minWidth: 80 }}>Actions</th>}
+                </tr>
+              </thead>
+
+              <tbody>
+                {paginatedData.map((row, rowIndex) => {
+                  const isEvenRow = rowIndex % 2 === 0;
+
+                  const rowBgClass = isEvenRow ? "bg-white" : "bg-gray-50";
+
+                  const displayItems = (row.items || []).slice(0, 3);
+                  const remainingItems = (row.items || []).length - 3;
+
+                  const displayRewards = (row.rewards || []).slice(0, 3);
+
+                  const remainingRewards = (row.rewards || []).length - 3;
+
+                  const displayGifts = (row.gifts || []).slice(0, 3);
+
+                  const remainingGifts = (row.gifts || []).length - 3;
+
+                  return (
+                    <tr key={row.id || rowIndex} className={rowBgClass}>
+                      {/* Combo Name */}
+                      <td
+                        className={`sticky-col ${rowBgClass} px-5 py-4`}
+                        style={{
+                          left: STICKY_POSITIONS.COMBO_NAME,
+                          minWidth: COLUMN_WIDTHS.COMBO_NAME,
+                        }}
+                      >
+                        <div className="font-bold text-gray-900 text-sm">
+                          {row.name}
+                        </div>
+
+                        {row.description && (
+                          <div className="text-xs text-gray-500 mt-2 leading-relaxed">
+                            {row.description}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Paid Items */}
+                      <td
+                        className={`sticky-col ${rowBgClass} px-5 py-4`}
+                        style={{
+                          left: STICKY_POSITIONS.PAID_ITEMS,
+                          minWidth: COLUMN_WIDTHS.PAID_ITEMS,
+                        }}
+                      >
+                        {displayItems.length > 0 ? (
+                          displayItems.map((item, idx) => {
+                            const product = products.find(
+                              (p) => p.id === item.product,
+                            );
+
+                            if (!product) return null;
+
+                            return (
+                              <div key={idx} className="product-row">
+                                <div>
+                                  <div className="font-medium text-gray-900 text-sm">
+                                    {product.title}
+                                  </div>
+
+                                  {item.offer_price && (
+                                    <div className="text-xs text-green-600 mt-1">
+                                      Special Price: ₹
+                                      {formatNumber(item.offer_price).toFixed(
+                                        2,
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="qty-box">
+                                  {item.quantity_required}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <span className="empty-text">No items</span>
+                        )}
+
+                        {remainingItems > 0 && (
+                          <div className="more-text text-purple-600">
+                            +{remainingItems} more items
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Rewards */}
+                      <td className="px-5 py-4">
+                        {displayRewards.length > 0 ? (
+                          displayRewards.map((reward, idx) => {
+                            const product = products.find(
+                              (p) => p.id === reward.product,
+                            );
+
+                            if (!product) return null;
+
+                            return (
+                              <div key={idx} className="product-row">
+                                <div className="font-medium text-green-700 text-sm">
+                                  {product.title}
+                                </div>
+
+                                <div className="qty-box reward-qty">
+                                  {reward.quantity_free}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <span className="empty-text">No rewards</span>
+                        )}
+
+                        {remainingRewards > 0 && (
+                          <div className="more-text text-green-600">
+                            +{remainingRewards} more rewards
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Gifts */}
+                      <td className="px-5 py-4">
+                        {displayGifts.length > 0 ? (
+                          displayGifts.map((gift, idx) => {
+                            const product = products.find(
+                              (p) => p.id === gift.product,
+                            );
+
+                            if (!product) return null;
+
+                            return (
+                              <div key={idx} className="product-row">
+                                <div className="font-medium text-orange-700 text-sm">
+                                  {product.title}
+                                </div>
+
+                                <div className="qty-box gift-qty">
+                                  {gift.quantity}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <span className="empty-text">No gifts</span>
+                        )}
+
+                        {remainingGifts > 0 && (
+                          <div className="more-text text-orange-600">
+                            +{remainingGifts} more gifts
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Charges */}
+                      {renderGroupCell(row, rowIndex, "charges")}
+
+                      {/* Cost Breakdown */}
+                      {renderGroupCell(row, rowIndex, "costBreakdown")}
+
+                      {/* Actions */}
+                      {isAdmin && (
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleEdit(row)}
+                              className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-all"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+
+                            <button
+                              onClick={() => handleDelete(row.id)}
+                              className="h-9 w-9 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-wrap gap-4">
+              <div className="text-sm text-gray-700">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                {Math.min(currentPage * itemsPerPage, filteredData.length)} of{" "}
+                {filteredData.length} combinations
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg disabled:opacity-50 hover:bg-gray-200 transition-all"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+
+                    if (totalPages <= 5) pageNum = i + 1;
+                    else if (currentPage <= 3) pageNum = i + 1;
+                    else if (currentPage >= totalPages - 2)
+                      pageNum = totalPages - 4 + i;
+                    else pageNum = currentPage - 2 + i;
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                          currentPage === pageNum
+                            ? "bg-blue-600 text-white"
+                            : "hover:bg-gray-200"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(p + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg disabled:opacity-50 hover:bg-gray-200 transition-all"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {filteredData.length === 0 && (
+            <div className="text-center py-14 bg-white">
+              <Package className="h-16 w-16 text-gray-300 mx-auto mb-2" />
+
+              <p className="text-gray-500 text-sm">
+                No product combinations found.
+              </p>
+
+              {isAdmin && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="mt-5 bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-all"
+                >
+                  Create your first combination
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Form Modal */}
+      {/* Create/Edit Modal */}
       {showForm && isAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[#1a2332] text-white px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">
+        <div
+          className="fixed top-0 right-0 bottom-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50"
+          style={{
+            left: isOpen ? "256px" : "80px",
+            transition: "left 0.3s ease",
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-[100%] max-w-[1900px] my-8 max-h-[100vh] overflow-y-auto">
+            <div className="sticky top-0 bg-[#1a2332] text-white px-6 py-4 flex justify-between items-center z-10">
+              <h2 className="text-xl font-bold">
                 {editingCombination
                   ? "Edit Combination"
                   : "Create New Combination"}
@@ -467,41 +2764,22 @@ const ProductCombinations = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6">
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
+            <form onSubmit={handleSubmit} className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-1">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Combination Name *
-                  </label>
                   <input
                     type="text"
                     value={formData.name}
+                    placeholder="Enter combination name"
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Combo Weight (kg)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.combo_weight}
-                    onChange={(e) =>
-                      setFormData({ ...formData, combo_weight: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Purchase Point
-                  </label>
                   <input
                     type="text"
                     value={formData.curriar_purchase_point}
@@ -511,13 +2789,12 @@ const ProductCombinations = () => {
                         curriar_purchase_point: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="Enter Purchase Point"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Dispatch Point
-                  </label>
                   <input
                     type="text"
                     value={formData.curriar_dispatch_point}
@@ -527,1437 +2804,2818 @@ const ProductCombinations = () => {
                         curriar_dispatch_point: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="Enter Dispatch Point"
                   />
                 </div>
               </div>
 
-              {/* <div className="mb-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  rows="2"
-                />
-              </div> */}
-              {/* Additional Charges Section - For Display Only */}
-              <div className="mb-1">
-                <div className="flex justify-between items-center mb-1"></div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-1">
-                  {/* Parking Charge */}
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Parking Charge
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.parking_charge_type}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            parking_charge_type: e.target.value,
-                          })
-                        }
-                        className="w-12 px-2 py-1 border border-gray-300 rounded text-sm"
+              {/* Main Content Area - Two Columns with custom widths */}
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-2" style={{ flex: "3" }}>
+                  {/* Purchase Items */}
+                  <div className="border rounded-lg p-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="text-base font-semibold">
+                        Purchase Product
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={addItem}
+                        className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1"
                       >
-                        <option value="rupees">₹</option>
-                        <option value="percent">%</option>
-                      </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.parking_charge_value}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            parking_charge_value:
-                              parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="w-20 flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Amount"
-                      />
+                        <Plus className="h-3 w-3" /> Add Item
+                      </button>
                     </div>
+                    {formData.items.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-[#1a2332] text-white">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left">Product</th>
+                              <th className="px-2 py-1.5 text-left">Qty</th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Landing Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                MRP Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Sale Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Calculated Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Package Weight
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="1">
+                                Package Volume
+                              </th>
+                              <th className="px-2 py-1.5 text-left">Offer</th>
+                              <th className="px-2 py-1.5 text-left">
+                                Subtotal
+                              </th>
+                              <th className="px-2 py-1.5 text-left">Action</th>
+                            </tr>
+                            <tr className="bg-gray-50">
+                              <th className="px-2 py-1 text-left"></th>
+                              <th className="px-2 py-1 text-left"></th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              {/* <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th> */}
+                              {/* <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th> */}
+                              <th className="px-2 py-1"></th>
+                              <th className="px-2 py-1"></th>
+                              <th className="px-2 py-1"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {formData.items.map((item, index) => {
+                              const selectedProductId = item.product;
+                              const pricing = selectedProductId
+                                ? productPricings[selectedProductId]
+                                : null;
+                              const product = selectedProductId
+                                ? products.find(
+                                    (p) => p.id === parseInt(selectedProductId),
+                                  )
+                                : null;
+
+                              const quantity = formatNumber(
+                                item.quantity_required,
+                              );
+
+                              const landingRate = formatNumber(
+                                pricing?.landing_rate ??
+                                  product?.landing_rate ??
+                                  0,
+                              );
+                              const landingTotal = landingRate * quantity;
+
+                              const mrp = formatNumber(
+                                pricing?.mrp ?? product?.mrp ?? 0,
+                              );
+                              const mrpTotal = mrp * quantity;
+
+                              const saleRate = formatNumber(
+                                pricing?.sale_rate ?? product?.price ?? 0,
+                              );
+                              const saleTotal = saleRate * quantity;
+
+                              const calculatedRate = formatNumber(
+                                pricing?.calculated_rate ?? product?.price ?? 0,
+                              );
+                              const calculatedTotal = calculatedRate * quantity;
+
+                              // Weight calculations
+                              const unitWeight = formatNumber(
+                                product?.packing_weight || 0,
+                              );
+                              const totalWeight = unitWeight * quantity;
+                              const weightUnit =
+                                product?.packing_weight_unit_display || "kg";
+
+                              // Dimension calculations
+                              const lengthCm =
+                                parseFloat(product?.length_cm) || 0;
+                              const breadthCm =
+                                parseFloat(product?.breadth_cm) || 0;
+                              const heightCm =
+                                parseFloat(product?.height_cm) || 0;
+                              const unitVolumeCm3 =
+                                lengthCm * breadthCm * heightCm;
+                              const unitVolumeM3 = unitVolumeCm3 / 1000000; // Convert to cubic meters
+                              const totalVolumeM3 = unitVolumeM3 * quantity;
+                              const volumeDisplay =
+                                unitVolumeM3 > 0
+                                  ? `${unitVolumeM3.toFixed(6)} m³`
+                                  : "-";
+                              const totalVolumeDisplay =
+                                totalVolumeM3 > 0
+                                  ? `${totalVolumeM3.toFixed(6)} m³`
+                                  : "-";
+
+                              const effectiveRate =
+                                item.offer_price !== null &&
+                                item.offer_price !== "" &&
+                                item.offer_price !== undefined
+                                  ? parseFloat(item.offer_price)
+                                  : saleRate;
+                              const subtotal = effectiveRate * quantity;
+
+                              return (
+                                <tr key={index} className="border-t">
+                                  {/* Product selection */}
+                                  <td className="px-2 py-1.5">
+                                    <SearchableProductDropdown
+                                      value={item.product}
+                                      onChange={(e) =>
+                                        updateItem(
+                                          index,
+                                          "product",
+                                          e.target.value,
+                                        )
+                                      }
+                                      products={products}
+                                      className="w-36"
+                                      required
+                                    />
+                                  </td>
+
+                                  {/* Quantity */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={item.quantity_required}
+                                      onChange={(e) =>
+                                        updateItem(
+                                          index,
+                                          "quantity_required",
+                                          parseInt(e.target.value) || 0,
+                                        )
+                                      }
+                                      className="w-16 px-1.5 py-1 border rounded text-xs"
+                                      required
+                                    />
+                                  </td>
+
+                                  {/* Landing - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={landingRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={landingTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* MRP - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={mrp.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={mrpTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Sale - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={saleRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={saleTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Calculated - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={calculatedRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={calculatedTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Weight - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={`${unitWeight} ${weightUnit}`}
+                                      className="w-24 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={`${totalWeight.toFixed(2)} ${weightUnit}`}
+                                      className="w-24 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Dimensions - Unit & Total */}
+                                  {/* <td className="px-2 py-1.5">
+        <input
+          type="text"
+          value={volumeDisplay}
+          className="w-28 px-1.5 py-1 border rounded text-xs bg-gray-50"
+          readOnly
+          disabled
+        />
+      </td> */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={totalVolumeDisplay}
+                                      className="w-28 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Offer Price */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={item.offer_price || ""}
+                                      onChange={(e) =>
+                                        updateItem(
+                                          index,
+                                          "offer_price",
+                                          e.target.value
+                                            ? parseFloat(e.target.value)
+                                            : null,
+                                        )
+                                      }
+                                      className="w-20 px-1.5 py-1 border rounded text-xs"
+                                      placeholder="Optional"
+                                    />
+                                  </td>
+
+                                  {/* Subtotal */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={subtotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Action */}
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeItem(index)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+
+                          {/* Footer Row with All Totals */}
+                          <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                            <tr className="font-bold">
+                              <td
+                                colSpan="2"
+                                className="px-2 py-2 text-right text-xs"
+                              >
+                                TOTALS:
+                              </td>
+
+                              {/* Landing Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.items
+                                    .reduce((total, item) => {
+                                      const selectedProductId = item.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const landingRate = formatNumber(
+                                        pricing?.landing_rate ??
+                                          product?.landing_rate ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        item.quantity_required,
+                                      );
+                                      return total + landingRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* MRP Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.items
+                                    .reduce((total, item) => {
+                                      const selectedProductId = item.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const mrp = formatNumber(
+                                        pricing?.mrp ?? product?.mrp ?? 0,
+                                      );
+                                      const quantity = formatNumber(
+                                        item.quantity_required,
+                                      );
+                                      return total + mrp * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Sale Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.items
+                                    .reduce((total, item) => {
+                                      const selectedProductId = item.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        item.quantity_required,
+                                      );
+                                      return total + saleRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Calculated Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.items
+                                    .reduce((total, item) => {
+                                      const selectedProductId = item.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        item.quantity_required,
+                                      );
+                                      return total + calculatedRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Weight Total (always in kg, with debug) */}
+
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalWeightInKg = 0;
+                                    console.log(
+                                      "=== Weight Calculation Debug ===",
+                                    );
+                                    console.log("Units available:", units);
+
+                                    formData.items.forEach((item, idx) => {
+                                      const selectedProductId = item.product;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              Number(p.id) ===
+                                              Number(selectedProductId),
+                                          )
+                                        : null;
+
+                                      if (product) {
+                                        const unitWeight = parseFloat(
+                                          product?.packing_weight || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          item.quantity_required || 0,
+                                        );
+                                        const unitId =
+                                          product.packing_weight_unit_id;
+
+                                        console.log(
+                                          `Product ${idx + 1}: ${product.title}`,
+                                        );
+                                        console.log(
+                                          `  Weight: ${unitWeight}, Unit ID: ${unitId}, Quantity: ${quantity}`,
+                                        );
+
+                                        if (unitId) {
+                                          const convertedWeight =
+                                            convertWeightToUnit(
+                                              unitWeight,
+                                              unitId,
+                                              null,
+                                            );
+                                          console.log(
+                                            `  Converted to kg: ${convertedWeight}`,
+                                          );
+                                          const totalForProduct =
+                                            convertedWeight * quantity;
+                                          console.log(
+                                            `  Total for product: ${totalForProduct} kg`,
+                                          );
+                                          totalWeightInKg += totalForProduct;
+                                        } else {
+                                          console.log(
+                                            `  No unit ID found, using raw weight: ${unitWeight} kg`,
+                                          );
+                                          totalWeightInKg +=
+                                            unitWeight * quantity;
+                                        }
+                                      }
+                                    });
+
+                                    console.log(
+                                      `Total Weight: ${totalWeightInKg.toFixed(3)} kg`,
+                                    );
+                                    return `${totalWeightInKg.toFixed(3)} kg`;
+                                  })()}
+                                  className="w-28 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+                              {/* Volume Total - Purchase Products */}
+                              <td className="px-2 py-2">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalVolumeInM3 = 0;
+                                    formData.items.forEach((item) => {
+                                      const selectedProductId = item.product;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      if (product) {
+                                        const lengthCm = parseFloat(
+                                          product?.length_cm || 0,
+                                        );
+                                        const breadthCm = parseFloat(
+                                          product?.breadth_cm || 0,
+                                        );
+                                        const heightCm = parseFloat(
+                                          product?.height_cm || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          item.quantity_required || 0,
+                                        );
+                                        const unitVolumeCm3 =
+                                          lengthCm * breadthCm * heightCm;
+                                        const unitVolumeM3 =
+                                          unitVolumeCm3 / 1000000;
+                                        const volumeInM3 =
+                                          unitVolumeM3 * quantity;
+                                        totalVolumeInM3 += volumeInM3;
+                                      }
+                                    });
+                                    return `${totalVolumeInM3.toFixed(6)} m³`;
+                                  })()}
+                                  className="w-32 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Empty cells to align with Offer and Subtotal */}
+
+                              <td className="px-2 py-2"></td>
+
+                              {/* Grand Subtotal - Now aligned under Subtotal column */}
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.items
+                                    .reduce((total, item) => {
+                                      const selectedProductId = item.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const effectiveRate =
+                                        item.offer_price || saleRate;
+                                      const quantity = formatNumber(
+                                        item.quantity_required,
+                                      );
+                                      return (
+                                        total +
+                                        formatNumber(effectiveRate) * quantity
+                                      );
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Action - empty */}
+                              <td className="px-2 py-2"></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed">
+                        <p className="text-gray-500 text-sm">
+                          No items added yet.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Transportation Charge */}
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Transportation Charge
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.transportation_charge_type}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            transportation_charge_type: e.target.value,
-                          })
-                        }
-                        className="w-12 px-2 py-1 border border-gray-300 rounded text-sm"
+                  {/* Free Rewards */}
+                  <div className="border rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-base font-semibold">Free Product</h3>
+                      <button
+                        type="button"
+                        onClick={addReward}
+                        className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1"
                       >
-                        <option value="rupees">₹</option>
-                        <option value="percent">%</option>
-                      </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.transportation_charge_value}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            transportation_charge_value:
-                              parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="w-20 flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Amount"
-                      />
+                        <Plus className="h-3 w-3" /> Add item
+                      </button>
                     </div>
+                    {formData.rewards.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-[#1a2332] text-white">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left">Product</th>
+                              <th className="px-2 py-1.5 text-left">Qty</th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Landing Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                MRP Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Sale Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Calculated Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Package Weight
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="1">
+                                Package Volume
+                              </th>
+                              <th className="px-2 py-1.5 text-left">Offer</th>
+                              <th className="px-2 py-1.5 text-left">
+                                Subtotal
+                              </th>
+                              <th className="px-2 py-1.5 text-left">Action</th>
+                            </tr>
+                            <tr className="bg-gray-50">
+                              <th className="px-2 py-1 text-left"></th>
+                              <th className="px-2 py-1 text-left"></th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1"></th>
+                              <th className="px-2 py-1"></th>
+                              <th className="px-2 py-1"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {formData.rewards.map((reward, index) => {
+                              const selectedProductId = reward.product;
+                              const pricing = selectedProductId
+                                ? productPricings[selectedProductId]
+                                : null;
+                              const product = selectedProductId
+                                ? products.find(
+                                    (p) => p.id === parseInt(selectedProductId),
+                                  )
+                                : null;
+
+                              const quantity = formatNumber(
+                                reward.quantity_free,
+                              );
+
+                              const landingRate = formatNumber(
+                                pricing?.landing_rate ??
+                                  product?.landing_rate ??
+                                  0,
+                              );
+                              const landingTotal = landingRate * quantity;
+
+                              const mrp = formatNumber(
+                                pricing?.mrp ?? product?.mrp ?? 0,
+                              );
+                              const mrpTotal = mrp * quantity;
+
+                              const saleRate = formatNumber(
+                                pricing?.sale_rate ?? product?.price ?? 0,
+                              );
+                              const saleTotal = saleRate * quantity;
+
+                              const calculatedRate = formatNumber(
+                                pricing?.calculated_rate ?? product?.price ?? 0,
+                              );
+                              const calculatedTotal = calculatedRate * quantity;
+
+                              // Weight calculations
+                              const unitWeight = formatNumber(
+                                product?.packing_weight || 0,
+                              );
+                              const totalWeight = unitWeight * quantity;
+                              const weightUnit =
+                                product?.packing_weight_unit_display || "kg";
+
+                              // Dimension calculations
+                              const lengthCm =
+                                parseFloat(product?.length_cm) || 0;
+                              const breadthCm =
+                                parseFloat(product?.breadth_cm) || 0;
+                              const heightCm =
+                                parseFloat(product?.height_cm) || 0;
+                              const unitVolume =
+                                (lengthCm * breadthCm * heightCm) / 1000000; // Directly in m³
+                              const totalVolume = unitVolume * quantity;
+                              const volumeDisplay =
+                                unitVolume > 0
+                                  ? `${unitVolume.toFixed(6)} m³`
+                                  : "-";
+                              const totalVolumeDisplay =
+                                totalVolume > 0
+                                  ? `${totalVolume.toFixed(6)} m³`
+                                  : "-";
+
+                              // For free rewards, offer price is typically 0 since it's free
+                              const offerPrice = 0;
+                              const subtotal = saleRate * quantity;
+
+                              return (
+                                <tr key={index} className="border-t">
+                                  <td className="px-2 py-1.5">
+                                    <SearchableProductDropdown
+                                      value={reward.product}
+                                      onChange={(e) =>
+                                        updateReward(
+                                          index,
+                                          "product",
+                                          e.target.value,
+                                        )
+                                      }
+                                      products={products}
+                                      className="w-36"
+                                      required
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={reward.quantity_free}
+                                      onChange={(e) =>
+                                        updateReward(
+                                          index,
+                                          "quantity_free",
+                                          parseInt(e.target.value) || 0,
+                                        )
+                                      }
+                                      className="w-16 px-1.5 py-1 border rounded text-xs"
+                                      required
+                                    />
+                                  </td>
+
+                                  {/* Landing - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={landingRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={landingTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* MRP - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={mrp.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={mrpTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Sale - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={saleRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={saleTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Calculated - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={calculatedRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={calculatedTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Weight - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={`${unitWeight} ${weightUnit}`}
+                                      className="w-24 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={`${totalWeight.toFixed(2)} ${weightUnit}`}
+                                      className="w-24 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Volume - Unit & Total */}
+                                  {/* <td className="px-2 py-1.5">
+                                    <input
+
+                                      type="text"
+                                      value={volumeDisplay}
+                                      className="w-28 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td> */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={totalVolumeDisplay}
+                                      className="w-28 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Offer Price */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value="0"
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-100 cursor-not-allowed"
+                                      readOnly
+                                      disabled
+                                      placeholder="Free"
+                                    />
+                                  </td>
+
+                                  {/* Subtotal */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={subtotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Action */}
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeReward(index)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+
+                          {/* Footer Row with All Totals */}
+                          <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                            <tr className="font-bold">
+                              <td
+                                colSpan="2"
+                                className="px-2 py-2 text-right text-xs"
+                              >
+                                TOTALS:
+                              </td>
+
+                              {/* Landing Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.rewards
+                                    .reduce((total, reward) => {
+                                      const selectedProductId = reward.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const landingRate = formatNumber(
+                                        pricing?.landing_rate ??
+                                          product?.landing_rate ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        reward.quantity_free,
+                                      );
+                                      return total + landingRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-green-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* MRP Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.rewards
+                                    .reduce((total, reward) => {
+                                      const selectedProductId = reward.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const mrp = formatNumber(
+                                        pricing?.mrp ?? product?.mrp ?? 0,
+                                      );
+                                      const quantity = formatNumber(
+                                        reward.quantity_free,
+                                      );
+                                      return total + mrp * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-green-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Sale Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.rewards
+                                    .reduce((total, reward) => {
+                                      const selectedProductId = reward.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        reward.quantity_free,
+                                      );
+                                      return total + saleRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-green-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Calculated Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.rewards
+                                    .reduce((total, reward) => {
+                                      const selectedProductId = reward.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        reward.quantity_free,
+                                      );
+                                      return total + calculatedRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-green-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Weight Total (always in kg) */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalWeightInKg = 0;
+                                    formData.rewards.forEach((reward) => {
+                                      const selectedProductId = reward.product;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      if (
+                                        product &&
+                                        product.packing_weight_unit_id
+                                      ) {
+                                        const unitWeight = parseFloat(
+                                          product?.packing_weight || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          reward.quantity_free || 0,
+                                        );
+                                        // Always convert to kg
+                                        const weightInKg =
+                                          convertWeightToUnit(
+                                            unitWeight,
+                                            product.packing_weight_unit_id,
+                                            null,
+                                          ) * quantity;
+                                        totalWeightInKg += weightInKg;
+                                      }
+                                    });
+                                    return `${totalWeightInKg.toFixed(3)} kg`;
+                                  })()}
+                                  className="w-28 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-green-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Volume Total */}
+
+                              <td className="px-2 py-2">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalVolumeInM3 = 0;
+                                    formData.rewards.forEach((reward) => {
+                                      const selectedProductId = reward.product;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      if (product) {
+                                        const lengthCm = parseFloat(
+                                          product?.length_cm || 0,
+                                        );
+                                        const breadthCm = parseFloat(
+                                          product?.breadth_cm || 0,
+                                        );
+                                        const heightCm = parseFloat(
+                                          product?.height_cm || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          reward.quantity_free || 0,
+                                        );
+                                        const unitVolumeCm3 =
+                                          lengthCm * breadthCm * heightCm;
+                                        const unitVolumeM3 =
+                                          unitVolumeCm3 / 1000000;
+                                        const volumeInM3 =
+                                          unitVolumeM3 * quantity;
+                                        totalVolumeInM3 += volumeInM3;
+                                      }
+                                    });
+                                    return `${totalVolumeInM3.toFixed(6)} m³`;
+                                  })()}
+                                  className="w-32 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-green-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Empty cell to align with Offer column */}
+                              <td className="px-2 py-2"></td>
+
+                              {/* Grand Subtotal */}
+                              {/* Grand Subtotal */}
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.rewards
+                                    .filter(
+                                      (reward) =>
+                                        reward.product &&
+                                        formatNumber(reward.quantity_free) > 0,
+                                    )
+                                    .reduce((total, reward) => {
+                                      const selectedProductId = reward.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        reward.quantity_free,
+                                      );
+                                      return total + saleRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Action - empty */}
+                              <td className="px-2 py-2"></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed">
+                        <p className="text-gray-500 text-xs">
+                          No rewards added yet.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Handling Charge */}
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Handling Charge
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.handling_charge_type}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            handling_charge_type: e.target.value,
-                          })
-                        }
-                        className="w-12 px-2 py-1 border border-gray-300 rounded text-sm"
+                  {/* Gifts */}
+                  <div className="border rounded-lg p-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="text-base font-semibold">Gift product</h3>
+                      <button
+                        type="button"
+                        onClick={addGift}
+                        className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1"
                       >
-                        <option value="rupees">₹</option>
-                        <option value="percent">%</option>
-                      </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.handling_charge_value}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            handling_charge_value:
-                              parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="w-20 flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Amount"
-                      />
+                        <Plus className="h-3 w-3" /> Add item
+                      </button>
                     </div>
+                    {formData.gifts.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-[#1a2332] text-white">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left">Product</th>
+                              <th className="px-2 py-1.5 text-left">Qty</th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Landing Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                MRP Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Sale Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Calculated Rate
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="2">
+                                Package Weight
+                              </th>
+                              <th className="px-2 py-1.5 text-left" colSpan="1">
+                                Package Volume
+                              </th>
+                              <th className="px-2 py-1.5 text-left">Offer</th>
+                              <th className="px-2 py-1.5 text-left">
+                                Subtotal
+                              </th>
+                              <th className="px-2 py-1.5 text-left">Action</th>
+                            </tr>
+                            <tr className="bg-gray-50">
+                              <th className="px-2 py-1 text-left"></th>
+                              <th className="px-2 py-1 text-left"></th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Unit
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                                Total
+                              </th>
+                              <th className="px-2 py-1"></th>
+                              <th className="px-2 py-1"></th>
+                              <th className="px-2 py-1"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {formData.gifts.map((gift, index) => {
+                              const selectedProductId = gift.product;
+                              const pricing = selectedProductId
+                                ? productPricings[selectedProductId]
+                                : null;
+                              const product = selectedProductId
+                                ? products.find(
+                                    (p) => p.id === parseInt(selectedProductId),
+                                  )
+                                : null;
+
+                              const quantity = formatNumber(gift.quantity);
+
+                              const landingRate = formatNumber(
+                                pricing?.landing_rate ??
+                                  product?.landing_rate ??
+                                  0,
+                              );
+                              const landingTotal = landingRate * quantity;
+
+                              const mrp = formatNumber(
+                                pricing?.mrp ?? product?.mrp ?? 0,
+                              );
+                              const mrpTotal = mrp * quantity;
+
+                              const saleRate = formatNumber(
+                                pricing?.sale_rate ?? product?.price ?? 0,
+                              );
+                              const saleTotal = saleRate * quantity;
+
+                              const calculatedRate = formatNumber(
+                                pricing?.calculated_rate ?? product?.price ?? 0,
+                              );
+                              const calculatedTotal = calculatedRate * quantity;
+
+                              // Weight calculations
+                              const unitWeight = formatNumber(
+                                product?.packing_weight || 0,
+                              );
+                              const totalWeight = unitWeight * quantity;
+                              const weightUnit =
+                                product?.packing_weight_unit_display || "kg";
+
+                              const lengthCm =
+                                parseFloat(product?.length_cm) || 0;
+                              const breadthCm =
+                                parseFloat(product?.breadth_cm) || 0;
+                              const heightCm =
+                                parseFloat(product?.height_cm) || 0;
+                              const unitVolume =
+                                (lengthCm * breadthCm * heightCm) / 1000000; // Convert to m³
+                              const totalVolume = unitVolume * quantity;
+                              const volumeDisplay =
+                                unitVolume > 0
+                                  ? `${unitVolume.toFixed(6)} m³`
+                                  : "-";
+                              const totalVolumeDisplay =
+                                totalVolume > 0
+                                  ? `${totalVolume.toFixed(6)} m³`
+                                  : "-";
+
+                              // FIXED: Use saleRate for subtotal, offer_price is just for display
+                              const effectiveRate = saleRate;
+                              const subtotal = effectiveRate * quantity;
+
+                              return (
+                                <tr key={index} className="border-t">
+                                  <td className="px-2 py-1.5">
+                                    <SearchableProductDropdown
+                                      value={gift.product}
+                                      onChange={(e) =>
+                                        updateGift(
+                                          index,
+                                          "product",
+                                          e.target.value,
+                                        )
+                                      }
+                                      products={products}
+                                      className="w-36"
+                                      required
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={gift.quantity}
+                                      onChange={(e) =>
+                                        updateGift(
+                                          index,
+                                          "quantity",
+                                          parseInt(e.target.value) || 0,
+                                        )
+                                      }
+                                      className="w-16 px-1.5 py-1 border rounded text-xs"
+                                      required
+                                    />
+                                  </td>
+
+                                  {/* Landing - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={landingRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={landingTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* MRP - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={mrp.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={mrpTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Sale - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={saleRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={saleTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Calculated - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={calculatedRate.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={calculatedTotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Weight - Unit & Total */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={`${unitWeight} ${weightUnit}`}
+                                      className="w-24 px-1.5 py-1 border rounded text-xs bg-gray-50"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={`${totalWeight.toFixed(2)} ${weightUnit}`}
+                                      className="w-24 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={totalVolumeDisplay}
+                                      className="w-28 px-1.5 py-1 border rounded text-xs bg-gray-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Offer Price - DISABLED (for UI alignment only) */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={gift.offer_price || ""}
+                                      onChange={(e) =>
+                                        updateGift(
+                                          index,
+                                          "offer_price",
+                                          e.target.value
+                                            ? parseFloat(e.target.value)
+                                            : null,
+                                        )
+                                      }
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-gray-100 cursor-not-allowed"
+                                      readOnly
+                                      disabled
+                                      placeholder="Optional"
+                                    />
+                                  </td>
+
+                                  {/* Subtotal - Uses saleRate */}
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={subtotal.toFixed(2)}
+                                      className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-50 font-semibold"
+                                      readOnly
+                                      disabled
+                                    />
+                                  </td>
+
+                                  {/* Action */}
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeGift(index)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+
+                          {/* Footer Row with All Totals */}
+                          <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                            <tr className="font-bold">
+                              <td
+                                colSpan="2"
+                                className="px-2 py-2 text-right text-xs"
+                              >
+                                TOTALS:
+                              </td>
+
+                              {/* Landing Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.gifts
+                                    .reduce((total, gift) => {
+                                      const selectedProductId = gift.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const landingRate = formatNumber(
+                                        pricing?.landing_rate ??
+                                          product?.landing_rate ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        gift.quantity,
+                                      );
+                                      return total + landingRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-orange-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* MRP Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.gifts
+                                    .reduce((total, gift) => {
+                                      const selectedProductId = gift.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const mrp = formatNumber(
+                                        pricing?.mrp ?? product?.mrp ?? 0,
+                                      );
+                                      const quantity = formatNumber(
+                                        gift.quantity,
+                                      );
+                                      return total + mrp * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-orange-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Sale Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.gifts
+                                    .reduce((total, gift) => {
+                                      const selectedProductId = gift.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        gift.quantity,
+                                      );
+                                      return total + saleRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-orange-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Calculated Total */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.gifts
+                                    .reduce((total, gift) => {
+                                      const selectedProductId = gift.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        gift.quantity,
+                                      );
+                                      return total + calculatedRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-orange-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Weight Total (always in kg) */}
+                              <td className="px-2 py-2"></td>
+                              <td className="px-2 py-2">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalWeightInKg = 0;
+                                    formData.gifts.forEach((gift) => {
+                                      const selectedProductId = gift.product;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      if (
+                                        product &&
+                                        product.packing_weight_unit_id
+                                      ) {
+                                        const unitWeight = parseFloat(
+                                          product?.packing_weight || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          gift.quantity || 0,
+                                        );
+                                        // Always convert to kg
+                                        const weightInKg =
+                                          convertWeightToUnit(
+                                            unitWeight,
+                                            product.packing_weight_unit_id,
+                                            null,
+                                          ) * quantity;
+                                        totalWeightInKg += weightInKg;
+                                      }
+                                    });
+                                    return `${totalWeightInKg.toFixed(3)} kg`;
+                                  })()}
+                                  className="w-28 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-orange-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Volume Total - Gift Products */}
+                              <td className="px-2 py-2">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalVolumeInM3 = 0;
+                                    formData.gifts.forEach((gift) => {
+                                      const selectedProductId = gift.product;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      if (product) {
+                                        const lengthCm = parseFloat(
+                                          product?.length_cm || 0,
+                                        );
+                                        const breadthCm = parseFloat(
+                                          product?.breadth_cm || 0,
+                                        );
+                                        const heightCm = parseFloat(
+                                          product?.height_cm || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          gift.quantity || 0,
+                                        );
+                                        const unitVolumeCm3 =
+                                          lengthCm * breadthCm * heightCm;
+                                        const unitVolumeM3 =
+                                          unitVolumeCm3 / 1000000; // Convert cm³ to m³
+                                        const volumeInM3 =
+                                          unitVolumeM3 * quantity;
+                                        totalVolumeInM3 += volumeInM3;
+                                      }
+                                    });
+                                    return `${totalVolumeInM3.toFixed(6)} m³`;
+                                  })()}
+                                  className="w-32 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-orange-700"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Empty cell to align with Offer column */}
+                              <td className="px-2 py-2"></td>
+
+                              {/* Grand Subtotal - Uses saleRate */}
+                              <td className="px-2 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.gifts
+                                    .reduce((total, gift) => {
+                                      const selectedProductId = gift.product;
+                                      const pricing = selectedProductId
+                                        ? productPricings[selectedProductId]
+                                        : null;
+                                      const product = selectedProductId
+                                        ? products.find(
+                                            (p) =>
+                                              p.id ===
+                                              parseInt(selectedProductId),
+                                          )
+                                        : null;
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const quantity = formatNumber(
+                                        gift.quantity,
+                                      );
+                                      return total + saleRate * quantity;
+                                    }, 0)
+                                    .toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800"
+                                  readOnly
+                                  disabled
+                                />
+                              </td>
+
+                              {/* Action - empty */}
+                              <td className="px-2 py-2"></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed">
+                        <p className="text-gray-500 text-xs">
+                          No gifts added yet.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Delivery Charge */}
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Delivery Charge
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.delivery_charge_type}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            delivery_charge_type: e.target.value,
-                          })
-                        }
-                        className="w-12 px-2 py-1 border border-gray-300 rounded text-sm"
-                      >
-                        <option value="rupees">₹</option>
-                        <option value="percent">%</option>
-                      </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.delivery_charge_value}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            delivery_charge_value:
-                              parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="w-20 flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Amount"
-                      />
+                  {/* Grand Totals Section */}
+                  {/* Grand Totals Section */}
+<div className="border rounded-lg p-3 mt-4">
+  <div className="flex justify-between items-center mb-1">
+    <h3 className="text-base font-semibold">Grand Totals</h3>
+  </div>
+  
+  <div className="overflow-x-auto">
+    <table className="min-w-full text-xs">
+      <thead className="bg-[#1a2332] text-white">
+        <tr>
+          <th className="px-2 py-1.5 text-left">Category</th>
+          <th className="px-2 py-1.5 text-left">Qty</th>
+          <th className="px-2 py-1.5 text-center" colSpan="2">
+            Landing Rate
+          </th>
+          <th className="px-2 py-1.5 text-center" colSpan="2">
+            MRP Rate
+          </th>
+          <th className="px-2 py-1.5 text-center" colSpan="2">
+            Sale Rate
+          </th>
+          <th className="px-2 py-1.5 text-center" colSpan="2">
+            Calculated Rate
+          </th>
+          <th className="px-2 py-1.5 text-center" colSpan="2">
+            Total Weight
+          </th>
+          <th className="px-2 py-1.5 text-center" colSpan="2">
+            Total Volume
+          </th>
+          <th className="px-2 py-1.5 text-right" colSpan="1">
+            Total Price
+          </th>
+          <th className="px-2 py-1.5 text-right">Profit</th>
+        </tr>
+      </thead>
+      {/* GRAND TOTAL ROW */}
+      <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+        <tr className="font-bold">
+          <td className="px-2 py-2 text-left font-bold">
+            <div>GRAND TOTAL</div>
+            <div className="w-36 text-[10px] text-gray-500 font-normal">
+              ({formData.items.filter(item => formatNumber(item.quantity_required) > 0).length +
+                formData.rewards.filter(reward => formatNumber(reward.quantity_free) > 0).length +
+                formData.gifts.filter(gift => formatNumber(gift.quantity) > 0).length} items)
+            </div>
+          </td>
+          
+          <td className="px-2 py-2">
+            {formData.items.reduce((sum, item) => sum + formatNumber(item.quantity_required), 0) +
+             formData.rewards.reduce((sum, reward) => sum + formatNumber(reward.quantity_free), 0) +
+             formData.gifts.reduce((sum, gift) => sum + formatNumber(gift.quantity), 0)}
+          </td>
+          
+          {/* Landing - Unit & Total */}
+          <td className="px-2 py-2"></td>
+          <td className="px-2 py-2">
+            <input
+              type="number"
+              step="0.01"
+              value={(
+                formData.items.reduce((total, item) => {
+                  const pricing = productPricings[item.product];
+                  const product = products.find(p => p.id === parseInt(item.product));
+                  const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
+                  return total + (landingRate * formatNumber(item.quantity_required));
+                }, 0) +
+                formData.rewards.reduce((total, reward) => {
+                  const pricing = productPricings[reward.product];
+                  const product = products.find(p => p.id === parseInt(reward.product));
+                  const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
+                  return total + (landingRate * formatNumber(reward.quantity_free));
+                }, 0) +
+                formData.gifts.reduce((total, gift) => {
+                  const pricing = productPricings[gift.product];
+                  const product = products.find(p => p.id === parseInt(gift.product));
+                  const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
+                  return total + (landingRate * formatNumber(gift.quantity));
+                }, 0)
+              ).toFixed(2)}
+              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+              readOnly
+              disabled
+            />
+          </td>
+          
+          {/* MRP - Unit & Total */}
+          <td className="px-2 py-2"></td>
+          <td className="px-2 py-2">
+            <input
+              type="number"
+              step="0.01"
+              value={(
+                formData.items.reduce((total, item) => {
+                  const pricing = productPricings[item.product];
+                  const product = products.find(p => p.id === parseInt(item.product));
+                  const mrp = formatNumber(pricing?.mrp ?? product?.mrp ?? 0);
+                  return total + (mrp * formatNumber(item.quantity_required));
+                }, 0) +
+                formData.rewards.reduce((total, reward) => {
+                  const pricing = productPricings[reward.product];
+                  const product = products.find(p => p.id === parseInt(reward.product));
+                  const mrp = formatNumber(pricing?.mrp ?? product?.mrp ?? 0);
+                  return total + (mrp * formatNumber(reward.quantity_free));
+                }, 0) +
+                formData.gifts.reduce((total, gift) => {
+                  const pricing = productPricings[gift.product];
+                  const product = products.find(p => p.id === parseInt(gift.product));
+                  const mrp = formatNumber(pricing?.mrp ?? product?.mrp ?? 0);
+                  return total + (mrp * formatNumber(gift.quantity));
+                }, 0)
+              ).toFixed(2)}
+              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+              readOnly
+              disabled
+            />
+          </td>
+          
+          {/* Sale - Unit & Total */}
+          <td className="px-2 py-2"></td>
+          <td className="px-2 py-2">
+            <input
+              type="number"
+              step="0.01"
+              value={(
+                formData.items.reduce((total, item) => {
+                  const pricing = productPricings[item.product];
+                  const product = products.find(p => p.id === parseInt(item.product));
+                  const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+                  return total + (saleRate * formatNumber(item.quantity_required));
+                }, 0) +
+                formData.rewards.reduce((total, reward) => {
+                  const pricing = productPricings[reward.product];
+                  const product = products.find(p => p.id === parseInt(reward.product));
+                  const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+                  return total + (saleRate * formatNumber(reward.quantity_free));
+                }, 0) +
+                formData.gifts.reduce((total, gift) => {
+                  const pricing = productPricings[gift.product];
+                  const product = products.find(p => p.id === parseInt(gift.product));
+                  const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+                  return total + (saleRate * formatNumber(gift.quantity));
+                }, 0)
+              ).toFixed(2)}
+              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+              readOnly
+              disabled
+            />
+          </td>
+          
+          {/* Calculated - Unit & Total */}
+          <td className="px-2 py-2"></td>
+          <td className="px-2 py-2">
+            <input
+              type="number"
+              step="0.01"
+              value={(
+                formData.items.reduce((total, item) => {
+                  const pricing = productPricings[item.product];
+                  const product = products.find(p => p.id === parseInt(item.product));
+                  const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
+                  return total + (calculatedRate * formatNumber(item.quantity_required));
+                }, 0) +
+                formData.rewards.reduce((total, reward) => {
+                  const pricing = productPricings[reward.product];
+                  const product = products.find(p => p.id === parseInt(reward.product));
+                  const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
+                  return total + (calculatedRate * formatNumber(reward.quantity_free));
+                }, 0) +
+                formData.gifts.reduce((total, gift) => {
+                  const pricing = productPricings[gift.product];
+                  const product = products.find(p => p.id === parseInt(gift.product));
+                  const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
+                  return total + (calculatedRate * formatNumber(gift.quantity));
+                }, 0)
+              ).toFixed(2)}
+              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+              readOnly
+              disabled
+            />
+          </td>
+          
+          {/* Weight - Unit & Total */}
+          <td className="px-2 py-2"></td>
+          <td className="px-2 py-2">
+  <div className="flex justify-end">
+    <input
+      type="text"
+      value={(() => {
+        let totalWeightInKg = 0;
+
+        // Items
+        formData.items.forEach((item) => {
+          const product = products.find(p => p.id === parseInt(item.product));
+          if (product && product.packing_weight_unit_id) {
+            const unitWeight = parseFloat(product?.packing_weight || 0);
+            const quantity = parseFloat(item.quantity_required || 0);
+            const weightInKg = convertWeightToUnit(unitWeight, product.packing_weight_unit_id, null) * quantity;
+            totalWeightInKg += weightInKg;
+          }
+        });
+
+        // Rewards
+        formData.rewards.forEach((reward) => {
+          const product = products.find(p => p.id === parseInt(reward.product));
+          if (product && product.packing_weight_unit_id) {
+            const unitWeight = parseFloat(product?.packing_weight || 0);
+            const quantity = parseFloat(reward.quantity_free || 0);
+            const weightInKg = convertWeightToUnit(unitWeight, product.packing_weight_unit_id, null) * quantity;
+            totalWeightInKg += weightInKg;
+          }
+        });
+
+        // Gifts
+        formData.gifts.forEach((gift) => {
+          const product = products.find(p => p.id === parseInt(gift.product));
+          if (product && product.packing_weight_unit_id) {
+            const unitWeight = parseFloat(product?.packing_weight || 0);
+            const quantity = parseFloat(gift.quantity || 0);
+            const weightInKg = convertWeightToUnit(unitWeight, product.packing_weight_unit_id, null) * quantity;
+            totalWeightInKg += weightInKg;
+          }
+        });
+
+        return `${totalWeightInKg.toFixed(3)} kg`;
+      })()}
+      className="w-28 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700 text-right"
+      readOnly
+      disabled
+    />
+  </div>
+</td>
+
+          
+          {/* Volume */}
+          <td className="px-2 py-2">
+  <div className="flex justify-end">
+    <input
+      type="text"
+      value={(() => {
+        let totalVolumeInM3 = 0;
+
+        // Items
+        formData.items.forEach((item) => {
+          const product = products.find(p => p.id === parseInt(item.product));
+          if (product) {
+            const lengthCm = parseFloat(product?.length_cm || 0);
+            const breadthCm = parseFloat(product?.breadth_cm || 0);
+            const heightCm = parseFloat(product?.height_cm || 0);
+            const quantity = parseFloat(item.quantity_required || 0);
+            const unitVolumeCm3 = lengthCm * breadthCm * heightCm;
+            const unitVolumeM3 = unitVolumeCm3 / 1000000;
+            totalVolumeInM3 += unitVolumeM3 * quantity;
+          }
+        });
+
+        // Rewards
+        formData.rewards.forEach((reward) => {
+          const product = products.find(p => p.id === parseInt(reward.product));
+          if (product) {
+            const lengthCm = parseFloat(product?.length_cm || 0);
+            const breadthCm = parseFloat(product?.breadth_cm || 0);
+            const heightCm = parseFloat(product?.height_cm || 0);
+            const quantity = parseFloat(reward.quantity_free || 0);
+            const unitVolumeCm3 = lengthCm * breadthCm * heightCm;
+            const unitVolumeM3 = unitVolumeCm3 / 1000000;
+            totalVolumeInM3 += unitVolumeM3 * quantity;
+          }
+        });
+
+        // Gifts
+        formData.gifts.forEach((gift) => {
+          const product = products.find(p => p.id === parseInt(gift.product));
+          if (product) {
+            const lengthCm = parseFloat(product?.length_cm || 0);
+            const breadthCm = parseFloat(product?.breadth_cm || 0);
+            const heightCm = parseFloat(product?.height_cm || 0);
+            const quantity = parseFloat(gift.quantity || 0);
+            const unitVolumeCm3 = lengthCm * breadthCm * heightCm;
+            const unitVolumeM3 = unitVolumeCm3 / 1000000;
+            totalVolumeInM3 += unitVolumeM3 * quantity;
+          }
+        });
+
+        return `${totalVolumeInM3.toFixed(6)} m³`;
+      })()}
+      className="w-32 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700 text-right"
+      readOnly
+      disabled
+    />
+  </div>
+</td>
+
+
+          
+          {/* Offer */}
+          <td className="px-2 py-2"></td>
+          
+          {/* Total Price */}
+          <td className="px-2 py-2">
+  <div className="flex justify-end">
+    <input
+      type="number"
+      step="0.01"
+      value={(
+        formData.items.reduce((total, item) => {
+          const pricing = productPricings[item.product];
+          const product = products.find(p => p.id === parseInt(item.product));
+          const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+          const effectiveRate = item.offer_price || saleRate;
+          return total + (effectiveRate * formatNumber(item.quantity_required));
+        }, 0) +
+        formData.rewards.reduce((total, reward) => {
+          const pricing = productPricings[reward.product];
+          const product = products.find(p => p.id === parseInt(reward.product));
+          const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+          const effectiveRate = reward.offer_price || saleRate;
+          return total + (effectiveRate * formatNumber(reward.quantity_free));
+        }, 0) +
+        formData.gifts.reduce((total, gift) => {
+          const pricing = productPricings[gift.product];
+          const product = products.find(p => p.id === parseInt(gift.product));
+          const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+          const effectiveRate = gift.offer_price || saleRate;
+          return total + (effectiveRate * formatNumber(gift.quantity));
+        }, 0)
+      ).toFixed(2)}
+      className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800 text-right"
+      readOnly
+      disabled
+    />
+  </div>
+</td>
+
+          
+          {/* Profit */}
+          <td className="px-2 py-2 text-right">
+  {(() => {
+    let totalLandingRate = 0;
+    formData.items.forEach((item) => {
+      const pricing = productPricings[item.product];
+      const product = products.find(p => p.id === parseInt(item.product));
+      const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
+      totalLandingRate += landingRate * formatNumber(item.quantity_required);
+    });
+    formData.rewards.forEach((reward) => {
+      const pricing = productPricings[reward.product];
+      const product = products.find(p => p.id === parseInt(reward.product));
+      const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
+      totalLandingRate += landingRate * formatNumber(reward.quantity_free);
+    });
+    formData.gifts.forEach((gift) => {
+      const pricing = productPricings[gift.product];
+      const product = products.find(p => p.id === parseInt(gift.product));
+      const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
+      totalLandingRate += landingRate * formatNumber(gift.quantity);
+    });
+
+    let totalComboPrice = 0;
+    formData.items.forEach((item) => {
+      const pricing = productPricings[item.product];
+      const product = products.find(p => p.id === parseInt(item.product));
+      const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+      totalComboPrice += saleRate * formatNumber(item.quantity_required);
+    });
+    formData.rewards.forEach((reward) => {
+      const pricing = productPricings[reward.product];
+      const product = products.find(p => p.id === parseInt(reward.product));
+      const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+      totalComboPrice += saleRate * formatNumber(reward.quantity_free);
+    });
+    formData.gifts.forEach((gift) => {
+      const pricing = productPricings[gift.product];
+      const product = products.find(p => p.id === parseInt(gift.product));
+      const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+      totalComboPrice += saleRate * formatNumber(gift.quantity);
+    });
+
+    const profitMarginPercent = totalLandingRate > 0
+      ? ((totalComboPrice - totalLandingRate) / totalLandingRate) * 100
+      : 0;
+    const profitMarginAmount = totalComboPrice - totalLandingRate;
+
+    return (
+      <div className="flex flex-col items-end justify-center text-right font-bold gap-1 min-w-[70px]">
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded font-bold ${
+            profitMarginPercent >= 0
+              ? "text-purple-700 bg-purple-50"
+              : "text-red-700 bg-red-50"
+          }`}
+        >
+          {profitMarginPercent.toFixed(2)}%
+        </span>
+        <span
+          className={`text-[10px] font-semibold ${
+            profitMarginAmount >= 0 ? "text-purple-600" : "text-red-500"
+          }`}
+        >
+          ₹{profitMarginAmount.toFixed(2)}
+        </span>
+      </div>
+    );
+  })()}
+</td>
+
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+                  <div className="border rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-base font-semibold">
+                        Cost Breakdown
+                      </h3>
                     </div>
-                  </div>
 
-                  {/* Extra Charge */}
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Extra Charge
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.extra_charge_type}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            extra_charge_type: e.target.value,
-                          })
-                        }
-                        className="w-12 px-2 py-1 border border-gray-300 rounded text-sm"
-                      >
-                        <option value="rupees">₹</option>
-                        <option value="percent">%</option>
-                      </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.extra_charge_value}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            extra_charge_value: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="w-20 flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Amount"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-[#1a2332] text-white">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Packing</th>
+                            <th className="px-2 py-1.5 text-left">Extra 1</th>
+                            <th className="px-2 py-1.5 text-left">Handling</th>
+                            <th className="px-2 py-1.5 text-left">Delivery</th>
+                            <th className="px-2 py-1.5 text-left">Extra</th>
+                            <th className="px-2 py-1.5 text-left">
+                              Total Charges
+                            </th>
+                            {/* <th className="px-2 py-1.5 text-left">
+            Grand Total Landing Rate
+          </th> */}
+                            <th className="px-2 py-1.5 text-left">
+                              Calculated Price
+                            </th>
+                            <th className="px-2 py-1.5 text-left">
+                              Manual Price
+                            </th>
+                            <th className="px-2 py-1.5 text-left">Profit %</th>
+                            <th className="px-2 py-1.5 text-left">Profit ₹</th>
+                          </tr>
+                          <tr className="bg-gray-50">
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              Type/Value
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              Type/Value
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              Type/Value
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              Type/Value
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              Type/Value
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              (₹)
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              (₹)
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              (₹)
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              (%)
+                            </th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">
+                              (₹)
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t bg-white">
+                            {/* Packing */}
+                            <td className="px-2 py-1.5">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      parking_charge_type:
+                                        formData.parking_charge_type ===
+                                        "rupees"
+                                          ? "percent"
+                                          : "rupees",
+                                    });
+                                  }}
+                                  className="px-1.5 py-0.5 text-xs bg-gray-100 rounded hover:bg-gray-200"
+                                >
+                                  {formData.parking_charge_type === "percent"
+                                    ? "%"
+                                    : "₹"}
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.parking_charge_value || ""}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      parking_charge_value: e.target.value
+                                        ? parseFloat(e.target.value)
+                                        : 0,
+                                    })
+                                  }
+                                  className="w-16 px-1 py-0.5 border rounded text-xs"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                = ₹
+                                {formCalculations.charges.parking?.toFixed(2) ||
+                                  "0.00"}
+                              </div>
+                            </td>
 
-              {/* Combo Calculator Summary */}
-              {/* Combo Calculator Summary */}
-              {formData.items.length > 0 && (
-                <div className="mb-6 bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="flex justify-between items-center bg-[#1a2332] text-white px-4 py-2">
-                    <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                      <Calculator className="h-4 w-4" />
-                      Combo Calculator
-                    </h3>
-                  </div>
+                            {/* Extra 1 (Transport) */}
+                            <td className="px-2 py-1.5">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      transportation_charge_type:
+                                        formData.transportation_charge_type ===
+                                        "rupees"
+                                          ? "percent"
+                                          : "rupees",
+                                    });
+                                  }}
+                                  className="px-1.5 py-0.5 text-xs bg-gray-100 rounded hover:bg-gray-200"
+                                >
+                                  {formData.transportation_charge_type ===
+                                  "percent"
+                                    ? "%"
+                                    : "₹"}
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={
+                                    formData.transportation_charge_value || ""
+                                  }
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      transportation_charge_value: e.target
+                                        .value
+                                        ? parseFloat(e.target.value)
+                                        : 0,
+                                    })
+                                  }
+                                  className="w-16 px-1 py-0.5 border rounded text-xs"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                = ₹
+                                {formCalculations.charges.transportation?.toFixed(
+                                  2,
+                                ) || "0.00"}
+                              </div>
+                            </td>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
-                            MRP
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
-                            Sale Rate
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
-                            Landing Rate
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
-                            Calculated Rate
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
-                            Suggested Rate
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
-                            Net Cost
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-3 py-2 font-medium text-blue-600">
-                            ₹{comboCalculations.totalMRP?.toFixed(2) || "0.00"}
-                          </td>
-                          <td className="px-3 py-2 font-medium text-green-600">
-                            ₹
-                            {comboCalculations.totalSaleRate?.toFixed(2) ||
-                              "0.00"}
-                          </td>
-                          <td className="px-3 py-2 text-yellow-600">
-                            ₹
-                            {comboCalculations.totalLandingRate?.toFixed(2) ||
-                              "0.00"}
-                          </td>
-                          <td className="px-3 py-2 text-orange-600">
-                            ₹
-                            {comboCalculations.totalCalculatedRate?.toFixed(
-                              2,
-                            ) || "0.00"}
-                          </td>
-                          <td className="px-3 py-2 text-purple-600 font-medium">
-                            ₹
-                            {comboCalculations.totalSaleRate?.toFixed(2) ||
-                              "0.00"}
-                          </td>
-                          <td className="px-3 py-2 font-bold text-purple-600">
-                            ₹{comboCalculations.netCost.toFixed(2)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                            {/* Handling */}
+                            <td className="px-2 py-1.5">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      handling_charge_type:
+                                        formData.handling_charge_type ===
+                                        "rupees"
+                                          ? "percent"
+                                          : "rupees",
+                                    });
+                                  }}
+                                  className="px-1.5 py-0.5 text-xs bg-gray-100 rounded hover:bg-gray-200"
+                                >
+                                  {formData.handling_charge_type === "percent"
+                                    ? "%"
+                                    : "₹"}
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.handling_charge_value || ""}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      handling_charge_value: e.target.value
+                                        ? parseFloat(e.target.value)
+                                        : 0,
+                                    })
+                                  }
+                                  className="w-16 px-1 py-0.5 border rounded text-xs"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                = ₹
+                                {formCalculations.charges.handling?.toFixed(
+                                  2,
+                                ) || "0.00"}
+                              </div>
+                            </td>
 
-                  {/* Charges Breakdown Section */}
-                  {(() => {
-                    const charges = calculateChargesBreakdown(
-                      comboCalculations.netCost,
-                      formData,
-                    );
-                    const calculatedPriceWithCharges =
-                      comboCalculations.netCost + charges.totalCharges;
+                            {/* Delivery */}
+                            <td className="px-2 py-1.5">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      delivery_charge_type:
+                                        formData.delivery_charge_type ===
+                                        "rupees"
+                                          ? "percent"
+                                          : "rupees",
+                                    });
+                                  }}
+                                  className="px-1.5 py-0.5 text-xs bg-gray-100 rounded hover:bg-gray-200"
+                                >
+                                  {formData.delivery_charge_type === "percent"
+                                    ? "%"
+                                    : "₹"}
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.delivery_charge_value || ""}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      delivery_charge_value: e.target.value
+                                        ? parseFloat(e.target.value)
+                                        : 0,
+                                    })
+                                  }
+                                  className="w-16 px-1 py-0.5 border rounded text-xs"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                = ₹
+                                {formCalculations.charges.delivery?.toFixed(
+                                  2,
+                                ) || "0.00"}
+                              </div>
+                            </td>
 
-                    return (
-                      <div className="border-t border-gray-200 p-4 bg-gray-50">
-                        <h4 className="font-medium text-gray-900 mb-3 text-sm">
-                          Charges Breakdown (Calculated)
-                        </h4>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                          <div className="bg-white p-2 rounded border">
-                            <p className="text-xs text-gray-500">Parking</p>
-                            <p className="text-sm font-semibold">
-                              ₹{charges.parking.toFixed(2)}
-                            </p>
-                            {formData.parking_charge_value > 0 && (
-                              <p className="text-xs text-gray-400">
-                                ({formData.parking_charge_value}
-                                {formData.parking_charge_type === "percent"
-                                  ? "%)"
-                                  : " ₹)"}
-                              </p>
-                            )}
-                          </div>
-                          <div className="bg-white p-2 rounded border">
-                            <p className="text-xs text-gray-500">Transport</p>
-                            <p className="text-sm font-semibold">
-                              ₹{charges.transportation.toFixed(2)}
-                            </p>
-                            {formData.transportation_charge_value > 0 && (
-                              <p className="text-xs text-gray-400">
-                                ({formData.transportation_charge_value}
-                                {formData.transportation_charge_type ===
-                                "percent"
-                                  ? "%)"
-                                  : " ₹)"}
-                              </p>
-                            )}
-                          </div>
-                          <div className="bg-white p-2 rounded border">
-                            <p className="text-xs text-gray-500">Handling</p>
-                            <p className="text-sm font-semibold">
-                              ₹{charges.handling.toFixed(2)}
-                            </p>
-                            {formData.handling_charge_value > 0 && (
-                              <p className="text-xs text-gray-400">
-                                ({formData.handling_charge_value}
-                                {formData.handling_charge_type === "percent"
-                                  ? "%)"
-                                  : " ₹)"}
-                              </p>
-                            )}
-                          </div>
-                          <div className="bg-white p-2 rounded border">
-                            <p className="text-xs text-gray-500">Delivery</p>
-                            <p className="text-sm font-semibold">
-                              ₹{charges.delivery.toFixed(2)}
-                            </p>
-                            {formData.delivery_charge_value > 0 && (
-                              <p className="text-xs text-gray-400">
-                                ({formData.delivery_charge_value}
-                                {formData.delivery_charge_type === "percent"
-                                  ? "%)"
-                                  : " ₹)"}
-                              </p>
-                            )}
-                          </div>
-                          <div className="bg-white p-2 rounded border">
-                            <p className="text-xs text-gray-500">Extra</p>
-                            <p className="text-sm font-semibold">
-                              ₹{charges.extra.toFixed(2)}
-                            </p>
-                            {formData.extra_charge_value > 0 && (
-                              <p className="text-xs text-gray-400">
-                                ({formData.extra_charge_value}
-                                {formData.extra_charge_type === "percent"
-                                  ? "%)"
-                                  : " ₹)"}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                            {/* Extra */}
+                            <td className="px-2 py-1.5">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      extra_charge_type:
+                                        formData.extra_charge_type === "rupees"
+                                          ? "percent"
+                                          : "rupees",
+                                    });
+                                  }}
+                                  className="px-1.5 py-0.5 text-xs bg-gray-100 rounded hover:bg-gray-200"
+                                >
+                                  {formData.extra_charge_type === "percent"
+                                    ? "%"
+                                    : "₹"}
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.extra_charge_value || ""}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      extra_charge_value: e.target.value
+                                        ? parseFloat(e.target.value)
+                                        : 0,
+                                    })
+                                  }
+                                  className="w-16 px-1 py-0.5 border rounded text-xs"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                = ₹
+                                {formCalculations.charges.extra?.toFixed(2) ||
+                                  "0.00"}
+                              </div>
+                            </td>
 
-                        <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">
-                              Calculated Price (Net + Charges):
-                            </span>
-                            <span className="text-lg font-bold text-blue-600">
-                              ₹{calculatedPriceWithCharges.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
+                            {/* Total Charges */}
+                            <td className="px-2 py-1.5 font-semibold text-blue-600">
+                              ₹
+                              {typeof formCalculations.charges.totalCharges ===
+                              "number"
+                                ? formCalculations.charges.totalCharges.toFixed(
+                                    2,
+                                  )
+                                : "0.00"}
+                            </td>
 
-                        {/* Manual Combo Price Input */}
-                        <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
-                          <h4 className="font-medium text-gray-900 mb-3">
-                            Actual Combo Selling Price (Manual Entry)
-                          </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Manual Combo Price (₹) - *Actual Selling Price
-                              </label>
+                            {/* Grand Total Landing Rate (All items + rewards + gifts) */}
+                            {/* <td className="px-2 py-1.5 font-semibold text-green-600 bg-green-50">
+            ₹{formCalculations.totalLandingRate.toFixed(2)}
+            <div className="text-xs text-gray-500 font-normal mt-0.5">
+              (Items + Rewards + Gifts)
+            </div>
+          </td> */}
+
+                            {/* Calculated Price = Grand Total Landing Rate + Total Charges */}
+                            <td className="px-2 py-1.5 font-semibold text-blue-700 bg-blue-50">
+                              ₹
+                              {(
+                                formCalculations.totalLandingRate +
+                                (formCalculations.charges.totalCharges || 0)
+                              ).toFixed(2)}
+                              <div className="text-xs text-gray-500 font-normal mt-0.5">
+                                Landing Rate + Charges
+                              </div>
+                            </td>
+
+                            {/* Manual Price */}
+                            <td className="px-2 py-1.5">
                               <input
                                 type="number"
                                 step="0.01"
                                 value={formData.manual_combo_price}
-                                onChange={(e) => {
-                                  const price = parseFloat(e.target.value);
+                                onChange={(e) =>
                                   setFormData({
                                     ...formData,
                                     manual_combo_price: e.target.value,
-                                  });
-
-                                  // Calculate margin based on net cost
-                                  if (
-                                    !isNaN(price) &&
-                                    comboCalculations.netCost > 0
-                                  ) {
-                                    const marginOnNet =
-                                      ((price - comboCalculations.netCost) /
-                                        comboCalculations.netCost) *
-                                      100;
-                                    const marginOnCharges =
-                                      calculatedPriceWithCharges > 0
-                                        ? ((price -
-                                            calculatedPriceWithCharges) /
-                                            calculatedPriceWithCharges) *
-                                          100
-                                        : 0;
-
-                                    // You can store these in state if needed
-                                    console.log(
-                                      `Margin on Net Cost: ${marginOnNet.toFixed(2)}%`,
-                                    );
-                                    console.log(
-                                      `Margin on Calculated Price: ${marginOnCharges.toFixed(2)}%`,
-                                    );
-                                  }
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                placeholder="Enter actual selling price"
+                                  })
+                                }
+                                className="w-24 px-1 py-0.5 border border-gray-300 rounded text-xs"
+                                placeholder="0.00"
                               />
-                              <p className="text-xs text-gray-500 mt-1">
-                                This is the actual price customers will pay for
-                                this combo
-                              </p>
-                            </div>
-                            <div className="bg-purple-50 rounded-lg p-3">
-                              <p className="text-xs text-gray-600">
-                                Profit Analysis
-                              </p>
-                              {formData.manual_combo_price &&
-                                comboCalculations.netCost > 0 && (
-                                  <>
-                                    <p className="text-sm font-semibold text-green-600">
-                                      Profit on Net Cost: ₹
-                                      {(
-                                        parseFloat(
-                                          formData.manual_combo_price,
-                                        ) - comboCalculations.netCost
-                                      ).toFixed(2)}
-                                    </p>
-                                    <p className="text-xs text-gray-600">
-                                      Margin:{" "}
-                                      {(
-                                        ((parseFloat(
-                                          formData.manual_combo_price,
-                                        ) -
-                                          comboCalculations.netCost) /
-                                          comboCalculations.netCost) *
-                                        100
-                                      ).toFixed(1)}
-                                      %
-                                    </p>
-                                  </>
-                                )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                Enter custom price
+                              </div>
+                            </td>
 
-              {/* Required Items Table */}
-              <div className="mb-2">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Package className="h-5 w-5 text-purple-600" />
-                    Required Items (Paid)
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={addItem}
-                    className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 text-sm flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" /> Add Item
-                  </button>
-                </div>
+                            {/* Profit % - Based on Grand Total Landing Rate */}
+                            <td className="px-2 py-1.5">
+                              <span
+                                className={`font-semibold ${formCalculations.profitMargin >= 0 ? "text-green-600" : "text-red-600"}`}
+                              >
+                                {formCalculations.profitMargin.toFixed(1)}%
+                              </span>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                vs Landing Rate
+                              </div>
+                            </td>
 
-                {formData.items.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
-                      <thead className="bg-[#1a2332]">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Product
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Qty
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Offer Price
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            MRP
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Sale Rate
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            landing Rate
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Total
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {formData.items.map((item, index) => {
-                          const productDetails = getProductDetails(
-                            item.product,
-                          );
-                          const itemTotal = productDetails
-                            ? (formatNumber(item.offer_price) ||
-                                productDetails.sale_rate) *
-                              formatNumber(item.quantity_required)
-                            : 0;
-                          return (
-                            <tr key={index} className="hover:bg-gray-50">
-                              <td className="px-4 py-2">
-                                <select
-                                  value={item.product}
-                                  onChange={(e) =>
-                                    updateItem(index, "product", e.target.value)
-                                  }
-                                  className="w-48 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  required
-                                >
-                                  <option value="">Select Product</option>
-                                  {products.map((product) => (
-                                    <option key={product.id} value={product.id}>
-                                      {product.title} ({product.sku})
-                                    </option>
-                                  ))}
-                                </select>
-                                {productDetails && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    SKU: {productDetails.sku} | Stock:{" "}
-                                    {productDetails.stock_qty}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity_required}
-                                  onChange={(e) =>
-                                    updateItem(
-                                      index,
-                                      "quantity_required",
-                                      parseInt(e.target.value),
-                                    )
-                                  }
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  required
-                                />
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={item.offer_price || ""}
-                                  onChange={(e) =>
-                                    updateItem(
-                                      index,
-                                      "offer_price",
-                                      e.target.value
-                                        ? parseFloat(e.target.value)
-                                        : null,
-                                    )
-                                  }
-                                  className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  placeholder="Optional"
-                                />
-                              </td>
-                              <td className="px-4 py-2 text-sm">
-                                ₹{productDetails?.mrp.toFixed(2) || "0.00"}
-                              </td>
-                              <td className="px-4 py-2 text-sm">
-                                ₹
-                                {productDetails?.sale_rate.toFixed(2) || "0.00"}
-                              </td>
-                              <td className="px-4 py-2 text-sm">
-                                ₹
-                                {productDetails?.calculated_rate.toFixed(2) ||
-                                  "0.00"}
-                              </td>
-                              <td className="px-4 py-2 text-sm font-semibold">
-                                ₹{itemTotal.toFixed(2)}
-                              </td>
-                              <td className="px-4 py-2">
-                                <button
-                                  type="button"
-                                  onClick={() => removeItem(index)}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                            {/* Profit ₹ */}
+                            <td className="px-2 py-1.5">
+                              <span className="font-semibold">
+                                ₹{formCalculations.profitAmount.toFixed(2)}
+                              </span>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {formCalculations.sellingPrice >
+                                formCalculations.totalLandingRate
+                                  ? "Profit"
+                                  : "Loss"}
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                    <p className="text-gray-500">
-                      No items added yet. Click "Add Item" to start building
-                      your combo.
-                    </p>
-                  </div>
-                )}
+                </div>
               </div>
 
-              {/* Free Rewards Table */}
-              <div className="mb-2">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                    Free Rewards
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={addReward}
-                    className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 text-sm flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" /> Add Reward
-                  </button>
-                </div>
-
-                {formData.rewards.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
-                      <thead className="bg-[#1a2332]">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Free Product
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Quantity
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            MRP
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Value
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {formData.rewards.map((reward, index) => {
-                          const productDetails = getProductDetails(
-                            reward.product,
-                          );
-                          const rewardValue = productDetails
-                            ? productDetails.sale_rate *
-                              formatNumber(reward.quantity_free)
-                            : 0;
-                          return (
-                            <tr key={index} className="hover:bg-gray-50">
-                              <td className="px-4 py-2">
-                                <select
-                                  value={reward.product}
-                                  onChange={(e) =>
-                                    updateReward(
-                                      index,
-                                      "product",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="w-64 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  required
-                                >
-                                  <option value="">Select Product</option>
-                                  {products.map((product) => (
-                                    <option key={product.id} value={product.id}>
-                                      {product.title} ({product.sku})
-                                    </option>
-                                  ))}
-                                </select>
-                                {productDetails && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    SKU: {productDetails.sku}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={reward.quantity_free}
-                                  onChange={(e) =>
-                                    updateReward(
-                                      index,
-                                      "quantity_free",
-                                      parseInt(e.target.value),
-                                    )
-                                  }
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  required
-                                />
-                              </td>
-                              <td className="px-4 py-2 text-sm">
-                                ₹{productDetails?.mrp.toFixed(2) || "0.00"}
-                              </td>
-                              <td className="px-4 py-2 text-sm font-semibold text-green-600">
-                                ₹{rewardValue.toFixed(2)}
-                              </td>
-                              <td className="px-4 py-2">
-                                <button
-                                  type="button"
-                                  onClick={() => removeReward(index)}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                    <p className="text-gray-500 text-sm">
-                      No rewards added yet.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Gifts Table */}
-              <div className="mb-2">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5 text-orange-600" />
-                    Gifts
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={addGift}
-                    className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 text-sm flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" /> Add Gift
-                  </button>
-                </div>
-
-                {formData.gifts.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
-                      <thead className="bg-[#1a2332]">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Gift Product
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Quantity
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            MRP
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Value
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {formData.gifts.map((gift, index) => {
-                          const productDetails = getProductDetails(
-                            gift.product,
-                          );
-                          const giftValue = productDetails
-                            ? productDetails.sale_rate *
-                              (formatNumber(gift.quantity) || 1)
-                            : 0;
-                          return (
-                            <tr key={index} className="hover:bg-gray-50">
-                              <td className="px-4 py-2">
-                                <select
-                                  value={gift.product}
-                                  onChange={(e) =>
-                                    updateGift(index, "product", e.target.value)
-                                  }
-                                  className="w-64 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  required
-                                >
-                                  <option value="">Select Product</option>
-                                  {products.map((product) => (
-                                    <option key={product.id} value={product.id}>
-                                      {product.title} ({product.sku})
-                                    </option>
-                                  ))}
-                                </select>
-                                {productDetails && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    SKU: {productDetails.sku}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={gift.quantity}
-                                  onChange={(e) =>
-                                    updateGift(
-                                      index,
-                                      "quantity",
-                                      parseInt(e.target.value),
-                                    )
-                                  }
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  required
-                                />
-                              </td>
-                              <td className="px-4 py-2 text-sm">
-                                ₹{productDetails?.mrp.toFixed(2) || "0.00"}
-                              </td>
-                              <td className="px-4 py-2 text-sm font-semibold text-orange-600">
-                                ₹{giftValue.toFixed(2)}
-                              </td>
-                              <td className="px-4 py-2">
-                                <button
-                                  type="button"
-                                  onClick={() => removeGift(index)}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                    <p className="text-gray-500 text-sm">No gifts added yet.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="flex justify-end gap-3 pt-6 mt-6 border-t">
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#0d1421] transition-all duration-200 shadow-lg"
+                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#0d1421] text-sm"
                 >
-                  {editingCombination
-                    ? "Update Combination"
-                    : "Create Combination"}
+                  {editingCombination ? "Update" : "Create"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* Combinations Table */}
-      {/* Combinations Table */}
-      {/* Combinations Table */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse">
-            <thead>
-              <tr className="bg-[#1a2332]">
-                <th className="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-white">
-                  Combo
-                </th>
-                <th
-                  className="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-white"
-                  colSpan="4"
-                >
-                  Paid Items
-                </th>
-                <th
-                  className="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-white"
-                  colSpan="4"
-                >
-                  Free Rewards
-                </th>
-                <th
-                  className="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-white"
-                  colSpan="2"
-                >
-                  Gifts
-                </th>
-                <th
-                  className="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-white"
-                  colSpan="6"
-                >
-                  Cost Breakdown
-                </th>
-                {isAdmin && (
-                  <th className="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-white">
-                    Actions
-                  </th>
-                )}
-              </tr>
-              <tr className="bg-[#1a2332]">
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Name/Info
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Product
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Qty
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Unit Price
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Total
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Product
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Qty
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Price
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  You Save
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Product
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Value
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  MRP
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Sale Rate
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Landing Rate
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Calculated Rate
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Suggested Rate
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white">
-                  Combo Rate
-                </th>
-                {/* Combo Rate Column - Show Manual Price */}
-                {isAdmin && (
-                  <th className="border border-gray-300 px-4 py-2 text-xs font-medium text-white"></th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white">
-              {combinations.map((combination) => {
-                const comboTotal = calculateComboTotal(
-                  combination.items || [],
-                  combination.rewards || [],
-                  combination.gifts || [],
-                );
-
-                // Get the first few items for display
-                const displayItems = (combination.items || []).slice(0, 2);
-                const remainingItems = (combination.items || []).length - 2;
-                const displayRewards = (combination.rewards || []).slice(0, 2);
-                const remainingRewards = (combination.rewards || []).length - 2;
-                const displayGifts = (combination.gifts || []).slice(0, 2);
-                const remainingGifts = (combination.gifts || []).length - 2;
-
-                return (
-                  <tr
-                    key={combination.id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    {/* Combo Details Column */}
-                    <td className="border border-gray-300 px-4 py-3 align-top">
-                      <div className="space-y-2">
-                        <div className="font-semibold text-gray-900 text-sm">
-                          {combination.name}
-                        </div>
-                        {combination.description && (
-                          <div className="text-xs text-gray-500">
-                            {combination.description}
-                          </div>
-                        )}
-                        <div className="flex flex-col gap-1 text-xs">
-                          {combination.combo_weight && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium text-gray-600">
-                                Weight:
-                              </span>
-                              <span>
-                                {formatNumber(combination.combo_weight)} kg
-                              </span>
-                            </div>
-                          )}
-                          {combination.curriar_purchase_point && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium text-gray-600">
-                                Purchase:
-                              </span>
-                              <span className="text-xs">
-                                {combination.curriar_purchase_point}
-                              </span>
-                            </div>
-                          )}
-                          {combination.curriar_dispatch_point && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium text-gray-600">
-                                Dispatch:
-                              </span>
-                              <span className="text-xs">
-                                {combination.curriar_dispatch_point}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        {/* <div className="mt-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      combination.is_active
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {combination.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div> */}
-                      </div>
-                    </td>
-
-                    {/* Paid Items Section */}
-                    <td className="border border-gray-300 px-4 py-3 align-top">
-                      <div className="space-y-2">
-                        {displayItems.map((item, idx) => {
-                          const product = products.find(
-                            (p) => p.id === item.product,
-                          );
-                          if (!product) return null;
-                          return (
-                            <div key={idx} className="text-sm">
-                              <div className="font-medium text-gray-900">
-                                {product.title}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {remainingItems > 0 && (
-                          <div className="text-xs text-purple-600 font-medium mt-1">
-                            +{remainingItems} more item
-                            {remainingItems > 1 ? "s" : ""}
-                          </div>
-                        )}
-                        {(!combination.items ||
-                          combination.items.length === 0) && (
-                          <span className="text-gray-400 text-sm">
-                            No items
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 align-top text-center">
-                      <div className="space-y-2">
-                        {displayItems.map((item, idx) => (
-                          <div key={idx} className="text-sm font-medium">
-                            {formatNumber(item.quantity_required)}
-                          </div>
-                        ))}
-                        {remainingItems > 0 && (
-                          <div className="text-xs text-gray-400">
-                            +{remainingItems}
-                          </div>
-                        )}
-                        {(!combination.items ||
-                          combination.items.length === 0) && <span>-</span>}
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 align-top text-right">
-                      <div className="space-y-2">
-                        {displayItems.map((item, idx) => {
-                          const product = products.find(
-                            (p) => p.id === item.product,
-                          );
-                          const pricing = productPricings[item.product];
-                          const price =
-                            item.offer_price ||
-                            pricing?.sale_rate ||
-                            product?.price ||
-                            0;
-                          return (
-                            <div key={idx} className="text-sm">
-                              ₹{formatNumber(price).toFixed(2)}
-                              {item.offer_price && (
-                                <div className="text-xs text-green-600">
-                                  Special Offer
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {remainingItems > 0 && (
-                          <div className="text-xs text-gray-400">
-                            Various prices
-                          </div>
-                        )}
-                        {(!combination.items ||
-                          combination.items.length === 0) && <span>-</span>}
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 align-top text-right">
-                      <div className="space-y-2">
-                        {displayItems.map((item, idx) => {
-                          const product = products.find(
-                            (p) => p.id === item.product,
-                          );
-                          const pricing = productPricings[item.product];
-                          const unitPrice =
-                            item.offer_price ||
-                            pricing?.sale_rate ||
-                            product?.price ||
-                            0;
-                          const total =
-                            formatNumber(unitPrice) *
-                            formatNumber(item.quantity_required);
-                          return (
-                            <div key={idx} className="text-sm font-semibold">
-                              ₹{total.toFixed(2)}
-                            </div>
-                          );
-                        })}
-                        {remainingItems > 0 && (
-                          <div className="text-xs text-purple-600 font-medium">
-                            +{remainingItems} more
-                          </div>
-                        )}
-                        {(!combination.items ||
-                          combination.items.length === 0) && <span>-</span>}
-                      </div>
-                    </td>
-
-                    {/* Free Rewards Section */}
-                    <td className="border border-gray-300 px-4 py-3 align-top">
-                      <div className="space-y-2">
-                        {displayRewards.map((reward, idx) => {
-                          const product = products.find(
-                            (p) => p.id === reward.product,
-                          );
-                          if (!product) return null;
-                          return (
-                            <div key={idx} className="text-sm">
-                              <div className="font-medium text-green-700">
-                                {product.title}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {remainingRewards > 0 && (
-                          <div className="text-xs text-green-600 font-medium mt-1">
-                            +{remainingRewards} more reward
-                            {remainingRewards > 1 ? "s" : ""}
-                          </div>
-                        )}
-                        {(!combination.rewards ||
-                          combination.rewards.length === 0) && (
-                          <span className="text-gray-400 text-sm">
-                            No rewards
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 align-top text-center">
-                      <div className="space-y-2">
-                        {displayRewards.map((reward, idx) => (
-                          <div
-                            key={idx}
-                            className="text-sm font-medium text-green-700"
-                          >
-                            {formatNumber(reward.quantity_free)}
-                          </div>
-                        ))}
-                        {remainingRewards > 0 && (
-                          <div className="text-xs text-gray-400">
-                            +{remainingRewards}
-                          </div>
-                        )}
-                        {(!combination.rewards ||
-                          combination.rewards.length === 0) && <span>-</span>}
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 align-top text-right">
-                      <div className="space-y-2">
-                        {displayRewards.map((reward, idx) => {
-                          const product = products.find(
-                            (p) => p.id === reward.product,
-                          );
-                          const pricing = productPricings[reward.product];
-                          const price =
-                            pricing?.sale_rate || product?.price || 0;
-                          return (
-                            <div
-                              key={idx}
-                              className="text-sm text-gray-600 line-through"
-                            >
-                              ₹{formatNumber(price).toFixed(2)}
-                            </div>
-                          );
-                        })}
-                        {remainingRewards > 0 && (
-                          <div className="text-xs text-gray-400">
-                            Various prices
-                          </div>
-                        )}
-                        {(!combination.rewards ||
-                          combination.rewards.length === 0) && <span>-</span>}
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 align-top text-right">
-                      <div className="space-y-2">
-                        {displayRewards.map((reward, idx) => {
-                          const product = products.find(
-                            (p) => p.id === reward.product,
-                          );
-                          const pricing = productPricings[reward.product];
-                          const price =
-                            pricing?.sale_rate || product?.price || 0;
-                          const total =
-                            formatNumber(price) *
-                            formatNumber(reward.quantity_free);
-                          return (
-                            <div
-                              key={idx}
-                              className="text-sm font-bold text-green-600"
-                            >
-                              ₹{total.toFixed(2)}
-                            </div>
-                          );
-                        })}
-                        {remainingRewards > 0 && (
-                          <div className="text-xs text-green-600">
-                            +{remainingRewards} more
-                          </div>
-                        )}
-                        {(!combination.rewards ||
-                          combination.rewards.length === 0) && <span>-</span>}
-                      </div>
-                    </td>
-
-                    {/* Gifts Section */}
-                    <td className="border border-gray-300 px-4 py-3 align-top">
-                      <div className="space-y-2">
-                        {displayGifts.map((gift, idx) => {
-                          const product = products.find(
-                            (p) => p.id === gift.product,
-                          );
-                          if (!product) return null;
-                          return (
-                            <div key={idx} className="text-sm">
-                              <div className="font-medium text-orange-700">
-                                {product.title}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {remainingGifts > 0 && (
-                          <div className="text-xs text-orange-600 font-medium mt-1">
-                            +{remainingGifts} more gift
-                            {remainingGifts > 1 ? "s" : ""}
-                          </div>
-                        )}
-                        {(!combination.gifts ||
-                          combination.gifts.length === 0) && (
-                          <span className="text-gray-400 text-sm">
-                            No gifts
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 align-top text-right">
-                      <div className="space-y-2">
-                        {displayGifts.map((gift, idx) => {
-                          const product = products.find(
-                            (p) => p.id === gift.product,
-                          );
-                          const pricing = productPricings[gift.product];
-                          const value =
-                            (pricing?.sale_rate || product?.price || 0) *
-                            (gift.quantity || 1);
-                          return (
-                            <div
-                              key={idx}
-                              className="text-sm font-medium text-orange-600"
-                            >
-                              ₹{formatNumber(value).toFixed(2)}
-                            </div>
-                          );
-                        })}
-                        {remainingGifts > 0 && (
-                          <div className="text-xs text-orange-600">
-                            +{remainingGifts} more
-                          </div>
-                        )}
-                        {(!combination.gifts ||
-                          combination.gifts.length === 0) && <span>-</span>}
-                      </div>
-                    </td>
-
-                    {/* Cost Breakdown Section - NEW Detailed View */}
-                    <td className="border border-gray-300 px-4 py-3 text-right align-top bg-blue-50">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold">
-                          ₹{formatNumber(comboTotal.totalMRP).toFixed(2)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-right align-top bg-green-50">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-green-700">
-                          ₹{formatNumber(comboTotal.totalSaleRate).toFixed(2)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-right align-top bg-yellow-50">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-yellow-700">
-                          ₹
-                          {formatNumber(comboTotal.totalLandingRate).toFixed(2)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-right align-top bg-orange-50">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-orange-700">
-                          ₹
-                          {formatNumber(comboTotal.totalCalculatedRate).toFixed(
-                            2,
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-right align-top bg-purple-50">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-purple-700">
-                          ₹{formatNumber(comboTotal.totalSaleRate).toFixed(2)}
-                        </div>
-                      </div>
-                    </td>
-                    {/* Combo Rate Column - Show Manual Price */}
-                    <td className="border border-gray-300 px-4 py-3 text-right align-top bg-pink-50">
-                      <div className="space-y-1">
-                        <div className="text-base font-bold text-pink-700">
-                          ₹
-                          {formatNumber(
-                            combination.manual_combo_price || 0,
-                          ).toFixed(2)}
-                        </div>
-                        {combination.manual_combo_price &&
-                          comboCalculations.totalCalculatedRate > 0 && (
-                            <div className="text-xs text-green-600">
-                              Margin:{" "}
-                              {(
-                                ((combination.manual_combo_price -
-                                  comboCalculations.totalCalculatedRate) /
-                                  comboCalculations.totalCalculatedRate) *
-                                100
-                              ).toFixed(1)}
-                              %
-                            </div>
-                          )}
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    {isAdmin && (
-                      <td className="border border-gray-300 px-4 py-3 align-top">
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() => handleEdit(combination)}
-                            className="text-blue-600 hover:text-blue-900 flex items-center gap-1 text-sm"
-                          >
-                            <Edit className="h-4 w-4" /> Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(combination.id)}
-                            className="text-red-600 hover:text-red-900 flex items-center gap-1 text-sm"
-                          >
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {combinations.length === 0 && (
-          <div className="text-center py-12 bg-white">
-            <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No product combinations found.</p>
-            {isAdmin && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg"
-              >
-                Create your first combination
-              </button>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 };

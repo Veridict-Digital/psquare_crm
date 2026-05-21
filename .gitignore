@@ -4,3 +4,5 @@ dist/
 build/
 media/
 *.log
+*.pyc
+__pycache__/

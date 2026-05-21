@@ -19,14 +19,14 @@ const CallLogList = () => {
   const { data: callLogsData, isLoading, error, refetch, isError } = useQuery({
     queryKey: ['callLogs', filterStatus, filterEmployee, filterOrderPlaced, search, currentPage],
     queryFn: async () => {
-      const params = { 
+      const params = {
         page: currentPage,
         search: search
       };
       if (filterStatus) params.status = filterStatus;
       if (filterEmployee) params.employee = filterEmployee;
       if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
-      
+
       console.log('Fetching call logs with params:', params); // Debug log
       const response = await axios.get('/api/calllogs/', { params });
       console.log('API Response:', response); // Debug log
@@ -44,7 +44,7 @@ const CallLogList = () => {
       if (filterEmployee) params.employee = filterEmployee;
       if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
       if (search) params.search = search;
-      
+
       const response = await axios.get('/api/calllogs/statistics/', { params });
       return response.data;
     },
@@ -71,7 +71,7 @@ const CallLogList = () => {
   // Handle 500 error specifically
   if (isError) {
     console.error('Error details:', error); // Debug log
-    
+
     // Check if it's a 500 error
     if (error.response?.status === 500) {
       return (
@@ -80,7 +80,7 @@ const CallLogList = () => {
             <h2 className="font-bold text-lg mb-2">Server Error (500)</h2>
             <p className="mb-2">There's an issue with the Django backend server.</p>
             <p className="mb-4 text-sm">Check your Django terminal logs for the exact error.</p>
-            
+
             <div className="bg-gray-800 text-white p-4 rounded-md text-sm font-mono overflow-x-auto">
               <p>Common causes:</p>
               <ul className="list-disc pl-5 mt-2">
@@ -90,8 +90,8 @@ const CallLogList = () => {
                 <li>Permission/authentication issues</li>
               </ul>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => refetch()}
               className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             >
@@ -101,7 +101,7 @@ const CallLogList = () => {
         </div>
       );
     }
-    
+
     return (
       <div className="text-red-500 text-center">
         Error loading call logs: {error.message}
@@ -150,25 +150,6 @@ const CallLogList = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-4 py-8 max-w-full">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Call Logs Management
-              </h1>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => refetch()}
-                className="flex items-center space-x-2 bg-white border border-gray-200 rounded-lg px-4 py-2 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <TrendingUp className="w-4 h-4 text-gray-600" />
-                <span className="text-sm font-medium">Refresh</span>
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -279,22 +260,20 @@ const CallLogList = () => {
             <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('table')}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-all duration-200 ${
-                  viewMode === 'table'
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-all duration-200 ${viewMode === 'table'
                     ? 'bg-white shadow-sm text-blue-600'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
               >
                 <List className="w-4 h-4" />
                 <span className="text-sm font-medium">Table</span>
               </button>
               <button
                 onClick={() => setViewMode('card')}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-all duration-200 ${
-                  viewMode === 'card'
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-all duration-200 ${viewMode === 'card'
                     ? 'bg-white shadow-sm text-blue-600'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
               >
                 <Grid className="w-4 h-4" />
                 <span className="text-sm font-medium">Cards</span>
@@ -341,11 +320,10 @@ const CallLogList = () => {
                           {new Date(callLog.date).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            callLog.status === 'Completed'
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${callLog.status === 'Completed'
                               ? 'bg-green-100 text-green-800'
                               : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                            }`}>
                             {callLog.status}
                           </span>
                         </td>
@@ -425,11 +403,10 @@ const CallLogList = () => {
                         <p className="text-sm text-gray-500 font-mono">{callLog.call_id}</p>
                       </div>
                     </div>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      callLog.status === 'Completed'
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${callLog.status === 'Completed'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-yellow-100 text-yellow-800'
-                    }`}>
+                      }`}>
                       {callLog.status}
                     </span>
                   </div>
@@ -539,11 +516,10 @@ const CallLogList = () => {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${
-                        currentPage === pageNum
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${currentPage === pageNum
                           ? 'text-blue-600 bg-blue-50 border border-blue-500'
                           : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       {pageNum}
                     </button>

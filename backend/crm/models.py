@@ -141,6 +141,8 @@ class Unit(models.Model):
     description = models.TextField(blank=True, null=True)
     unit_type = models.CharField(max_length=10, choices=UNIT_TYPE_CHOICES, default='both')
     is_active = models.BooleanField(default=True)
+    # Add conversion factor to kg
+    conversion_to_kg = models.DecimalField(max_digits=20, decimal_places=10, default=1, help_text="Multiply by this to convert to kg")
 
     def __str__(self):
         return self.name
@@ -378,35 +380,67 @@ class ProductPricing(models.Model):
         from decimal import Decimal
         return Decimal(str(round(result, 2)))
 
+    from decimal import Decimal
+
     def save(self, *args, **kwargs):
-        # Start with purchase value as base
+        # Start with purchase value as base (ensure Decimal type)
         base = self.purchase_value if self.purchase_value is not None else Decimal('0')
         
-        # Add all sequential costs (do NOT add purchase_value again)
-        base += self.calculate_cost_component(base, self.transport_type, self.transport_value or 0)
-        base += self.calculate_cost_component(base, self.labor_type, self.labor_value or 0)
-        base += self.calculate_cost_component(base, self.handling_type, self.handling_value or 0)
-        base += self.calculate_cost_component(base, self.godown_type, self.godown_value or 0)
-        base += self.calculate_cost_component(base, self.delivery_type, self.delivery_value or 0)
-        base += self.calculate_cost_component(base, self.packaging_type, self.packaging_value or 0)
-        base += self.calculate_cost_component(base, self.extra1_type, self.extra1_value or 0)
-        base += self.calculate_cost_component(base, self.extra2_type, self.extra2_value or 0)
+        # Helper function to calculate cost component
+        def calculate_cost(base_amount, cost_type, cost_value):
+            if base_amount is None:
+                base_amount = Decimal('0')
+            if cost_value is None:
+                cost_value = Decimal('0')
+            
+            # Convert to Decimal for calculation
+            base_decimal = Decimal(str(base_amount))
+            cost_decimal = Decimal(str(cost_value))
+            
+            if cost_type == 'percent':
+                # Calculate percentage: base * (cost / 100)
+                result = base_decimal * (cost_decimal / Decimal('100'))
+            else:  # rupees
+                result = cost_decimal
+            
+            # Round to 2 decimal places
+            return result.quantize(Decimal('0.01'))
+        
+        # Add all sequential costs
+        base = base + calculate_cost(base, self.transport_type, self.transport_value)
+        base = base + calculate_cost(base, self.labor_type, self.labor_value)
+        base = base + calculate_cost(base, self.handling_type, self.handling_value)
+        base = base + calculate_cost(base, self.godown_type, self.godown_value)
+        base = base + calculate_cost(base, self.delivery_type, self.delivery_value)
+        base = base + calculate_cost(base, self.packaging_type, self.packaging_value)
+        base = base + calculate_cost(base, self.extra1_type, self.extra1_value)
+        base = base + calculate_cost(base, self.extra2_type, self.extra2_value)
         
         # Set landing rate (cost before landing charges)
-        self.landing_rate = base
+        self.landing_rate = base.quantize(Decimal('0.01'))
         
         # Add landing cost
-        base += self.calculate_cost_component(base, self.landing_type, self.landing_value or 0)
+        base = base + calculate_cost(base, self.landing_type, self.landing_value)
         
-        # Set calculated rate (cost after landing charges)
-        self.calculated_rate = base
+        # Add company margin (using Decimal, not float)
+        if self.company_margin_value is None:
+            self.company_margin_value = Decimal('0')
         
-        # Note: sale_rate and mrp are manual inputs - don't override them
+        margin_value = Decimal(str(self.company_margin_value))
+        
+        if self.company_margin_type == 'percent':
+            # Calculate percentage using Decimal division
+            margin_amount = base * (margin_value / Decimal('100'))
+        else:
+            margin_amount = margin_value
+        
+        # Round margin to 2 decimal places
+        margin_amount = margin_amount.quantize(Decimal('0.01'))
+        
+        # Calculate final rate including margin
+        self.calculated_rate = (base + margin_amount).quantize(Decimal('0.01'))
         
         super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"Pricing for {self.product.title} - Calculated Rate: ₹{self.calculated_rate or 0:.2f}"
 
 class Order(models.Model):
     STATUS_CHOICES = [

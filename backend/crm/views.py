@@ -977,10 +977,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'total_count': len(customers_data)
         })
 
-
 # ========== PRODUCT VIEWSET ==========
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
+    queryset = Product.objects.all().order_by('-id')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]

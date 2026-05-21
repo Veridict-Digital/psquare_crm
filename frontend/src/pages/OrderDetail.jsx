@@ -272,8 +272,8 @@ const OrderDetail = () => {
           {/* Master Table */}
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gray-100 border-b border-gray-300">
-                <th colSpan="4" className="px-6 py-3 text-left text-sm font-semibold text-gray-700 border-r border-gray-300">
+              <tr className="bg-[#1a2332] border-b border-gray-300">
+                <th colSpan="4" className="px-6 py-3 text-left text-sm font-semibold text-white border-r border-gray-300">
                   <div className="flex items-center">
                     <ClipboardList className="h-4 w-4 mr-2 text-blue-600" />
                     ORDER INFORMATION
@@ -521,7 +521,7 @@ const OrderDetail = () => {
           <table className="w-full border-collapse border-t border-gray-300">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-300">
-                <th colSpan="4" className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th colSpan="4" className="px-6 py-3 bg-[#1a2332] text-left text-sm font-semibold text-white">
                   <div className="flex items-center">
                     <CreditCard className="h-4 w-4 mr-2 text-blue-600" />
                     PAYMENT & STATUS

@@ -816,30 +816,44 @@ const ProductPricing = () => {
   }, []);
 
   const calculatePricing = useCallback((row) => {
-    let base = Number(row.purchase_value) || 0;
+  let base = Number(row.purchase_value) || 0;
 
-    const calculateCost = (baseAmount, type, value) => {
-      if (type === "percent") {
-        return baseAmount * (Number(value) / 100);
-      }
-      return Number(value);
-    };
+  const calculateCost = (baseAmount, type, value) => {
+    if (type === "percent") {
+      return baseAmount * (Number(value) / 100);
+    }
+    return Number(value);
+  };
 
-    base += calculateCost(base, row.transport_type, row.transport_value);
-    base += calculateCost(base, row.labor_type, row.labor_value);
-    base += calculateCost(base, row.handling_type, row.handling_value);
-    base += calculateCost(base, row.godown_type, row.godown_value);
-    base += calculateCost(base, row.delivery_type, row.delivery_value);
-    base += calculateCost(base, row.packaging_type, row.packaging_value);
-    base += calculateCost(base, row.extra1_type, row.extra1_value);
-    base += calculateCost(base, row.extra2_type, row.extra2_value);
+  base += calculateCost(base, row.transport_type, row.transport_value);
+  base += calculateCost(base, row.labor_type, row.labor_value);
+  base += calculateCost(base, row.handling_type, row.handling_value);
+  base += calculateCost(base, row.godown_type, row.godown_value);
+  base += calculateCost(base, row.delivery_type, row.delivery_value);
+  base += calculateCost(base, row.packaging_type, row.packaging_value);
+  base += calculateCost(base, row.extra1_type, row.extra1_value);
+  base += calculateCost(base, row.extra2_type, row.extra2_value);
 
-    const landing_rate = base;
-    base += calculateCost(base, row.landing_type, row.landing_value);
-    const calculated_rate = base;
+  const landing_rate = base;
+  
+  // Add landing value if any
+  base += calculateCost(base, row.landing_type, row.landing_value);
+  
+  // Add company margin
+  const marginValue = Number(row.company_margin_value) || 0;
+  const marginType = row.company_margin_type || "percent";
+  
+  let marginAmount = 0;
+  if (marginType === "percent") {
+    marginAmount = base * (marginValue / 100);
+  } else {
+    marginAmount = marginValue;
+  }
+  
+  const calculated_rate = base + marginAmount;
 
-    return { landing_rate, calculated_rate };
-  }, []);
+  return { landing_rate, calculated_rate };
+}, []);
 
   // Save mutation
   const saveMutation = useMutation({
@@ -2369,45 +2383,50 @@ const ExcelCell = React.memo(
     );
 
     const handleKeyDown = useCallback(
-      (e) => {
-        if (!focusOnToggle) {
-          // Save value when navigating away with arrow keys
-          if (
-            ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)
-          ) {
-            e.preventDefault();
-            saveCurrentValue();
-            onBlur();
-            setTimeout(() => onKeyDown(e), 10);
-          } else if (e.key === "Enter") {
-            e.preventDefault();
-            saveCurrentValue();
-            onBlur();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            setInputValue(value);
-            onBlur();
-          } else if (e.key === "Tab") {
-            // Let Tab work normally but save first
-            saveCurrentValue();
-            onBlur();
-            setTimeout(() => onKeyDown(e), 10);
-          } else {
-            onKeyDown(e);
-          }
+  (e) => {
+    if (!focusOnToggle) {
+      // NEW: Allow toggling with Arrow Up/Down from input when Ctrl is pressed
+      if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        if (onTypeToggle) {
+          onTypeToggle();
+          // Keep focus in input after toggling
+          setTimeout(() => {
+            const refToUse = inputRef || localRef;
+            if (refToUse?.current) {
+              refToUse.current.focus();
+            }
+          }, 10);
         }
-      },
-      [
-        focusOnToggle,
-        saveCurrentValue,
-        onBlur,
-        onKeyDown,
-        value,
-        type,
-        inputValue,
-        onEdit,
-      ],
-    );
+        return;
+      }
+      
+      // Save value when navigating away with arrow keys
+      if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        e.preventDefault();
+        saveCurrentValue();
+        onBlur();
+        setTimeout(() => onKeyDown(e), 10);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        saveCurrentValue();
+        onBlur();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setInputValue(value);
+        onBlur();
+      } else if (e.key === "Tab") {
+        // Let Tab work normally but save first
+        saveCurrentValue();
+        onBlur();
+        setTimeout(() => onKeyDown(e), 10);
+      } else {
+        onKeyDown(e);
+      }
+    }
+  },
+  [focusOnToggle, saveCurrentValue, onBlur, onKeyDown, value, onTypeToggle, inputRef],
+);
 
     const handleBlur = useCallback(() => {
       if (!focusOnToggle) {
