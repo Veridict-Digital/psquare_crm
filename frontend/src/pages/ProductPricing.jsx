@@ -816,44 +816,44 @@ const ProductPricing = () => {
   }, []);
 
   const calculatePricing = useCallback((row) => {
-  let base = Number(row.purchase_value) || 0;
+    let base = Number(row.purchase_value) || 0;
 
-  const calculateCost = (baseAmount, type, value) => {
-    if (type === "percent") {
-      return baseAmount * (Number(value) / 100);
+    const calculateCost = (baseAmount, type, value) => {
+      if (type === "percent") {
+        return baseAmount * (Number(value) / 100);
+      }
+      return Number(value);
+    };
+
+    base += calculateCost(base, row.transport_type, row.transport_value);
+    base += calculateCost(base, row.labor_type, row.labor_value);
+    base += calculateCost(base, row.handling_type, row.handling_value);
+    base += calculateCost(base, row.godown_type, row.godown_value);
+    base += calculateCost(base, row.delivery_type, row.delivery_value);
+    base += calculateCost(base, row.packaging_type, row.packaging_value);
+    base += calculateCost(base, row.extra1_type, row.extra1_value);
+    base += calculateCost(base, row.extra2_type, row.extra2_value);
+
+    const landing_rate = base;
+
+    // Add landing value if any
+    base += calculateCost(base, row.landing_type, row.landing_value);
+
+    // Add company margin
+    const marginValue = Number(row.company_margin_value) || 0;
+    const marginType = row.company_margin_type || "percent";
+
+    let marginAmount = 0;
+    if (marginType === "percent") {
+      marginAmount = base * (marginValue / 100);
+    } else {
+      marginAmount = marginValue;
     }
-    return Number(value);
-  };
 
-  base += calculateCost(base, row.transport_type, row.transport_value);
-  base += calculateCost(base, row.labor_type, row.labor_value);
-  base += calculateCost(base, row.handling_type, row.handling_value);
-  base += calculateCost(base, row.godown_type, row.godown_value);
-  base += calculateCost(base, row.delivery_type, row.delivery_value);
-  base += calculateCost(base, row.packaging_type, row.packaging_value);
-  base += calculateCost(base, row.extra1_type, row.extra1_value);
-  base += calculateCost(base, row.extra2_type, row.extra2_value);
+    const calculated_rate = base + marginAmount;
 
-  const landing_rate = base;
-  
-  // Add landing value if any
-  base += calculateCost(base, row.landing_type, row.landing_value);
-  
-  // Add company margin
-  const marginValue = Number(row.company_margin_value) || 0;
-  const marginType = row.company_margin_type || "percent";
-  
-  let marginAmount = 0;
-  if (marginType === "percent") {
-    marginAmount = base * (marginValue / 100);
-  } else {
-    marginAmount = marginValue;
-  }
-  
-  const calculated_rate = base + marginAmount;
-
-  return { landing_rate, calculated_rate };
-}, []);
+    return { landing_rate, calculated_rate };
+  }, []);
 
   // Save mutation
   const saveMutation = useMutation({
@@ -1807,7 +1807,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterSKU("");
-                        setActiveFilters((prev) => ({ ...prev, filterSKU: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterSKU: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1821,7 +1824,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterTitle("");
-                        setActiveFilters((prev) => ({ ...prev, filterTitle: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterTitle: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1835,7 +1841,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterHSN("");
-                        setActiveFilters((prev) => ({ ...prev, filterHSN: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterHSN: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1849,7 +1858,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterCategory("");
-                        setActiveFilters((prev) => ({ ...prev, filterCategory: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterCategory: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1863,7 +1875,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterBrand("");
-                        setActiveFilters((prev) => ({ ...prev, filterBrand: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterBrand: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1877,7 +1892,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterBrandCategory("");
-                        setActiveFilters((prev) => ({ ...prev, filterBrandCategory: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterBrandCategory: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1891,7 +1909,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterBrandCategory1("");
-                        setActiveFilters((prev) => ({ ...prev, filterBrandCategory1: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterBrandCategory1: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1905,7 +1926,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterFlavour("");
-                        setActiveFilters((prev) => ({ ...prev, filterFlavour: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterFlavour: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1919,7 +1943,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterResidual("");
-                        setActiveFilters((prev) => ({ ...prev, filterResidual: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterResidual: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1929,11 +1956,19 @@ const ProductPricing = () => {
                 )}
                 {activeFilters.filterGST && (
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
-                    GST: {gstRates?.find((r) => r.id == activeFilters.filterGST)?.rate}%
+                    GST:{" "}
+                    {
+                      gstRates?.find((r) => r.id == activeFilters.filterGST)
+                        ?.rate
+                    }
+                    %
                     <button
                       onClick={() => {
                         setFilterGST("");
-                        setActiveFilters((prev) => ({ ...prev, filterGST: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterGST: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1947,7 +1982,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterUnit("");
-                        setActiveFilters((prev) => ({ ...prev, filterUnit: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterUnit: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1961,7 +1999,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterMinWeight("");
-                        setActiveFilters((prev) => ({ ...prev, filterMinWeight: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterMinWeight: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1975,7 +2016,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterMaxWeight("");
-                        setActiveFilters((prev) => ({ ...prev, filterMaxWeight: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterMaxWeight: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -1989,7 +2033,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterMinPackingWeight("");
-                        setActiveFilters((prev) => ({ ...prev, filterMinPackingWeight: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterMinPackingWeight: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -2003,7 +2050,10 @@ const ProductPricing = () => {
                     <button
                       onClick={() => {
                         setFilterMaxPackingWeight("");
-                        setActiveFilters((prev) => ({ ...prev, filterMaxPackingWeight: "" }));
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterMaxPackingWeight: "",
+                        }));
                       }}
                       className="hover:text-blue-900"
                     >
@@ -2018,12 +2068,12 @@ const ProductPricing = () => {
 
         {/* Table */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-  <div
-    ref={tableContainerRef}
-    className="overflow-x-auto overflow-y-auto"
-    style={{ maxHeight: "calc(100vh - 200px)" }}
-  >
-    <style>{`
+          <div
+            ref={tableContainerRef}
+            className="overflow-x-auto overflow-y-auto"
+            style={{ maxHeight: "calc(100vh - 200px)" }}
+          >
+            <style>{`
       .pricing-table { 
         border-collapse: separate; 
         border-spacing: 0; 
@@ -2069,91 +2119,91 @@ const ProductPricing = () => {
       }
     `}</style>
 
-    <table className="pricing-table">
-      <thead className="sticky top-0 z-20">
-        <tr>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: STICKY_POSITIONS.SKU,
-              minWidth: COLUMN_WIDTHS.SKU,
-              zIndex: 25,
-            }}
-          >
-            SKU
-          </th>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: STICKY_POSITIONS.PRODUCT,
-              minWidth: COLUMN_WIDTHS.PRODUCT,
-              zIndex: 25,
-            }}
-          >
-            Product
-          </th>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: STICKY_POSITIONS.SALE_RATE,
-              minWidth: COLUMN_WIDTHS.SALE_RATE,
-              zIndex: 25,
-            }}
-          >
-            Sale Rate
-          </th>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: GROUP_CONFIG.pricingDetails.position,
-              minWidth: COLUMN_WIDTHS.PRICING_DETAILS,
-              zIndex: 25,
-            }}
-          >
-            Pricing Details
-          </th>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: GROUP_CONFIG.productDetails.position,
-              minWidth: COLUMN_WIDTHS.PRODUCT_DETAILS,
-              zIndex: 25,
-            }}
-          >
-            Product Details
-          </th>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: GROUP_CONFIG.costComponents1.position,
-              minWidth: COLUMN_WIDTHS.COST_COMPONENTS_1,
-              zIndex: 25,
-            }}
-          >
-            Cost Components 1
-          </th>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: GROUP_CONFIG.costComponents2.position,
-              minWidth: COLUMN_WIDTHS.COST_COMPONENTS_2,
-              zIndex: 25,
-            }}
-          >
-            Cost Components 2
-          </th>
-          <th
-            className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
-            style={{
-              left: GROUP_CONFIG.additionalCosts.position,
-              minWidth: COLUMN_WIDTHS.ADDITIONAL_COSTS,
-              zIndex: 25,
-            }}
-          >
-            Additional Costs
-          </th>
-        </tr>
-      </thead>
+            <table className="pricing-table">
+              <thead className="sticky top-0 z-20">
+                <tr>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: STICKY_POSITIONS.SKU,
+                      minWidth: COLUMN_WIDTHS.SKU,
+                      zIndex: 25,
+                    }}
+                  >
+                    SKU
+                  </th>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: STICKY_POSITIONS.PRODUCT,
+                      minWidth: COLUMN_WIDTHS.PRODUCT,
+                      zIndex: 25,
+                    }}
+                  >
+                    Product
+                  </th>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: STICKY_POSITIONS.SALE_RATE,
+                      minWidth: COLUMN_WIDTHS.SALE_RATE,
+                      zIndex: 25,
+                    }}
+                  >
+                    Sale Rate
+                  </th>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: GROUP_CONFIG.pricingDetails.position,
+                      minWidth: COLUMN_WIDTHS.PRICING_DETAILS,
+                      zIndex: 25,
+                    }}
+                  >
+                    Pricing Details
+                  </th>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: GROUP_CONFIG.productDetails.position,
+                      minWidth: COLUMN_WIDTHS.PRODUCT_DETAILS,
+                      zIndex: 25,
+                    }}
+                  >
+                    Product Details
+                  </th>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: GROUP_CONFIG.costComponents1.position,
+                      minWidth: COLUMN_WIDTHS.COST_COMPONENTS_1,
+                      zIndex: 25,
+                    }}
+                  >
+                    Cost Components 1
+                  </th>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: GROUP_CONFIG.costComponents2.position,
+                      minWidth: COLUMN_WIDTHS.COST_COMPONENTS_2,
+                      zIndex: 25,
+                    }}
+                  >
+                    Cost Components 2
+                  </th>
+                  <th
+                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    style={{
+                      left: GROUP_CONFIG.additionalCosts.position,
+                      minWidth: COLUMN_WIDTHS.ADDITIONAL_COSTS,
+                      zIndex: 25,
+                    }}
+                  >
+                    Additional Costs
+                  </th>
+                </tr>
+              </thead>
               <tbody>
                 {paginatedData.map((row, rowIndex) => {
                   const isEvenRow = rowIndex % 2 === 0;
@@ -2383,50 +2433,63 @@ const ExcelCell = React.memo(
     );
 
     const handleKeyDown = useCallback(
-  (e) => {
-    if (!focusOnToggle) {
-      // NEW: Allow toggling with Arrow Up/Down from input when Ctrl is pressed
-      if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-        e.preventDefault();
-        if (onTypeToggle) {
-          onTypeToggle();
-          // Keep focus in input after toggling
-          setTimeout(() => {
-            const refToUse = inputRef || localRef;
-            if (refToUse?.current) {
-              refToUse.current.focus();
+      (e) => {
+        if (!focusOnToggle) {
+          // NEW: Allow toggling with Arrow Up/Down from input when Ctrl is pressed
+          if (
+            (e.ctrlKey || e.metaKey) &&
+            (e.key === "ArrowUp" || e.key === "ArrowDown")
+          ) {
+            e.preventDefault();
+            if (onTypeToggle) {
+              onTypeToggle();
+              // Keep focus in input after toggling
+              setTimeout(() => {
+                const refToUse = inputRef || localRef;
+                if (refToUse?.current) {
+                  refToUse.current.focus();
+                }
+              }, 10);
             }
-          }, 10);
+            return;
+          }
+
+          // Save value when navigating away with arrow keys
+          if (
+            ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)
+          ) {
+            e.preventDefault();
+            saveCurrentValue();
+            onBlur();
+            setTimeout(() => onKeyDown(e), 10);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            saveCurrentValue();
+            onBlur();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            setInputValue(value);
+            onBlur();
+          } else if (e.key === "Tab") {
+            // Let Tab work normally but save first
+            saveCurrentValue();
+            onBlur();
+            setTimeout(() => onKeyDown(e), 10);
+          } else {
+            onKeyDown(e);
+          }
         }
-        return;
-      }
-      
-      // Save value when navigating away with arrow keys
-      if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) {
-        e.preventDefault();
-        saveCurrentValue();
-        onBlur();
-        setTimeout(() => onKeyDown(e), 10);
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        saveCurrentValue();
-        onBlur();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        setInputValue(value);
-        onBlur();
-      } else if (e.key === "Tab") {
-        // Let Tab work normally but save first
-        saveCurrentValue();
-        onBlur();
-        setTimeout(() => onKeyDown(e), 10);
-      } else {
-        onKeyDown(e);
-      }
-    }
-  },
-  [focusOnToggle, saveCurrentValue, onBlur, onKeyDown, value, onTypeToggle, inputRef],
-);
+      },
+      [
+        focusOnToggle,
+        saveCurrentValue,
+        onBlur,
+        onKeyDown,
+        value,
+        onTypeToggle,
+        inputRef,
+      ],
+    );
 
     const handleBlur = useCallback(() => {
       if (!focusOnToggle) {

@@ -692,16 +692,19 @@ const SearchableProductDropdown = ({
       const rect = triggerRef.current.getBoundingClientRect();
       const dropdownWidth = 288; // w-72 is 288px
       let left = rect.left;
-      
+
       // Auto-align left/right to prevent screen overflow
       if (left + dropdownWidth > window.innerWidth) {
         left = Math.max(10, rect.right - dropdownWidth);
       }
-      
+
       // Auto-align top/bottom to prevent screen overflow
       const dropdownHeight = 300; // estimated max height
       let top = rect.bottom;
-      if (top + dropdownHeight > window.innerHeight && rect.top - dropdownHeight > 0) {
+      if (
+        top + dropdownHeight > window.innerHeight &&
+        rect.top - dropdownHeight > 0
+      ) {
         top = rect.top - dropdownHeight;
       }
 
@@ -751,11 +754,23 @@ const SearchableProductDropdown = ({
         className="w-full flex items-center justify-between px-1.5 py-1 border rounded text-xs bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 min-h-[28px] text-left cursor-pointer transition-colors"
       >
         <span className="truncate">
-          {selectedProduct ? `${selectedProduct.title} (${selectedProduct.sku})` : placeholder}
+          {selectedProduct
+            ? `${selectedProduct.title} (${selectedProduct.sku})`
+            : placeholder}
         </span>
         <span className="ml-1 text-gray-400 flex-shrink-0">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          <svg
+            className="h-3 w-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </span>
       </button>
@@ -810,7 +825,9 @@ const SearchableProductDropdown = ({
           </div>
           <ul className="max-h-60 overflow-y-auto py-1 text-xs">
             {filteredProducts.length === 0 ? (
-              <li className="px-3 py-2 text-gray-500 text-center">No products found</li>
+              <li className="px-3 py-2 text-gray-500 text-center">
+                No products found
+              </li>
             ) : (
               filteredProducts.map((p) => {
                 const isSelected = String(p.id) === String(value);
@@ -820,11 +837,15 @@ const SearchableProductDropdown = ({
                       type="button"
                       onClick={() => handleSelect(String(p.id))}
                       className={`w-full text-left px-3 py-1.5 hover:bg-blue-50 focus:outline-none focus:bg-blue-50 flex flex-col transition-colors ${
-                        isSelected ? "bg-blue-50 font-semibold text-blue-600" : "text-gray-700"
+                        isSelected
+                          ? "bg-blue-50 font-semibold text-blue-600"
+                          : "text-gray-700"
                       }`}
                     >
                       <span className="font-medium truncate">{p.title}</span>
-                      <span className="text-[10px] text-gray-500 truncate">SKU: {p.sku}</span>
+                      <span className="text-[10px] text-gray-500 truncate">
+                        SKU: {p.sku}
+                      </span>
                     </button>
                   </li>
                 );
@@ -2304,7 +2325,7 @@ const ProductCombinations = () => {
           <div
             ref={tableContainerRef}
             className="overflow-auto"
-            
+            style={{ maxHeight: "calc(100vh - 170px)" }}
           >
             <style>{`
   .combo-table {
@@ -4817,416 +4838,715 @@ const ProductCombinations = () => {
 
                   {/* Grand Totals Section */}
                   {/* Grand Totals Section */}
-<div className="border rounded-lg p-3 mt-4">
-  <div className="flex justify-between items-center mb-1">
-    <h3 className="text-base font-semibold">Grand Totals</h3>
-  </div>
-  
-  <div className="overflow-x-auto">
-    <table className="min-w-full text-xs">
-      <thead className="bg-[#1a2332] text-white">
-        <tr>
-          <th className="px-2 py-1.5 text-left">Category</th>
-          <th className="px-2 py-1.5 text-left">Qty</th>
-          <th className="px-2 py-1.5 text-center" colSpan="2">
-            Landing Rate
-          </th>
-          <th className="px-2 py-1.5 text-center" colSpan="2">
-            MRP Rate
-          </th>
-          <th className="px-2 py-1.5 text-center" colSpan="2">
-            Sale Rate
-          </th>
-          <th className="px-2 py-1.5 text-center" colSpan="2">
-            Calculated Rate
-          </th>
-          <th className="px-2 py-1.5 text-center" colSpan="2">
-            Total Weight
-          </th>
-          <th className="px-2 py-1.5 text-center" colSpan="2">
-            Total Volume
-          </th>
-          <th className="px-2 py-1.5 text-right" colSpan="1">
-            Total Price
-          </th>
-          <th className="px-2 py-1.5 text-right">Profit</th>
-        </tr>
-      </thead>
-      {/* GRAND TOTAL ROW */}
-      <tfoot className="bg-gray-100 border-t-2 border-gray-300">
-        <tr className="font-bold">
-          <td className="px-2 py-2 text-left font-bold">
-            <div>GRAND TOTAL</div>
-            <div className="w-36 text-[10px] text-gray-500 font-normal">
-              ({formData.items.filter(item => formatNumber(item.quantity_required) > 0).length +
-                formData.rewards.filter(reward => formatNumber(reward.quantity_free) > 0).length +
-                formData.gifts.filter(gift => formatNumber(gift.quantity) > 0).length} items)
-            </div>
-          </td>
-          
-          <td className="px-2 py-2">
-            {formData.items.reduce((sum, item) => sum + formatNumber(item.quantity_required), 0) +
-             formData.rewards.reduce((sum, reward) => sum + formatNumber(reward.quantity_free), 0) +
-             formData.gifts.reduce((sum, gift) => sum + formatNumber(gift.quantity), 0)}
-          </td>
-          
-          {/* Landing - Unit & Total */}
-          <td className="px-2 py-2"></td>
-          <td className="px-2 py-2">
-            <input
-              type="number"
-              step="0.01"
-              value={(
-                formData.items.reduce((total, item) => {
-                  const pricing = productPricings[item.product];
-                  const product = products.find(p => p.id === parseInt(item.product));
-                  const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
-                  return total + (landingRate * formatNumber(item.quantity_required));
-                }, 0) +
-                formData.rewards.reduce((total, reward) => {
-                  const pricing = productPricings[reward.product];
-                  const product = products.find(p => p.id === parseInt(reward.product));
-                  const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
-                  return total + (landingRate * formatNumber(reward.quantity_free));
-                }, 0) +
-                formData.gifts.reduce((total, gift) => {
-                  const pricing = productPricings[gift.product];
-                  const product = products.find(p => p.id === parseInt(gift.product));
-                  const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
-                  return total + (landingRate * formatNumber(gift.quantity));
-                }, 0)
-              ).toFixed(2)}
-              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
-              readOnly
-              disabled
-            />
-          </td>
-          
-          {/* MRP - Unit & Total */}
-          <td className="px-2 py-2"></td>
-          <td className="px-2 py-2">
-            <input
-              type="number"
-              step="0.01"
-              value={(
-                formData.items.reduce((total, item) => {
-                  const pricing = productPricings[item.product];
-                  const product = products.find(p => p.id === parseInt(item.product));
-                  const mrp = formatNumber(pricing?.mrp ?? product?.mrp ?? 0);
-                  return total + (mrp * formatNumber(item.quantity_required));
-                }, 0) +
-                formData.rewards.reduce((total, reward) => {
-                  const pricing = productPricings[reward.product];
-                  const product = products.find(p => p.id === parseInt(reward.product));
-                  const mrp = formatNumber(pricing?.mrp ?? product?.mrp ?? 0);
-                  return total + (mrp * formatNumber(reward.quantity_free));
-                }, 0) +
-                formData.gifts.reduce((total, gift) => {
-                  const pricing = productPricings[gift.product];
-                  const product = products.find(p => p.id === parseInt(gift.product));
-                  const mrp = formatNumber(pricing?.mrp ?? product?.mrp ?? 0);
-                  return total + (mrp * formatNumber(gift.quantity));
-                }, 0)
-              ).toFixed(2)}
-              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
-              readOnly
-              disabled
-            />
-          </td>
-          
-          {/* Sale - Unit & Total */}
-          <td className="px-2 py-2"></td>
-          <td className="px-2 py-2">
-            <input
-              type="number"
-              step="0.01"
-              value={(
-                formData.items.reduce((total, item) => {
-                  const pricing = productPricings[item.product];
-                  const product = products.find(p => p.id === parseInt(item.product));
-                  const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-                  return total + (saleRate * formatNumber(item.quantity_required));
-                }, 0) +
-                formData.rewards.reduce((total, reward) => {
-                  const pricing = productPricings[reward.product];
-                  const product = products.find(p => p.id === parseInt(reward.product));
-                  const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-                  return total + (saleRate * formatNumber(reward.quantity_free));
-                }, 0) +
-                formData.gifts.reduce((total, gift) => {
-                  const pricing = productPricings[gift.product];
-                  const product = products.find(p => p.id === parseInt(gift.product));
-                  const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-                  return total + (saleRate * formatNumber(gift.quantity));
-                }, 0)
-              ).toFixed(2)}
-              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
-              readOnly
-              disabled
-            />
-          </td>
-          
-          {/* Calculated - Unit & Total */}
-          <td className="px-2 py-2"></td>
-          <td className="px-2 py-2">
-            <input
-              type="number"
-              step="0.01"
-              value={(
-                formData.items.reduce((total, item) => {
-                  const pricing = productPricings[item.product];
-                  const product = products.find(p => p.id === parseInt(item.product));
-                  const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
-                  return total + (calculatedRate * formatNumber(item.quantity_required));
-                }, 0) +
-                formData.rewards.reduce((total, reward) => {
-                  const pricing = productPricings[reward.product];
-                  const product = products.find(p => p.id === parseInt(reward.product));
-                  const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
-                  return total + (calculatedRate * formatNumber(reward.quantity_free));
-                }, 0) +
-                formData.gifts.reduce((total, gift) => {
-                  const pricing = productPricings[gift.product];
-                  const product = products.find(p => p.id === parseInt(gift.product));
-                  const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
-                  return total + (calculatedRate * formatNumber(gift.quantity));
-                }, 0)
-              ).toFixed(2)}
-              className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
-              readOnly
-              disabled
-            />
-          </td>
-          
-          {/* Weight - Unit & Total */}
-          <td className="px-2 py-2"></td>
-          <td className="px-2 py-2">
-  <div className="flex justify-end">
-    <input
-      type="text"
-      value={(() => {
-        let totalWeightInKg = 0;
+                  <div className="border rounded-lg p-3 mt-4">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="text-base font-semibold">Grand Totals</h3>
+                    </div>
 
-        // Items
-        formData.items.forEach((item) => {
-          const product = products.find(p => p.id === parseInt(item.product));
-          if (product && product.packing_weight_unit_id) {
-            const unitWeight = parseFloat(product?.packing_weight || 0);
-            const quantity = parseFloat(item.quantity_required || 0);
-            const weightInKg = convertWeightToUnit(unitWeight, product.packing_weight_unit_id, null) * quantity;
-            totalWeightInKg += weightInKg;
-          }
-        });
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-[#1a2332] text-white">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Category</th>
+                            <th className="px-2 py-1.5 text-left">Qty</th>
+                            <th className="px-2 py-1.5 text-center" colSpan="2">
+                              Landing Rate
+                            </th>
+                            <th className="px-2 py-1.5 text-center" colSpan="2">
+                              MRP Rate
+                            </th>
+                            <th className="px-2 py-1.5 text-center" colSpan="2">
+                              Sale Rate
+                            </th>
+                            <th className="px-2 py-1.5 text-center" colSpan="2">
+                              Calculated Rate
+                            </th>
+                            <th className="px-2 py-1.5 text-center" colSpan="2">
+                              Total Weight
+                            </th>
+                            <th className="px-2 py-1.5 text-center" colSpan="2">
+                              Total Volume
+                            </th>
+                            <th className="px-2 py-1.5 text-right" colSpan="1">
+                              Total Price
+                            </th>
+                            <th className="px-2 py-1.5 text-right">Profit</th>
+                          </tr>
+                        </thead>
+                        {/* GRAND TOTAL ROW */}
+                        <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                          <tr className="font-bold">
+                            <td className="px-2 py-2 text-left font-bold">
+                              <div>GRAND TOTAL</div>
+                              <div className="w-36 text-[10px] text-gray-500 font-normal">
+                                (
+                                {formData.items.filter(
+                                  (item) =>
+                                    formatNumber(item.quantity_required) > 0,
+                                ).length +
+                                  formData.rewards.filter(
+                                    (reward) =>
+                                      formatNumber(reward.quantity_free) > 0,
+                                  ).length +
+                                  formData.gifts.filter(
+                                    (gift) => formatNumber(gift.quantity) > 0,
+                                  ).length}{" "}
+                                items)
+                              </div>
+                            </td>
 
-        // Rewards
-        formData.rewards.forEach((reward) => {
-          const product = products.find(p => p.id === parseInt(reward.product));
-          if (product && product.packing_weight_unit_id) {
-            const unitWeight = parseFloat(product?.packing_weight || 0);
-            const quantity = parseFloat(reward.quantity_free || 0);
-            const weightInKg = convertWeightToUnit(unitWeight, product.packing_weight_unit_id, null) * quantity;
-            totalWeightInKg += weightInKg;
-          }
-        });
+                            <td className="px-2 py-2">
+                              {formData.items.reduce(
+                                (sum, item) =>
+                                  sum + formatNumber(item.quantity_required),
+                                0,
+                              ) +
+                                formData.rewards.reduce(
+                                  (sum, reward) =>
+                                    sum + formatNumber(reward.quantity_free),
+                                  0,
+                                ) +
+                                formData.gifts.reduce(
+                                  (sum, gift) =>
+                                    sum + formatNumber(gift.quantity),
+                                  0,
+                                )}
+                            </td>
 
-        // Gifts
-        formData.gifts.forEach((gift) => {
-          const product = products.find(p => p.id === parseInt(gift.product));
-          if (product && product.packing_weight_unit_id) {
-            const unitWeight = parseFloat(product?.packing_weight || 0);
-            const quantity = parseFloat(gift.quantity || 0);
-            const weightInKg = convertWeightToUnit(unitWeight, product.packing_weight_unit_id, null) * quantity;
-            totalWeightInKg += weightInKg;
-          }
-        });
+                            {/* Landing - Unit & Total */}
+                            <td className="px-2 py-2"></td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(
+                                  formData.items.reduce((total, item) => {
+                                    const pricing =
+                                      productPricings[item.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(item.product),
+                                    );
+                                    const landingRate = formatNumber(
+                                      pricing?.landing_rate ??
+                                        product?.landing_rate ??
+                                        0,
+                                    );
+                                    return (
+                                      total +
+                                      landingRate *
+                                        formatNumber(item.quantity_required)
+                                    );
+                                  }, 0) +
+                                  formData.rewards.reduce((total, reward) => {
+                                    const pricing =
+                                      productPricings[reward.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(reward.product),
+                                    );
+                                    const landingRate = formatNumber(
+                                      pricing?.landing_rate ??
+                                        product?.landing_rate ??
+                                        0,
+                                    );
+                                    return (
+                                      total +
+                                      landingRate *
+                                        formatNumber(reward.quantity_free)
+                                    );
+                                  }, 0) +
+                                  formData.gifts.reduce((total, gift) => {
+                                    const pricing =
+                                      productPricings[gift.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(gift.product),
+                                    );
+                                    const landingRate = formatNumber(
+                                      pricing?.landing_rate ??
+                                        product?.landing_rate ??
+                                        0,
+                                    );
+                                    return (
+                                      total +
+                                      landingRate * formatNumber(gift.quantity)
+                                    );
+                                  }, 0)
+                                ).toFixed(2)}
+                                className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                readOnly
+                                disabled
+                              />
+                            </td>
 
-        return `${totalWeightInKg.toFixed(3)} kg`;
-      })()}
-      className="w-28 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700 text-right"
-      readOnly
-      disabled
-    />
-  </div>
-</td>
+                            {/* MRP - Unit & Total */}
+                            <td className="px-2 py-2"></td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(
+                                  formData.items.reduce((total, item) => {
+                                    const pricing =
+                                      productPricings[item.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(item.product),
+                                    );
+                                    const mrp = formatNumber(
+                                      pricing?.mrp ?? product?.mrp ?? 0,
+                                    );
+                                    return (
+                                      total +
+                                      mrp * formatNumber(item.quantity_required)
+                                    );
+                                  }, 0) +
+                                  formData.rewards.reduce((total, reward) => {
+                                    const pricing =
+                                      productPricings[reward.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(reward.product),
+                                    );
+                                    const mrp = formatNumber(
+                                      pricing?.mrp ?? product?.mrp ?? 0,
+                                    );
+                                    return (
+                                      total +
+                                      mrp * formatNumber(reward.quantity_free)
+                                    );
+                                  }, 0) +
+                                  formData.gifts.reduce((total, gift) => {
+                                    const pricing =
+                                      productPricings[gift.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(gift.product),
+                                    );
+                                    const mrp = formatNumber(
+                                      pricing?.mrp ?? product?.mrp ?? 0,
+                                    );
+                                    return (
+                                      total + mrp * formatNumber(gift.quantity)
+                                    );
+                                  }, 0)
+                                ).toFixed(2)}
+                                className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                readOnly
+                                disabled
+                              />
+                            </td>
 
-          
-          {/* Volume */}
-          <td className="px-2 py-2">
-  <div className="flex justify-end">
-    <input
-      type="text"
-      value={(() => {
-        let totalVolumeInM3 = 0;
+                            {/* Sale - Unit & Total */}
+                            <td className="px-2 py-2"></td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(
+                                  formData.items.reduce((total, item) => {
+                                    const pricing =
+                                      productPricings[item.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(item.product),
+                                    );
+                                    const saleRate = formatNumber(
+                                      pricing?.sale_rate ?? product?.price ?? 0,
+                                    );
+                                    return (
+                                      total +
+                                      saleRate *
+                                        formatNumber(item.quantity_required)
+                                    );
+                                  }, 0) +
+                                  formData.rewards.reduce((total, reward) => {
+                                    const pricing =
+                                      productPricings[reward.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(reward.product),
+                                    );
+                                    const saleRate = formatNumber(
+                                      pricing?.sale_rate ?? product?.price ?? 0,
+                                    );
+                                    return (
+                                      total +
+                                      saleRate *
+                                        formatNumber(reward.quantity_free)
+                                    );
+                                  }, 0) +
+                                  formData.gifts.reduce((total, gift) => {
+                                    const pricing =
+                                      productPricings[gift.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(gift.product),
+                                    );
+                                    const saleRate = formatNumber(
+                                      pricing?.sale_rate ?? product?.price ?? 0,
+                                    );
+                                    return (
+                                      total +
+                                      saleRate * formatNumber(gift.quantity)
+                                    );
+                                  }, 0)
+                                ).toFixed(2)}
+                                className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                readOnly
+                                disabled
+                              />
+                            </td>
 
-        // Items
-        formData.items.forEach((item) => {
-          const product = products.find(p => p.id === parseInt(item.product));
-          if (product) {
-            const lengthCm = parseFloat(product?.length_cm || 0);
-            const breadthCm = parseFloat(product?.breadth_cm || 0);
-            const heightCm = parseFloat(product?.height_cm || 0);
-            const quantity = parseFloat(item.quantity_required || 0);
-            const unitVolumeCm3 = lengthCm * breadthCm * heightCm;
-            const unitVolumeM3 = unitVolumeCm3 / 1000000;
-            totalVolumeInM3 += unitVolumeM3 * quantity;
-          }
-        });
+                            {/* Calculated - Unit & Total */}
+                            <td className="px-2 py-2"></td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(
+                                  formData.items.reduce((total, item) => {
+                                    const pricing =
+                                      productPricings[item.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(item.product),
+                                    );
+                                    const calculatedRate = formatNumber(
+                                      pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                    );
+                                    return (
+                                      total +
+                                      calculatedRate *
+                                        formatNumber(item.quantity_required)
+                                    );
+                                  }, 0) +
+                                  formData.rewards.reduce((total, reward) => {
+                                    const pricing =
+                                      productPricings[reward.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(reward.product),
+                                    );
+                                    const calculatedRate = formatNumber(
+                                      pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                    );
+                                    return (
+                                      total +
+                                      calculatedRate *
+                                        formatNumber(reward.quantity_free)
+                                    );
+                                  }, 0) +
+                                  formData.gifts.reduce((total, gift) => {
+                                    const pricing =
+                                      productPricings[gift.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(gift.product),
+                                    );
+                                    const calculatedRate = formatNumber(
+                                      pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                    );
+                                    return (
+                                      total +
+                                      calculatedRate *
+                                        formatNumber(gift.quantity)
+                                    );
+                                  }, 0)
+                                ).toFixed(2)}
+                                className="w-20 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700"
+                                readOnly
+                                disabled
+                              />
+                            </td>
 
-        // Rewards
-        formData.rewards.forEach((reward) => {
-          const product = products.find(p => p.id === parseInt(reward.product));
-          if (product) {
-            const lengthCm = parseFloat(product?.length_cm || 0);
-            const breadthCm = parseFloat(product?.breadth_cm || 0);
-            const heightCm = parseFloat(product?.height_cm || 0);
-            const quantity = parseFloat(reward.quantity_free || 0);
-            const unitVolumeCm3 = lengthCm * breadthCm * heightCm;
-            const unitVolumeM3 = unitVolumeCm3 / 1000000;
-            totalVolumeInM3 += unitVolumeM3 * quantity;
-          }
-        });
+                            {/* Weight - Unit & Total */}
+                            <td className="px-2 py-2"></td>
+                            <td className="px-2 py-2">
+                              <div className="flex justify-end">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalWeightInKg = 0;
 
-        // Gifts
-        formData.gifts.forEach((gift) => {
-          const product = products.find(p => p.id === parseInt(gift.product));
-          if (product) {
-            const lengthCm = parseFloat(product?.length_cm || 0);
-            const breadthCm = parseFloat(product?.breadth_cm || 0);
-            const heightCm = parseFloat(product?.height_cm || 0);
-            const quantity = parseFloat(gift.quantity || 0);
-            const unitVolumeCm3 = lengthCm * breadthCm * heightCm;
-            const unitVolumeM3 = unitVolumeCm3 / 1000000;
-            totalVolumeInM3 += unitVolumeM3 * quantity;
-          }
-        });
+                                    // Items
+                                    formData.items.forEach((item) => {
+                                      const product = products.find(
+                                        (p) => p.id === parseInt(item.product),
+                                      );
+                                      if (
+                                        product &&
+                                        product.packing_weight_unit_id
+                                      ) {
+                                        const unitWeight = parseFloat(
+                                          product?.packing_weight || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          item.quantity_required || 0,
+                                        );
+                                        const weightInKg =
+                                          convertWeightToUnit(
+                                            unitWeight,
+                                            product.packing_weight_unit_id,
+                                            null,
+                                          ) * quantity;
+                                        totalWeightInKg += weightInKg;
+                                      }
+                                    });
 
-        return `${totalVolumeInM3.toFixed(6)} m³`;
-      })()}
-      className="w-32 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700 text-right"
-      readOnly
-      disabled
-    />
-  </div>
-</td>
+                                    // Rewards
+                                    formData.rewards.forEach((reward) => {
+                                      const product = products.find(
+                                        (p) =>
+                                          p.id === parseInt(reward.product),
+                                      );
+                                      if (
+                                        product &&
+                                        product.packing_weight_unit_id
+                                      ) {
+                                        const unitWeight = parseFloat(
+                                          product?.packing_weight || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          reward.quantity_free || 0,
+                                        );
+                                        const weightInKg =
+                                          convertWeightToUnit(
+                                            unitWeight,
+                                            product.packing_weight_unit_id,
+                                            null,
+                                          ) * quantity;
+                                        totalWeightInKg += weightInKg;
+                                      }
+                                    });
 
+                                    // Gifts
+                                    formData.gifts.forEach((gift) => {
+                                      const product = products.find(
+                                        (p) => p.id === parseInt(gift.product),
+                                      );
+                                      if (
+                                        product &&
+                                        product.packing_weight_unit_id
+                                      ) {
+                                        const unitWeight = parseFloat(
+                                          product?.packing_weight || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          gift.quantity || 0,
+                                        );
+                                        const weightInKg =
+                                          convertWeightToUnit(
+                                            unitWeight,
+                                            product.packing_weight_unit_id,
+                                            null,
+                                          ) * quantity;
+                                        totalWeightInKg += weightInKg;
+                                      }
+                                    });
 
-          
-          {/* Offer */}
-          <td className="px-2 py-2"></td>
-          
-          {/* Total Price */}
-          <td className="px-2 py-2">
-  <div className="flex justify-end">
-    <input
-      type="number"
-      step="0.01"
-      value={(
-        formData.items.reduce((total, item) => {
-          const pricing = productPricings[item.product];
-          const product = products.find(p => p.id === parseInt(item.product));
-          const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-          const effectiveRate = item.offer_price || saleRate;
-          return total + (effectiveRate * formatNumber(item.quantity_required));
-        }, 0) +
-        formData.rewards.reduce((total, reward) => {
-          const pricing = productPricings[reward.product];
-          const product = products.find(p => p.id === parseInt(reward.product));
-          const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-          const effectiveRate = reward.offer_price || saleRate;
-          return total + (effectiveRate * formatNumber(reward.quantity_free));
-        }, 0) +
-        formData.gifts.reduce((total, gift) => {
-          const pricing = productPricings[gift.product];
-          const product = products.find(p => p.id === parseInt(gift.product));
-          const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-          const effectiveRate = gift.offer_price || saleRate;
-          return total + (effectiveRate * formatNumber(gift.quantity));
-        }, 0)
-      ).toFixed(2)}
-      className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800 text-right"
-      readOnly
-      disabled
-    />
-  </div>
-</td>
+                                    return `${totalWeightInKg.toFixed(3)} kg`;
+                                  })()}
+                                  className="w-28 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700 text-right"
+                                  readOnly
+                                  disabled
+                                />
+                              </div>
+                            </td>
 
-          
-          {/* Profit */}
-          <td className="px-2 py-2 text-right">
-  {(() => {
-    let totalLandingRate = 0;
-    formData.items.forEach((item) => {
-      const pricing = productPricings[item.product];
-      const product = products.find(p => p.id === parseInt(item.product));
-      const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
-      totalLandingRate += landingRate * formatNumber(item.quantity_required);
-    });
-    formData.rewards.forEach((reward) => {
-      const pricing = productPricings[reward.product];
-      const product = products.find(p => p.id === parseInt(reward.product));
-      const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
-      totalLandingRate += landingRate * formatNumber(reward.quantity_free);
-    });
-    formData.gifts.forEach((gift) => {
-      const pricing = productPricings[gift.product];
-      const product = products.find(p => p.id === parseInt(gift.product));
-      const landingRate = formatNumber(pricing?.landing_rate ?? product?.landing_rate ?? 0);
-      totalLandingRate += landingRate * formatNumber(gift.quantity);
-    });
+                            {/* Volume */}
+                            <td className="px-2 py-2">
+                              <div className="flex justify-end">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    let totalVolumeInM3 = 0;
 
-    let totalComboPrice = 0;
-    formData.items.forEach((item) => {
-      const pricing = productPricings[item.product];
-      const product = products.find(p => p.id === parseInt(item.product));
-      const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-      totalComboPrice += saleRate * formatNumber(item.quantity_required);
-    });
-    formData.rewards.forEach((reward) => {
-      const pricing = productPricings[reward.product];
-      const product = products.find(p => p.id === parseInt(reward.product));
-      const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-      totalComboPrice += saleRate * formatNumber(reward.quantity_free);
-    });
-    formData.gifts.forEach((gift) => {
-      const pricing = productPricings[gift.product];
-      const product = products.find(p => p.id === parseInt(gift.product));
-      const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
-      totalComboPrice += saleRate * formatNumber(gift.quantity);
-    });
+                                    // Items
+                                    formData.items.forEach((item) => {
+                                      const product = products.find(
+                                        (p) => p.id === parseInt(item.product),
+                                      );
+                                      if (product) {
+                                        const lengthCm = parseFloat(
+                                          product?.length_cm || 0,
+                                        );
+                                        const breadthCm = parseFloat(
+                                          product?.breadth_cm || 0,
+                                        );
+                                        const heightCm = parseFloat(
+                                          product?.height_cm || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          item.quantity_required || 0,
+                                        );
+                                        const unitVolumeCm3 =
+                                          lengthCm * breadthCm * heightCm;
+                                        const unitVolumeM3 =
+                                          unitVolumeCm3 / 1000000;
+                                        totalVolumeInM3 +=
+                                          unitVolumeM3 * quantity;
+                                      }
+                                    });
 
-    const profitMarginPercent = totalLandingRate > 0
-      ? ((totalComboPrice - totalLandingRate) / totalLandingRate) * 100
-      : 0;
-    const profitMarginAmount = totalComboPrice - totalLandingRate;
+                                    // Rewards
+                                    formData.rewards.forEach((reward) => {
+                                      const product = products.find(
+                                        (p) =>
+                                          p.id === parseInt(reward.product),
+                                      );
+                                      if (product) {
+                                        const lengthCm = parseFloat(
+                                          product?.length_cm || 0,
+                                        );
+                                        const breadthCm = parseFloat(
+                                          product?.breadth_cm || 0,
+                                        );
+                                        const heightCm = parseFloat(
+                                          product?.height_cm || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          reward.quantity_free || 0,
+                                        );
+                                        const unitVolumeCm3 =
+                                          lengthCm * breadthCm * heightCm;
+                                        const unitVolumeM3 =
+                                          unitVolumeCm3 / 1000000;
+                                        totalVolumeInM3 +=
+                                          unitVolumeM3 * quantity;
+                                      }
+                                    });
 
-    return (
-      <div className="flex flex-col items-end justify-center text-right font-bold gap-1 min-w-[70px]">
-        <span
-          className={`text-xs px-1.5 py-0.5 rounded font-bold ${
-            profitMarginPercent >= 0
-              ? "text-purple-700 bg-purple-50"
-              : "text-red-700 bg-red-50"
-          }`}
-        >
-          {profitMarginPercent.toFixed(2)}%
-        </span>
-        <span
-          className={`text-[10px] font-semibold ${
-            profitMarginAmount >= 0 ? "text-purple-600" : "text-red-500"
-          }`}
-        >
-          ₹{profitMarginAmount.toFixed(2)}
-        </span>
-      </div>
-    );
-  })()}
-</td>
+                                    // Gifts
+                                    formData.gifts.forEach((gift) => {
+                                      const product = products.find(
+                                        (p) => p.id === parseInt(gift.product),
+                                      );
+                                      if (product) {
+                                        const lengthCm = parseFloat(
+                                          product?.length_cm || 0,
+                                        );
+                                        const breadthCm = parseFloat(
+                                          product?.breadth_cm || 0,
+                                        );
+                                        const heightCm = parseFloat(
+                                          product?.height_cm || 0,
+                                        );
+                                        const quantity = parseFloat(
+                                          gift.quantity || 0,
+                                        );
+                                        const unitVolumeCm3 =
+                                          lengthCm * breadthCm * heightCm;
+                                        const unitVolumeM3 =
+                                          unitVolumeCm3 / 1000000;
+                                        totalVolumeInM3 +=
+                                          unitVolumeM3 * quantity;
+                                      }
+                                    });
 
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
+                                    return `${totalVolumeInM3.toFixed(6)} m³`;
+                                  })()}
+                                  className="w-32 px-1.5 py-1 border rounded text-xs bg-yellow-50 font-bold text-blue-700 text-right"
+                                  readOnly
+                                  disabled
+                                />
+                              </div>
+                            </td>
+
+                            {/* Offer */}
+                            <td className="px-2 py-2"></td>
+
+                            {/* Total Price */}
+                            <td className="px-2 py-2">
+                              <div className="flex justify-end">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={(
+                                    formData.items.reduce((total, item) => {
+                                      const pricing =
+                                        productPricings[item.product];
+                                      const product = products.find(
+                                        (p) => p.id === parseInt(item.product),
+                                      );
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const effectiveRate =
+                                        item.offer_price || saleRate;
+                                      return (
+                                        total +
+                                        effectiveRate *
+                                          formatNumber(item.quantity_required)
+                                      );
+                                    }, 0) +
+                                    formData.rewards.reduce((total, reward) => {
+                                      const pricing =
+                                        productPricings[reward.product];
+                                      const product = products.find(
+                                        (p) =>
+                                          p.id === parseInt(reward.product),
+                                      );
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const effectiveRate =
+                                        reward.offer_price || saleRate;
+                                      return (
+                                        total +
+                                        effectiveRate *
+                                          formatNumber(reward.quantity_free)
+                                      );
+                                    }, 0) +
+                                    formData.gifts.reduce((total, gift) => {
+                                      const pricing =
+                                        productPricings[gift.product];
+                                      const product = products.find(
+                                        (p) => p.id === parseInt(gift.product),
+                                      );
+                                      const saleRate = formatNumber(
+                                        pricing?.sale_rate ??
+                                          product?.price ??
+                                          0,
+                                      );
+                                      const effectiveRate =
+                                        gift.offer_price || saleRate;
+                                      return (
+                                        total +
+                                        effectiveRate *
+                                          formatNumber(gift.quantity)
+                                      );
+                                    }, 0)
+                                  ).toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800 text-right"
+                                  readOnly
+                                  disabled
+                                />
+                              </div>
+                            </td>
+
+                            {/* Profit */}
+                            <td className="px-2 py-2 text-right">
+                              {(() => {
+                                let totalLandingRate = 0;
+                                formData.items.forEach((item) => {
+                                  const pricing = productPricings[item.product];
+                                  const product = products.find(
+                                    (p) => p.id === parseInt(item.product),
+                                  );
+                                  const landingRate = formatNumber(
+                                    pricing?.landing_rate ??
+                                      product?.landing_rate ??
+                                      0,
+                                  );
+                                  totalLandingRate +=
+                                    landingRate *
+                                    formatNumber(item.quantity_required);
+                                });
+                                formData.rewards.forEach((reward) => {
+                                  const pricing =
+                                    productPricings[reward.product];
+                                  const product = products.find(
+                                    (p) => p.id === parseInt(reward.product),
+                                  );
+                                  const landingRate = formatNumber(
+                                    pricing?.landing_rate ??
+                                      product?.landing_rate ??
+                                      0,
+                                  );
+                                  totalLandingRate +=
+                                    landingRate *
+                                    formatNumber(reward.quantity_free);
+                                });
+                                formData.gifts.forEach((gift) => {
+                                  const pricing = productPricings[gift.product];
+                                  const product = products.find(
+                                    (p) => p.id === parseInt(gift.product),
+                                  );
+                                  const landingRate = formatNumber(
+                                    pricing?.landing_rate ??
+                                      product?.landing_rate ??
+                                      0,
+                                  );
+                                  totalLandingRate +=
+                                    landingRate * formatNumber(gift.quantity);
+                                });
+
+                                let totalComboPrice = 0;
+                                formData.items.forEach((item) => {
+                                  const pricing = productPricings[item.product];
+                                  const product = products.find(
+                                    (p) => p.id === parseInt(item.product),
+                                  );
+                                  const saleRate = formatNumber(
+                                    pricing?.sale_rate ?? product?.price ?? 0,
+                                  );
+                                  totalComboPrice +=
+                                    saleRate *
+                                    formatNumber(item.quantity_required);
+                                });
+                                formData.rewards.forEach((reward) => {
+                                  const pricing =
+                                    productPricings[reward.product];
+                                  const product = products.find(
+                                    (p) => p.id === parseInt(reward.product),
+                                  );
+                                  const saleRate = formatNumber(
+                                    pricing?.sale_rate ?? product?.price ?? 0,
+                                  );
+                                  totalComboPrice +=
+                                    saleRate *
+                                    formatNumber(reward.quantity_free);
+                                });
+                                formData.gifts.forEach((gift) => {
+                                  const pricing = productPricings[gift.product];
+                                  const product = products.find(
+                                    (p) => p.id === parseInt(gift.product),
+                                  );
+                                  const saleRate = formatNumber(
+                                    pricing?.sale_rate ?? product?.price ?? 0,
+                                  );
+                                  totalComboPrice +=
+                                    saleRate * formatNumber(gift.quantity);
+                                });
+
+                                const profitMarginPercent =
+                                  totalLandingRate > 0
+                                    ? ((totalComboPrice - totalLandingRate) /
+                                        totalLandingRate) *
+                                      100
+                                    : 0;
+                                const profitMarginAmount =
+                                  totalComboPrice - totalLandingRate;
+
+                                return (
+                                  <div className="flex flex-col items-end justify-center text-right font-bold gap-1 min-w-[70px]">
+                                    <span
+                                      className={`text-xs px-1.5 py-0.5 rounded font-bold ${
+                                        profitMarginPercent >= 0
+                                          ? "text-purple-700 bg-purple-50"
+                                          : "text-red-700 bg-red-50"
+                                      }`}
+                                    >
+                                      {profitMarginPercent.toFixed(2)}%
+                                    </span>
+                                    <span
+                                      className={`text-[10px] font-semibold ${
+                                        profitMarginAmount >= 0
+                                          ? "text-purple-600"
+                                          : "text-red-500"
+                                      }`}
+                                    >
+                                      ₹{profitMarginAmount.toFixed(2)}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
                   <div className="border rounded-lg p-3">
                     <div className="flex justify-between items-center">
                       <h3 className="text-base font-semibold">
