@@ -18,6 +18,7 @@ import {
   Percent,
   Package,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { toast } from "react-hot-toast";
 import { useSidebar } from "../context/SidebarContext";
@@ -784,7 +785,7 @@ const SearchableProductDropdown = ({
           tabIndex={-1}
           className="absolute opacity-0 pointer-events-none"
           style={{ width: "100%", height: "1px", bottom: 0, left: 0 }}
-          onChange={() => {}}
+          onChange={() => { }}
         />
       )}
 
@@ -836,11 +837,10 @@ const SearchableProductDropdown = ({
                     <button
                       type="button"
                       onClick={() => handleSelect(String(p.id))}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-blue-50 focus:outline-none focus:bg-blue-50 flex flex-col transition-colors ${
-                        isSelected
+                      className={`w-full text-left px-3 py-1.5 hover:bg-blue-50 focus:outline-none focus:bg-blue-50 flex flex-col transition-colors ${isSelected
                           ? "bg-blue-50 font-semibold text-blue-600"
                           : "text-gray-700"
-                      }`}
+                        }`}
                     >
                       <span className="font-medium truncate">{p.title}</span>
                       <span className="text-[10px] text-gray-500 truncate">
@@ -881,11 +881,150 @@ const ProductCombinations = () => {
   const tableContainerRef = useRef(null);
 
   // Filter states
-  const [search, setSearch] = useState("");
   const [filterName, setFilterName] = useState("");
+  const [filterSKU, setFilterSKU] = useState("");
+  const [filterTitle, setFilterTitle] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterCategory1, setFilterCategory1] = useState("");
+  const [filterCategory2, setFilterCategory2] = useState("");
+  const [filterCategory3, setFilterCategory3] = useState("");
+  const [filterCategory4, setFilterCategory4] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
+  const [filterBrandCategory, setFilterBrandCategory] = useState("");
+  const [filterHSN, setFilterHSN] = useState("");
+
+  // Category filter selected IDs for dependent dropdowns
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [selectedCategory1Id, setSelectedCategory1Id] = useState("");
+  const [selectedCategory2Id, setSelectedCategory2Id] = useState("");
+  const [selectedCategory3Id, setSelectedCategory3Id] = useState("");
+
+  const [filterFlavour, setFilterFlavour] = useState("");
+  const [filterResidual, setFilterResidual] = useState("");
+  const [filterBrandCategory1, setFilterBrandCategory1] = useState("");
+  const [filterGST, setFilterGST] = useState("");
+  const [filterUnit, setFilterUnit] = useState("");
+  const [filterMinWeight, setFilterMinWeight] = useState("");
+  const [filterMaxWeight, setFilterMaxWeight] = useState("");
+  const [filterMinPackingWeight, setFilterMinPackingWeight] = useState("");
+  const [filterMaxPackingWeight, setFilterMaxPackingWeight] = useState("");
+  const [filterPriceType, setFilterPriceType] = useState("");
+  const [filterMinPrice, setFilterMinPrice] = useState("");
+  const [filterMaxPrice, setFilterMaxPrice] = useState("");
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
+  const [titleSuggestionIndex, setTitleSuggestionIndex] = useState(-1);
+  const [showComboSuggestions, setShowComboSuggestions] = useState(false);
+  const [comboSuggestionIndex, setComboSuggestionIndex] = useState(-1);
+
+  // Active filters state - only applied when user clicks Apply button
   const [activeFilters, setActiveFilters] = useState({
-    search: "",
     filterName: "",
+    filterSKU: "",
+    filterTitle: "",
+    filterCategory: "",
+    filterCategory1: "",
+    filterCategory2: "",
+    filterCategory3: "",
+    filterCategory4: "",
+    filterBrand: "",
+    filterBrandCategory: "",
+    filterHSN: "",
+    filterFlavour: "",
+    filterResidual: "",
+    filterBrandCategory1: "",
+    filterGST: "",
+    filterUnit: "",
+    filterMinWeight: "",
+    filterMaxWeight: "",
+    filterMinPackingWeight: "",
+    filterMaxPackingWeight: "",
+    filterPriceType: "",
+    filterMinPrice: "",
+    filterMaxPrice: "",
+  });
+
+  // Queries for filters
+  const { data: flavours } = useQuery({
+    queryKey: ["flavours"],
+    queryFn: async () => (await axios.get("/api/flavours/")).data,
+  });
+
+  const { data: residuals } = useQuery({
+    queryKey: ["residuals"],
+    queryFn: async () => (await axios.get("/api/residuals/")).data,
+  });
+
+  const { data: brandCategories1 } = useQuery({
+    queryKey: ["brandCategories1"],
+    queryFn: async () => (await axios.get("/api/brand-categories-1/")).data,
+  });
+
+  const { data: gstRates } = useQuery({
+    queryKey: ["gstRates"],
+    queryFn: async () => (await axios.get("/api/gstrates/")).data,
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => (await axios.get("/api/categories/")).data,
+  });
+
+  const { data: categories1 } = useQuery({
+    enabled: !!parseInt(selectedCategoryId),
+    queryKey: ["categories1", parseInt(selectedCategoryId) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategoryId);
+      const response = await axios.get(
+        `/api/categories/?parent_id=${parentId}`,
+      );
+      return response.data;
+    },
+  });
+
+  const { data: categories2 } = useQuery({
+    enabled: !!parseInt(selectedCategory1Id),
+    queryKey: ["categories2", parseInt(selectedCategory1Id) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategory1Id);
+      const response = await axios.get(
+        `/api/categories/?parent_id=${parentId}`,
+      );
+      return response.data;
+    },
+  });
+
+  const { data: categories3 } = useQuery({
+    enabled: !!parseInt(selectedCategory2Id),
+    queryKey: ["categories3", parseInt(selectedCategory2Id) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategory2Id);
+      const response = await axios.get(
+        `/api/categories/?parent_id=${parentId}`,
+      );
+      return response.data;
+    },
+  });
+
+  const { data: categories4 } = useQuery({
+    enabled: !!parseInt(selectedCategory3Id),
+    queryKey: ["categories4", parseInt(selectedCategory3Id) || 0],
+    queryFn: async () => {
+      const parentId = parseInt(selectedCategory3Id);
+      const response = await axios.get(
+        `/api/categories/?parent_id=${parentId}`,
+      );
+      return response.data;
+    },
+  });
+
+  const { data: brands } = useQuery({
+    queryKey: ["brands"],
+    queryFn: async () => (await axios.get("/api/brands/")).data,
+  });
+
+  const { data: brandCategories } = useQuery({
+    queryKey: ["brandCategories"],
+    queryFn: async () => (await axios.get("/api/brand-categories/")).data,
   });
   const [editingChargeField, setEditingChargeField] = useState(null);
   // Handle keyboard navigation for charge fields
@@ -1341,8 +1480,8 @@ const ProductCombinations = () => {
       const profitMargin =
         manualPrice > 0 && calculatedPriceWithCharges > 0
           ? ((manualPrice - calculatedPriceWithCharges) /
-              calculatedPriceWithCharges) *
-            100
+            calculatedPriceWithCharges) *
+          100
           : 0;
 
       return {
@@ -1495,39 +1634,361 @@ const ProductCombinations = () => {
 
   // Filter combinations
   const filteredData = useMemo(() => {
-    const { search: activeSearch, filterName: activeName } = activeFilters;
+    if (!combinations) return [];
+    const {
+      filterName: activeName,
+      filterSKU: activeSKU,
+      filterTitle: activeTitle,
+      filterHSN: activeHSN,
+      filterCategory: activeCategory,
+      filterCategory1: activeCategory1,
+      filterCategory2: activeCategory2,
+      filterCategory3: activeCategory3,
+      filterCategory4: activeCategory4,
+      filterBrand: activeBrand,
+      filterBrandCategory: activeBrandCategory,
+      filterFlavour: activeFlavour,
+      filterResidual: activeResidual,
+      filterBrandCategory1: activeBrandCategory1,
+      filterGST: activeGST,
+      filterUnit: activeUnit,
+      filterMinWeight: activeMinWeight,
+      filterMaxWeight: activeMaxWeight,
+      filterMinPackingWeight: activeMinPackingWeight,
+      filterMaxPackingWeight: activeMaxPackingWeight,
+      filterPriceType: activePriceType,
+      filterMinPrice: activeMinPrice,
+      filterMaxPrice: activeMaxPrice,
+    } = activeFilters;
+
+    // Helper function to check if a specific product ID matches the product filters
+    const checkProductMatch = (productId) => {
+      if (!productId) return false;
+      const product = products.find((p) => p.id === parseInt(productId));
+      if (!product) return false;
+
+      // SKU matches
+      const skuMatch =
+        !activeSKU || product.sku?.toLowerCase().includes(activeSKU.toLowerCase());
+      // Title matches
+      const titleMatch =
+        !activeTitle || product.title?.toLowerCase().includes(activeTitle.toLowerCase());
+      // HSN matches
+      const hsnMatch =
+        !activeHSN || product.hsn?.toLowerCase().includes(activeHSN.toLowerCase());
+
+      // Category matches
+      const categoryMatch =
+        !activeCategory || (product.category_display || product.category?.name)?.toString() === activeCategory;
+      const category1Match =
+        !activeCategory1 || (product.category1_display || product.category1?.name)?.toString() === activeCategory1;
+      const category2Match =
+        !activeCategory2 || (product.category2_display || product.category2?.name)?.toString() === activeCategory2;
+      const category3Match =
+        !activeCategory3 || (product.category3_display || product.category3?.name)?.toString() === activeCategory3;
+      const category4Match =
+        !activeCategory4 || (product.category4_display || product.category4?.name)?.toString() === activeCategory4;
+
+      // Brand matches
+      const brandMatch =
+        !activeBrand || (product.brand_display || product.brand?.name)?.toString() === activeBrand;
+      const brandCategoryMatch =
+        !activeBrandCategory || (product.brand_category_display || product.brand_category?.name)?.toString() === activeBrandCategory;
+
+      // Flavour, Residual, Brand Category 1 matches
+      let flavourName = "";
+      if (product.flavour) {
+        if (typeof product.flavour === "object") flavourName = product.flavour.name || "";
+        else flavourName = String(product.flavour);
+      }
+      const flavourMatch = !activeFlavour || flavourName === activeFlavour;
+
+      let residualName = "";
+      if (product.residual) {
+        if (typeof product.residual === "object") residualName = product.residual.name || "";
+        else residualName = String(product.residual);
+      }
+      const residualMatch = !activeResidual || residualName === activeResidual;
+
+      let brandCategory1Name = "";
+      if (product.brand_category1) {
+        if (typeof product.brand_category1 === "object") brandCategory1Name = product.brand_category1.name || "";
+        else brandCategory1Name = String(product.brand_category1);
+      }
+      const brandCategory1Match = !activeBrandCategory1 || brandCategory1Name === activeBrandCategory1;
+
+      // GST Rate match
+      let gstRateId = "";
+      if (product.gst_rate) {
+        if (typeof product.gst_rate === "object") gstRateId = product.gst_rate.id?.toString() || "";
+        else gstRateId = String(product.gst_rate);
+      }
+      const gstMatch = !activeGST || String(gstRateId) === String(activeGST);
+
+      // Unit match
+      let unitName = "";
+      if (product.unit) {
+        if (typeof product.unit === "object") unitName = product.unit.name || "";
+        else unitName = String(product.unit);
+      }
+      const unitMatch = !activeUnit || unitName === activeUnit;
+
+      // Weight matches
+      const productWeight = parseFloat(product.product_weight) || 0;
+      const minWeightMatch =
+        !activeMinWeight || productWeight >= parseFloat(activeMinWeight);
+      const maxWeightMatch =
+        !activeMaxWeight || productWeight <= parseFloat(activeMaxWeight);
+
+      const packingWeight = parseFloat(product.packing_weight) || 0;
+      const minPackingWeightMatch =
+        !activeMinPackingWeight || packingWeight >= parseFloat(activeMinPackingWeight);
+      const maxPackingWeightMatch =
+        !activeMaxPackingWeight || packingWeight <= parseFloat(activeMaxPackingWeight);
+
+      return (
+        skuMatch &&
+        titleMatch &&
+        hsnMatch &&
+        categoryMatch &&
+        category1Match &&
+        category2Match &&
+        category3Match &&
+        category4Match &&
+        brandMatch &&
+        brandCategoryMatch &&
+        flavourMatch &&
+        residualMatch &&
+        brandCategory1Match &&
+        gstMatch &&
+        unitMatch &&
+        minWeightMatch &&
+        maxWeightMatch &&
+        minPackingWeightMatch &&
+        maxPackingWeightMatch
+      );
+    };
+
     return combinations.filter((combo) => {
-      const searchMatch =
-        !activeSearch ||
-        combo.name?.toLowerCase().includes(activeSearch.toLowerCase());
+      // Basic combination name filters
       const nameMatch =
         !activeName ||
         combo.name?.toLowerCase().includes(activeName.toLowerCase());
-      return searchMatch && nameMatch;
-    });
-  }, [combinations, activeFilters]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+      if (!nameMatch) return false;
+
+      // Real-time spreadsheet pricing filter
+      if (activePriceType) {
+        const calcs = getComboCalculations(combo, editedValues);
+        const priceVal = parseFloat(calcs[activePriceType]) || 0;
+
+        if (activeMinPrice && priceVal < parseFloat(activeMinPrice)) {
+          return false;
+        }
+        if (activeMaxPrice && priceVal > parseFloat(activeMaxPrice)) {
+          return false;
+        }
+      }
+
+      // If no product filters are active, return true immediately
+      const hasProductFilters =
+        activeSKU ||
+        activeTitle ||
+        activeHSN ||
+        activeCategory ||
+        activeCategory1 ||
+        activeCategory2 ||
+        activeCategory3 ||
+        activeCategory4 ||
+        activeBrand ||
+        activeBrandCategory ||
+        activeFlavour ||
+        activeResidual ||
+        activeBrandCategory1 ||
+        activeGST ||
+        activeUnit ||
+        activeMinWeight ||
+        activeMaxWeight ||
+        activeMinPackingWeight ||
+        activeMaxPackingWeight;
+
+      if (!hasProductFilters) return true;
+
+      // A combination matches product filters if ANY of its items, rewards, or gifts match
+      const itemsMatch = combo.items?.some((item) => checkProductMatch(item.product));
+      const rewardsMatch = combo.rewards?.some((reward) => checkProductMatch(reward.product));
+      const giftsMatch = combo.gifts?.some((gift) => checkProductMatch(gift.product));
+
+      return itemsMatch || rewardsMatch || giftsMatch;
+    });
+  }, [combinations, products, activeFilters, editedValues, getComboCalculations]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredData.length / itemsPerPage);
+  }, [filteredData, itemsPerPage]);
+
   const paginatedData = useMemo(() => {
-    return filteredData.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage,
-    );
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
+
+  const productTitleSuggestions = useMemo(() => {
+    const searchText = filterTitle.trim().toLowerCase();
+    if (!searchText || !products) return [];
+
+    const seen = new Set();
+    return products
+      .map((item) => item.title)
+      .filter(Boolean)
+      .filter((title) => title.toLowerCase().includes(searchText))
+      .filter((title) => {
+        const normalized = title.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStarts = a.toLowerCase().startsWith(searchText);
+        const bStarts = b.toLowerCase().startsWith(searchText);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 8);
+  }, [filterTitle, products]);
+
+  const comboNameSuggestions = useMemo(() => {
+    const searchText = filterName.trim().toLowerCase();
+    if (!searchText || !combinations) return [];
+
+    const seen = new Set();
+    return combinations
+      .map((combo) => combo.name)
+      .filter(Boolean)
+      .filter((name) => name.toLowerCase().includes(searchText))
+      .filter((name) => {
+        const normalized = name.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStarts = a.toLowerCase().startsWith(searchText);
+        const bStarts = b.toLowerCase().startsWith(searchText);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 8);
+  }, [filterName, combinations]);
 
   // Apply filters
   const handleApplyFilters = useCallback(() => {
-    setActiveFilters({ search, filterName });
+    setActiveFilters({
+      filterName,
+      filterSKU,
+      filterTitle,
+      filterCategory,
+      filterCategory1,
+      filterCategory2,
+      filterCategory3,
+      filterCategory4,
+      filterBrand,
+      filterBrandCategory,
+      filterHSN,
+      filterFlavour,
+      filterResidual,
+      filterBrandCategory1,
+      filterGST,
+      filterUnit,
+      filterMinWeight,
+      filterMaxWeight,
+      filterMinPackingWeight,
+      filterMaxPackingWeight,
+      filterPriceType,
+      filterMinPrice,
+      filterMaxPrice,
+    });
     setCurrentPage(1);
     toast.success("Filters applied");
-  }, [search, filterName]);
+  }, [
+    filterName,
+    filterSKU,
+    filterTitle,
+    filterCategory,
+    filterCategory1,
+    filterCategory2,
+    filterCategory3,
+    filterCategory4,
+    filterBrand,
+    filterBrandCategory,
+    filterHSN,
+    filterFlavour,
+    filterResidual,
+    filterBrandCategory1,
+    filterGST,
+    filterUnit,
+    filterMinWeight,
+    filterMaxWeight,
+    filterMinPackingWeight,
+    filterMaxPackingWeight,
+    filterPriceType,
+    filterMinPrice,
+    filterMaxPrice,
+  ]);
 
   // Clear filters
   const handleClearFilters = useCallback(() => {
-    setSearch("");
     setFilterName("");
-    setActiveFilters({ search: "", filterName: "" });
+    setFilterSKU("");
+    setFilterTitle("");
+    setSelectedCategoryId("");
+    setSelectedCategory1Id("");
+    setSelectedCategory2Id("");
+    setSelectedCategory3Id("");
+    setFilterCategory("");
+    setFilterCategory1("");
+    setFilterCategory2("");
+    setFilterCategory3("");
+    setFilterCategory4("");
+    setFilterBrand("");
+    setFilterBrandCategory("");
+    setFilterBrandCategory1("");
+    setFilterFlavour("");
+    setFilterResidual("");
+    setFilterGST("");
+    setFilterUnit("");
+    setFilterHSN("");
+    setFilterMinWeight("");
+    setFilterMaxWeight("");
+    setFilterMinPackingWeight("");
+    setFilterMaxPackingWeight("");
+    setFilterPriceType("");
+    setFilterMinPrice("");
+    setFilterMaxPrice("");
+    setActiveFilters({
+      filterName: "",
+      filterSKU: "",
+      filterTitle: "",
+      filterCategory: "",
+      filterCategory1: "",
+      filterCategory2: "",
+      filterCategory3: "",
+      filterCategory4: "",
+      filterBrand: "",
+      filterBrandCategory: "",
+      filterHSN: "",
+      filterFlavour: "",
+      filterResidual: "",
+      filterBrandCategory1: "",
+      filterGST: "",
+      filterUnit: "",
+      filterMinWeight: "",
+      filterMaxWeight: "",
+      filterMinPackingWeight: "",
+      filterMaxPackingWeight: "",
+      filterPriceType: "",
+      filterMinPrice: "",
+      filterMaxPrice: "",
+    });
     setCurrentPage(1);
   }, []);
 
@@ -2225,46 +2686,562 @@ const ProductCombinations = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
-        {/* Filter Bar */}
+        {/* Filter Bar with Replicated Product Filters */}
         <div className="mb-2 w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-4">
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                Search
-              </label>
-
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                placeholder="Search by combo name..."
-              />
-            </div>
-
-            <div className="col-span-4">
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+          {/* Row 1: Combo Search and SKU/Title/HSN */}
+          <div className="grid grid-cols-12 gap-3 mb-4">
+            <div className="col-span-4 relative">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                 Combo Name
               </label>
-
               <input
                 type="text"
                 value={filterName}
-                onChange={(e) => setFilterName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                onChange={(e) => {
+                  setFilterName(e.target.value);
+                  setShowComboSuggestions(true);
+                  setComboSuggestionIndex(-1);
+                }}
+                onFocus={() => setShowComboSuggestions(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowComboSuggestions(false), 150)
+                }
+                onKeyDown={(e) => {
+                  if (
+                    !showComboSuggestions ||
+                    comboNameSuggestions.length === 0
+                  ) {
+                    return;
+                  }
+
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setComboSuggestionIndex((prev) =>
+                      prev < comboNameSuggestions.length - 1
+                        ? prev + 1
+                        : 0,
+                    );
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setComboSuggestionIndex((prev) =>
+                      prev > 0
+                        ? prev - 1
+                        : comboNameSuggestions.length - 1,
+                    );
+                  } else if (e.key === "Enter") {
+                    if (
+                      comboSuggestionIndex >= 0 &&
+                      comboNameSuggestions[comboSuggestionIndex]
+                    ) {
+                      e.preventDefault();
+                      setFilterName(
+                        comboNameSuggestions[comboSuggestionIndex],
+                      );
+                      setShowComboSuggestions(false);
+                      setComboSuggestionIndex(-1);
+                    }
+                  } else if (e.key === "Escape") {
+                    setShowComboSuggestions(false);
+                    setComboSuggestionIndex(-1);
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                 placeholder="Filter combinations..."
+              />
+              {showComboSuggestions && comboNameSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto z-50">
+                  {comboNameSuggestions.map((name, index) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFilterName(name);
+                        setShowComboSuggestions(false);
+                        setComboSuggestionIndex(-1);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${index === comboSuggestionIndex
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-blue-50 focus:bg-blue-50"
+                        }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                SKU
+              </label>
+              <input
+                type="text"
+                value={filterSKU}
+                onChange={(e) => setFilterSKU(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="Enter SKU"
               />
             </div>
 
-            <div className="col-span-4">
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                Actions
+            <div className="col-span-4 relative">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Product Name
               </label>
+              <input
+                type="text"
+                value={filterTitle}
+                onChange={(e) => {
+                  setFilterTitle(e.target.value);
+                  setShowTitleSuggestions(true);
+                  setTitleSuggestionIndex(-1);
+                }}
+                onFocus={() => setShowTitleSuggestions(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowTitleSuggestions(false), 150)
+                }
+                onKeyDown={(e) => {
+                  if (
+                    !showTitleSuggestions ||
+                    productTitleSuggestions.length === 0
+                  ) {
+                    return;
+                  }
 
-              <div className="flex flex-wrap gap-2">
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setTitleSuggestionIndex((prev) =>
+                      prev < productTitleSuggestions.length - 1
+                        ? prev + 1
+                        : 0,
+                    );
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setTitleSuggestionIndex((prev) =>
+                      prev > 0
+                        ? prev - 1
+                        : productTitleSuggestions.length - 1,
+                    );
+                  } else if (e.key === "Enter") {
+                    if (
+                      titleSuggestionIndex >= 0 &&
+                      productTitleSuggestions[titleSuggestionIndex]
+                    ) {
+                      e.preventDefault();
+                      setFilterTitle(
+                        productTitleSuggestions[titleSuggestionIndex],
+                      );
+                      setShowTitleSuggestions(false);
+                      setTitleSuggestionIndex(-1);
+                    }
+                  } else if (e.key === "Escape") {
+                    setShowTitleSuggestions(false);
+                    setTitleSuggestionIndex(-1);
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="Enter product name"
+              />
+              {showTitleSuggestions && productTitleSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto z-50">
+                  {productTitleSuggestions.map((title, index) => (
+                    <button
+                      key={title}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFilterTitle(title);
+                        setShowTitleSuggestions(false);
+                        setTitleSuggestionIndex(-1);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${index === titleSuggestionIndex
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-blue-50 focus:bg-blue-50"
+                        }`}
+                    >
+                      {title}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                HSN Code
+              </label>
+              <input
+                type="text"
+                value={filterHSN}
+                onChange={(e) => setFilterHSN(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="HSN code"
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Cascading Category, Unit, GST Filters */}
+          <div className="grid grid-cols-12 gap-3 mb-4">
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Category
+              </label>
+              <select
+                value={selectedCategoryId}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedCategoryId(value);
+                  setSelectedCategory1Id("");
+                  setSelectedCategory2Id("");
+                  setSelectedCategory3Id("");
+                  const selectedCat = categories?.find((c) => c.id == value);
+                  setFilterCategory(selectedCat?.name || "");
+                  setFilterCategory1("");
+                  setFilterCategory2("");
+                  setFilterCategory3("");
+                  setFilterCategory4("");
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All Categories</option>
+                {categories?.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Cat 1
+              </label>
+              <select
+                value={selectedCategory1Id}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedCategory1Id(value);
+                  setSelectedCategory2Id("");
+                  setSelectedCategory3Id("");
+                  const selectedCat = categories1?.find((c) => c.id == value);
+                  setFilterCategory1(selectedCat?.name || "");
+                  setFilterCategory2("");
+                  setFilterCategory3("");
+                  setFilterCategory4("");
+                }}
+                disabled={!selectedCategoryId}
+                className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none ${!selectedCategoryId ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+              >
+                <option value="">All</option>
+                {categories1?.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Cat 2
+              </label>
+              <select
+                value={selectedCategory2Id}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedCategory2Id(value);
+                  setSelectedCategory3Id("");
+                  const selectedCat = categories2?.find((c) => c.id == value);
+                  setFilterCategory2(selectedCat?.name || "");
+                  setFilterCategory3("");
+                  setFilterCategory4("");
+                }}
+                disabled={!selectedCategory1Id}
+                className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none ${!selectedCategory1Id ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+              >
+                <option value="">All</option>
+                {categories2?.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Cat 3
+              </label>
+              <select
+                value={selectedCategory3Id}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedCategory3Id(value);
+                  const selectedCat = categories3?.find((c) => c.id == value);
+                  setFilterCategory3(selectedCat?.name || "");
+                  setFilterCategory4("");
+                }}
+                disabled={!selectedCategory2Id}
+                className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none ${!selectedCategory2Id ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+              >
+                <option value="">All</option>
+                {categories3?.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Unit
+              </label>
+              <select
+                value={filterUnit}
+                onChange={(e) => setFilterUnit(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All Units</option>
+                {units?.map((unit) => (
+                  <option key={unit.id} value={unit.name}>
+                    {unit.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                GST Rate
+              </label>
+              <select
+                value={filterGST}
+                onChange={(e) => setFilterGST(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All Rates</option>
+                {gstRates?.map((rate) => (
+                  <option key={rate.id} value={String(rate.id)}>
+                    {rate.rate}%
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Row 3: Brand & Flavours & Weight Ranges */}
+          <div className="grid grid-cols-12 gap-3 mb-4">
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Brand
+              </label>
+              <select
+                value={filterBrand}
+                onChange={(e) => setFilterBrand(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All Brands</option>
+                {brands?.map((brand) => (
+                  <option key={brand.id} value={brand.name}>
+                    {brand.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Brand Category
+              </label>
+              <select
+                value={filterBrandCategory}
+                onChange={(e) => setFilterBrandCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All Categories</option>
+                {brandCategories?.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Brand Cat 1
+              </label>
+              <select
+                value={filterBrandCategory1}
+                onChange={(e) => setFilterBrandCategory1(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All</option>
+                {brandCategories1?.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-1.5">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Flavour
+              </label>
+              <select
+                value={filterFlavour}
+                onChange={(e) => setFilterFlavour(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All Flavours</option>
+                {flavours?.map((flavour) => (
+                  <option key={flavour.id} value={flavour.name}>
+                    {flavour.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-1.5">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Residual
+              </label>
+              <select
+                value={filterResidual}
+                onChange={(e) => setFilterResidual(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">All Residuals</option>
+                {residuals?.map((residual) => (
+                  <option key={residual.id} value={residual.name}>
+                    {residual.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-span-1">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Min Wt (kg)
+              </label>
+              <input
+                type="number"
+                value={filterMinWeight}
+                onChange={(e) => setFilterMinWeight(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                placeholder="Min"
+                step="0.01"
+              />
+            </div>
+
+            <div className="col-span-1">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Max Wt (kg)
+              </label>
+              <input
+                type="number"
+                value={filterMaxWeight}
+                onChange={(e) => setFilterMaxWeight(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                placeholder="Max"
+                step="0.01"
+              />
+            </div>
+
+            <div className="col-span-1">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Min Pkg (kg)
+              </label>
+              <input
+                type="number"
+                value={filterMinPackingWeight}
+                onChange={(e) => setFilterMinPackingWeight(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                placeholder="Min"
+                step="0.01"
+              />
+            </div>
+
+            <div className="col-span-1">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Max Pkg (kg)
+              </label>
+              <input
+                type="number"
+                value={filterMaxPackingWeight}
+                onChange={(e) => setFilterMaxPackingWeight(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                placeholder="Max"
+                step="0.01"
+              />
+            </div>
+          </div>
+
+          {/* Row 4: Price Range Filters & Action Buttons */}
+          <div className="grid grid-cols-12 gap-3 mb-2 items-end">
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Price Type
+              </label>
+              <select
+                value={filterPriceType}
+                onChange={(e) => {
+                  setFilterPriceType(e.target.value);
+                  if (!e.target.value) {
+                    setFilterMinPrice("");
+                    setFilterMaxPrice("");
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+              >
+                <option value="">No Filter</option>
+                <option value="totalSaleRate">Sale Rate</option>
+                <option value="totalMRP">MRP</option>
+                <option value="totalLandingRate">Landing Rate</option>
+                <option value="manualPrice">Manual Price</option>
+                <option value="calculatedPriceWithCharges">Calculated Price</option>
+                <option value="totalCalculatedRate">Calculated Rate</option>
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Min Price (₹)
+              </label>
+              <input
+                type="number"
+                value={filterMinPrice}
+                onChange={(e) => setFilterMinPrice(e.target.value)}
+                disabled={!filterPriceType}
+                className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none ${!filterPriceType ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+                placeholder={filterPriceType ? "Min" : "Select Type"}
+                step="0.01"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Max Price (₹)
+              </label>
+              <input
+                type="number"
+                value={filterMaxPrice}
+                onChange={(e) => setFilterMaxPrice(e.target.value)}
+                disabled={!filterPriceType}
+                className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none ${!filterPriceType ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+                placeholder={filterPriceType ? "Max" : "Select Type"}
+                step="0.01"
+              />
+            </div>
+
+            <div className="col-span-6 flex justify-between items-center gap-2 w-full self-end">
+              <div className="flex gap-2">
                 <button
                   onClick={handleClearFilters}
-                  className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 text-sm font-medium flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                 >
                   <svg
                     className="w-4 h-4"
@@ -2279,36 +3256,35 @@ const ProductCombinations = () => {
                       d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
-                  Clear
+                  Clear Filters
                 </button>
 
                 <button
                   onClick={handleApplyFilters}
-                  className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-200 text-sm font-medium flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                 >
                   <Search className="h-4 w-4" />
-                  Apply
+                  Apply Filters
                 </button>
+              </div>
 
+              <div className="flex gap-2">
                 {isAdmin && (
                   <>
                     <button
                       onClick={handleSaveAll}
-                      disabled={
-                        saving || Object.keys(editedValues).length === 0
-                      }
-                      className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2 text-sm"
+                      disabled={saving || Object.keys(editedValues).length === 0}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md"
                     >
                       <Save className="h-4 w-4" />
-
                       {saving
                         ? "Saving..."
-                        : `Save (${Object.keys(editedValues).length})`}
+                        : `Save Changes (${Object.keys(editedValues).length})`}
                     </button>
 
                     <button
                       onClick={() => setShowForm(true)}
-                      className="px-4 py-2.5 bg-[#1a2332] text-white rounded-xl hover:bg-[#2d3748] transition-all flex items-center gap-2 text-sm"
+                      className="px-4 py-2 bg-[#1a2332] text-white rounded-xl hover:bg-[#2d3748] transition-all flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md"
                     >
                       <Plus className="h-4 w-4" />
                       Add Combo
@@ -2318,6 +3294,234 @@ const ProductCombinations = () => {
               </div>
             </div>
           </div>
+
+          {/* Active Filters Badges */}
+          {(activeFilters.filterName ||
+            activeFilters.filterSKU ||
+            activeFilters.filterTitle ||
+            activeFilters.filterBrand ||
+            activeFilters.filterFlavour ||
+            activeFilters.filterResidual ||
+            activeFilters.filterGST ||
+            activeFilters.filterUnit ||
+            activeFilters.filterHSN ||
+            activeFilters.filterCategory ||
+            activeFilters.filterBrandCategory ||
+            activeFilters.filterBrandCategory1 ||
+            activeFilters.filterMinWeight ||
+            activeFilters.filterMaxWeight ||
+            activeFilters.filterMinPackingWeight ||
+            activeFilters.filterMaxPackingWeight ||
+            activeFilters.filterPriceType ||
+            activeFilters.filterMinPrice ||
+            activeFilters.filterMaxPrice) && (
+              <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+                <span className="text-xs text-gray-500 font-medium mr-2 self-center">
+                  Active Filters:
+                </span>
+                {activeFilters.filterName && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    Combo Name: {activeFilters.filterName}
+                    <button
+                      onClick={() => {
+                        setFilterName("");
+                        setActiveFilters((prev) => ({ ...prev, filterName: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterSKU && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    SKU: {activeFilters.filterSKU}
+                    <button
+                      onClick={() => {
+                        setFilterSKU("");
+                        setActiveFilters((prev) => ({ ...prev, filterSKU: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterTitle && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    Product: {activeFilters.filterTitle}
+                    <button
+                      onClick={() => {
+                        setFilterTitle("");
+                        setActiveFilters((prev) => ({ ...prev, filterTitle: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterCategory && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    Category: {activeFilters.filterCategory}
+                    <button
+                      onClick={() => {
+                        setFilterCategory("");
+                        setActiveFilters((prev) => ({ ...prev, filterCategory: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterBrand && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    Brand: {activeFilters.filterBrand}
+                    <button
+                      onClick={() => {
+                        setFilterBrand("");
+                        setActiveFilters((prev) => ({ ...prev, filterBrand: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterFlavour && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    Flavour: {activeFilters.filterFlavour}
+                    <button
+                      onClick={() => {
+                        setFilterFlavour("");
+                        setActiveFilters((prev) => ({ ...prev, filterFlavour: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterResidual && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    Residual: {activeFilters.filterResidual}
+                    <button
+                      onClick={() => {
+                        setFilterResidual("");
+                        setActiveFilters((prev) => ({ ...prev, filterResidual: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterGST && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    GST: {activeFilters.filterGST}%
+                    <button
+                      onClick={() => {
+                        setFilterGST("");
+                        setActiveFilters((prev) => ({ ...prev, filterGST: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterUnit && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    Unit: {activeFilters.filterUnit}
+                    <button
+                      onClick={() => {
+                        setFilterUnit("");
+                        setActiveFilters((prev) => ({ ...prev, filterUnit: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterHSN && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
+                    HSN: {activeFilters.filterHSN}
+                    <button
+                      onClick={() => {
+                        setFilterHSN("");
+                        setActiveFilters((prev) => ({ ...prev, filterHSN: "" }));
+                      }}
+                      className="hover:text-blue-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterPriceType && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium">
+                    Price: {
+                      (() => {
+                        const labels = {
+                          totalSaleRate: "Sale Rate",
+                          totalMRP: "MRP",
+                          totalLandingRate: "Landing Rate",
+                          manualPrice: "Manual Price",
+                          calculatedPriceWithCharges: "Calculated Price",
+                          totalCalculatedRate: "Calculated Rate"
+                        };
+                        return labels[activeFilters.filterPriceType] || activeFilters.filterPriceType;
+                      })()
+                    }
+                    <button
+                      onClick={() => {
+                        setFilterPriceType("");
+                        setFilterMinPrice("");
+                        setFilterMaxPrice("");
+                        setActiveFilters((prev) => ({
+                          ...prev,
+                          filterPriceType: "",
+                          filterMinPrice: "",
+                          filterMaxPrice: "",
+                        }));
+                      }}
+                      className="hover:text-purple-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterMinPrice && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium">
+                    Min Price: ₹{activeFilters.filterMinPrice}
+                    <button
+                      onClick={() => {
+                        setFilterMinPrice("");
+                        setActiveFilters((prev) => ({ ...prev, filterMinPrice: "" }));
+                      }}
+                      className="hover:text-purple-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+                {activeFilters.filterMaxPrice && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium">
+                    Max Price: ₹{activeFilters.filterMaxPrice}
+                    <button
+                      onClick={() => {
+                        setFilterMaxPrice("");
+                        setActiveFilters((prev) => ({ ...prev, filterMaxPrice: "" }));
+                      }}
+                      className="hover:text-purple-900 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
         </div>
 
         {/* Main Table */}
@@ -2714,11 +3918,10 @@ const ProductCombinations = () => {
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                          currentPage === pageNum
+                        className={`px-3 py-1.5 rounded-lg text-sm transition-all ${currentPage === pageNum
                             ? "bg-blue-600 text-white"
                             : "hover:bg-gray-200"
-                        }`}
+                          }`}
                       >
                         {pageNum}
                       </button>
@@ -2931,8 +4134,8 @@ const ProductCombinations = () => {
                                 : null;
                               const product = selectedProductId
                                 ? products.find(
-                                    (p) => p.id === parseInt(selectedProductId),
-                                  )
+                                  (p) => p.id === parseInt(selectedProductId),
+                                )
                                 : null;
 
                               const quantity = formatNumber(
@@ -2941,8 +4144,8 @@ const ProductCombinations = () => {
 
                               const landingRate = formatNumber(
                                 pricing?.landing_rate ??
-                                  product?.landing_rate ??
-                                  0,
+                                product?.landing_rate ??
+                                0,
                               );
                               const landingTotal = landingRate * quantity;
 
@@ -2991,8 +4194,8 @@ const ProductCombinations = () => {
 
                               const effectiveRate =
                                 item.offer_price !== null &&
-                                item.offer_price !== "" &&
-                                item.offer_price !== undefined
+                                  item.offer_price !== "" &&
+                                  item.offer_price !== undefined
                                   ? parseFloat(item.offer_price)
                                   : saleRate;
                               const subtotal = effectiveRate * quantity;
@@ -3233,15 +4436,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const landingRate = formatNumber(
                                         pricing?.landing_rate ??
-                                          product?.landing_rate ??
-                                          0,
+                                        product?.landing_rate ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         item.quantity_required,
@@ -3269,10 +4472,10 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const mrp = formatNumber(
                                         pricing?.mrp ?? product?.mrp ?? 0,
@@ -3303,15 +4506,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         item.quantity_required,
@@ -3339,15 +4542,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const calculatedRate = formatNumber(
                                         pricing?.calculated_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         item.quantity_required,
@@ -3378,10 +4581,10 @@ const ProductCombinations = () => {
                                       const selectedProductId = item.product;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              Number(p.id) ===
-                                              Number(selectedProductId),
-                                          )
+                                          (p) =>
+                                            Number(p.id) ===
+                                            Number(selectedProductId),
+                                        )
                                         : null;
 
                                       if (product) {
@@ -3447,10 +4650,10 @@ const ProductCombinations = () => {
                                       const selectedProductId = item.product;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       if (product) {
                                         const lengthCm = parseFloat(
@@ -3499,15 +4702,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const effectiveRate =
                                         item.offer_price || saleRate;
@@ -3630,8 +4833,8 @@ const ProductCombinations = () => {
                                 : null;
                               const product = selectedProductId
                                 ? products.find(
-                                    (p) => p.id === parseInt(selectedProductId),
-                                  )
+                                  (p) => p.id === parseInt(selectedProductId),
+                                )
                                 : null;
 
                               const quantity = formatNumber(
@@ -3640,8 +4843,8 @@ const ProductCombinations = () => {
 
                               const landingRate = formatNumber(
                                 pricing?.landing_rate ??
-                                  product?.landing_rate ??
-                                  0,
+                                product?.landing_rate ??
+                                0,
                               );
                               const landingTotal = landingRate * quantity;
 
@@ -3918,15 +5121,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const landingRate = formatNumber(
                                         pricing?.landing_rate ??
-                                          product?.landing_rate ??
-                                          0,
+                                        product?.landing_rate ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         reward.quantity_free,
@@ -3954,10 +5157,10 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const mrp = formatNumber(
                                         pricing?.mrp ?? product?.mrp ?? 0,
@@ -3988,15 +5191,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         reward.quantity_free,
@@ -4024,15 +5227,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const calculatedRate = formatNumber(
                                         pricing?.calculated_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         reward.quantity_free,
@@ -4057,10 +5260,10 @@ const ProductCombinations = () => {
                                       const selectedProductId = reward.product;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       if (
                                         product &&
@@ -4101,10 +5304,10 @@ const ProductCombinations = () => {
                                       const selectedProductId = reward.product;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       if (product) {
                                         const lengthCm = parseFloat(
@@ -4158,15 +5361,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         reward.quantity_free,
@@ -4284,16 +5487,16 @@ const ProductCombinations = () => {
                                 : null;
                               const product = selectedProductId
                                 ? products.find(
-                                    (p) => p.id === parseInt(selectedProductId),
-                                  )
+                                  (p) => p.id === parseInt(selectedProductId),
+                                )
                                 : null;
 
                               const quantity = formatNumber(gift.quantity);
 
                               const landingRate = formatNumber(
                                 pricing?.landing_rate ??
-                                  product?.landing_rate ??
-                                  0,
+                                product?.landing_rate ??
+                                0,
                               );
                               const landingTotal = landingRate * quantity;
 
@@ -4566,15 +5769,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const landingRate = formatNumber(
                                         pricing?.landing_rate ??
-                                          product?.landing_rate ??
-                                          0,
+                                        product?.landing_rate ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         gift.quantity,
@@ -4602,10 +5805,10 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const mrp = formatNumber(
                                         pricing?.mrp ?? product?.mrp ?? 0,
@@ -4636,15 +5839,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         gift.quantity,
@@ -4672,15 +5875,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const calculatedRate = formatNumber(
                                         pricing?.calculated_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         gift.quantity,
@@ -4705,10 +5908,10 @@ const ProductCombinations = () => {
                                       const selectedProductId = gift.product;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       if (
                                         product &&
@@ -4748,10 +5951,10 @@ const ProductCombinations = () => {
                                       const selectedProductId = gift.product;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       if (product) {
                                         const lengthCm = parseFloat(
@@ -4799,15 +6002,15 @@ const ProductCombinations = () => {
                                         : null;
                                       const product = selectedProductId
                                         ? products.find(
-                                            (p) =>
-                                              p.id ===
-                                              parseInt(selectedProductId),
-                                          )
+                                          (p) =>
+                                            p.id ===
+                                            parseInt(selectedProductId),
+                                        )
                                         : null;
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const quantity = formatNumber(
                                         gift.quantity,
@@ -4928,13 +6131,13 @@ const ProductCombinations = () => {
                                     );
                                     const landingRate = formatNumber(
                                       pricing?.landing_rate ??
-                                        product?.landing_rate ??
-                                        0,
+                                      product?.landing_rate ??
+                                      0,
                                     );
                                     return (
                                       total +
                                       landingRate *
-                                        formatNumber(item.quantity_required)
+                                      formatNumber(item.quantity_required)
                                     );
                                   }, 0) +
                                   formData.rewards.reduce((total, reward) => {
@@ -4945,13 +6148,13 @@ const ProductCombinations = () => {
                                     );
                                     const landingRate = formatNumber(
                                       pricing?.landing_rate ??
-                                        product?.landing_rate ??
-                                        0,
+                                      product?.landing_rate ??
+                                      0,
                                     );
                                     return (
                                       total +
                                       landingRate *
-                                        formatNumber(reward.quantity_free)
+                                      formatNumber(reward.quantity_free)
                                     );
                                   }, 0) +
                                   formData.gifts.reduce((total, gift) => {
@@ -4962,8 +6165,8 @@ const ProductCombinations = () => {
                                     );
                                     const landingRate = formatNumber(
                                       pricing?.landing_rate ??
-                                        product?.landing_rate ??
-                                        0,
+                                      product?.landing_rate ??
+                                      0,
                                     );
                                     return (
                                       total +
@@ -5051,7 +6254,7 @@ const ProductCombinations = () => {
                                     return (
                                       total +
                                       saleRate *
-                                        formatNumber(item.quantity_required)
+                                      formatNumber(item.quantity_required)
                                     );
                                   }, 0) +
                                   formData.rewards.reduce((total, reward) => {
@@ -5066,7 +6269,7 @@ const ProductCombinations = () => {
                                     return (
                                       total +
                                       saleRate *
-                                        formatNumber(reward.quantity_free)
+                                      formatNumber(reward.quantity_free)
                                     );
                                   }, 0) +
                                   formData.gifts.reduce((total, gift) => {
@@ -5105,13 +6308,13 @@ const ProductCombinations = () => {
                                     );
                                     const calculatedRate = formatNumber(
                                       pricing?.calculated_rate ??
-                                        product?.price ??
-                                        0,
+                                      product?.price ??
+                                      0,
                                     );
                                     return (
                                       total +
                                       calculatedRate *
-                                        formatNumber(item.quantity_required)
+                                      formatNumber(item.quantity_required)
                                     );
                                   }, 0) +
                                   formData.rewards.reduce((total, reward) => {
@@ -5122,13 +6325,13 @@ const ProductCombinations = () => {
                                     );
                                     const calculatedRate = formatNumber(
                                       pricing?.calculated_rate ??
-                                        product?.price ??
-                                        0,
+                                      product?.price ??
+                                      0,
                                     );
                                     return (
                                       total +
                                       calculatedRate *
-                                        formatNumber(reward.quantity_free)
+                                      formatNumber(reward.quantity_free)
                                     );
                                   }, 0) +
                                   formData.gifts.reduce((total, gift) => {
@@ -5139,13 +6342,13 @@ const ProductCombinations = () => {
                                     );
                                     const calculatedRate = formatNumber(
                                       pricing?.calculated_rate ??
-                                        product?.price ??
-                                        0,
+                                      product?.price ??
+                                      0,
                                     );
                                     return (
                                       total +
                                       calculatedRate *
-                                        formatNumber(gift.quantity)
+                                      formatNumber(gift.quantity)
                                     );
                                   }, 0)
                                 ).toFixed(2)}
@@ -5366,15 +6569,15 @@ const ProductCombinations = () => {
                                       );
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const effectiveRate =
                                         item.offer_price || saleRate;
                                       return (
                                         total +
                                         effectiveRate *
-                                          formatNumber(item.quantity_required)
+                                        formatNumber(item.quantity_required)
                                       );
                                     }, 0) +
                                     formData.rewards.reduce((total, reward) => {
@@ -5386,15 +6589,15 @@ const ProductCombinations = () => {
                                       );
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const effectiveRate =
                                         reward.offer_price || saleRate;
                                       return (
                                         total +
                                         effectiveRate *
-                                          formatNumber(reward.quantity_free)
+                                        formatNumber(reward.quantity_free)
                                       );
                                     }, 0) +
                                     formData.gifts.reduce((total, gift) => {
@@ -5405,15 +6608,15 @@ const ProductCombinations = () => {
                                       );
                                       const saleRate = formatNumber(
                                         pricing?.sale_rate ??
-                                          product?.price ??
-                                          0,
+                                        product?.price ??
+                                        0,
                                       );
                                       const effectiveRate =
                                         gift.offer_price || saleRate;
                                       return (
                                         total +
                                         effectiveRate *
-                                          formatNumber(gift.quantity)
+                                        formatNumber(gift.quantity)
                                       );
                                     }, 0)
                                   ).toFixed(2)}
@@ -5435,8 +6638,8 @@ const ProductCombinations = () => {
                                   );
                                   const landingRate = formatNumber(
                                     pricing?.landing_rate ??
-                                      product?.landing_rate ??
-                                      0,
+                                    product?.landing_rate ??
+                                    0,
                                   );
                                   totalLandingRate +=
                                     landingRate *
@@ -5450,8 +6653,8 @@ const ProductCombinations = () => {
                                   );
                                   const landingRate = formatNumber(
                                     pricing?.landing_rate ??
-                                      product?.landing_rate ??
-                                      0,
+                                    product?.landing_rate ??
+                                    0,
                                   );
                                   totalLandingRate +=
                                     landingRate *
@@ -5464,8 +6667,8 @@ const ProductCombinations = () => {
                                   );
                                   const landingRate = formatNumber(
                                     pricing?.landing_rate ??
-                                      product?.landing_rate ??
-                                      0,
+                                    product?.landing_rate ??
+                                    0,
                                   );
                                   totalLandingRate +=
                                     landingRate * formatNumber(gift.quantity);
@@ -5512,8 +6715,8 @@ const ProductCombinations = () => {
                                 const profitMarginPercent =
                                   totalLandingRate > 0
                                     ? ((totalComboPrice - totalLandingRate) /
-                                        totalLandingRate) *
-                                      100
+                                      totalLandingRate) *
+                                    100
                                     : 0;
                                 const profitMarginAmount =
                                   totalComboPrice - totalLandingRate;
@@ -5521,20 +6724,18 @@ const ProductCombinations = () => {
                                 return (
                                   <div className="flex flex-col items-end justify-center text-right font-bold gap-1 min-w-[70px]">
                                     <span
-                                      className={`text-xs px-1.5 py-0.5 rounded font-bold ${
-                                        profitMarginPercent >= 0
+                                      className={`text-xs px-1.5 py-0.5 rounded font-bold ${profitMarginPercent >= 0
                                           ? "text-purple-700 bg-purple-50"
                                           : "text-red-700 bg-red-50"
-                                      }`}
+                                        }`}
                                     >
                                       {profitMarginPercent.toFixed(2)}%
                                     </span>
                                     <span
-                                      className={`text-[10px] font-semibold ${
-                                        profitMarginAmount >= 0
+                                      className={`text-[10px] font-semibold ${profitMarginAmount >= 0
                                           ? "text-purple-600"
                                           : "text-red-500"
-                                      }`}
+                                        }`}
                                     >
                                       ₹{profitMarginAmount.toFixed(2)}
                                     </span>
@@ -5622,7 +6823,7 @@ const ProductCombinations = () => {
                                       ...formData,
                                       parking_charge_type:
                                         formData.parking_charge_type ===
-                                        "rupees"
+                                          "rupees"
                                           ? "percent"
                                           : "rupees",
                                     });
@@ -5665,7 +6866,7 @@ const ProductCombinations = () => {
                                       ...formData,
                                       transportation_charge_type:
                                         formData.transportation_charge_type ===
-                                        "rupees"
+                                          "rupees"
                                           ? "percent"
                                           : "rupees",
                                     });
@@ -5673,7 +6874,7 @@ const ProductCombinations = () => {
                                   className="px-1.5 py-0.5 text-xs bg-gray-100 rounded hover:bg-gray-200"
                                 >
                                   {formData.transportation_charge_type ===
-                                  "percent"
+                                    "percent"
                                     ? "%"
                                     : "₹"}
                                 </button>
@@ -5713,7 +6914,7 @@ const ProductCombinations = () => {
                                       ...formData,
                                       handling_charge_type:
                                         formData.handling_charge_type ===
-                                        "rupees"
+                                          "rupees"
                                           ? "percent"
                                           : "rupees",
                                     });
@@ -5757,7 +6958,7 @@ const ProductCombinations = () => {
                                       ...formData,
                                       delivery_charge_type:
                                         formData.delivery_charge_type ===
-                                        "rupees"
+                                          "rupees"
                                           ? "percent"
                                           : "rupees",
                                     });
@@ -5838,10 +7039,10 @@ const ProductCombinations = () => {
                             <td className="px-2 py-1.5 font-semibold text-blue-600">
                               ₹
                               {typeof formCalculations.charges.totalCharges ===
-                              "number"
+                                "number"
                                 ? formCalculations.charges.totalCharges.toFixed(
-                                    2,
-                                  )
+                                  2,
+                                )
                                 : "0.00"}
                             </td>
 
@@ -5904,7 +7105,7 @@ const ProductCombinations = () => {
                               </span>
                               <div className="text-xs text-gray-500 mt-0.5">
                                 {formCalculations.sellingPrice >
-                                formCalculations.totalLandingRate
+                                  formCalculations.totalLandingRate
                                   ? "Profit"
                                   : "Loss"}
                               </div>
