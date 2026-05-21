@@ -341,8 +341,8 @@ const CustomerDetail = () => {
       console.error("Error response:", error.response?.data);
       toast.error(
         error.response?.data?.duration?.[0] ||
-          error.response?.data?.error ||
-          "Failed to update call log",
+        error.response?.data?.error ||
+        "Failed to update call log",
       );
       queryClient.invalidateQueries(["customer-details", id]);
     },
@@ -568,7 +568,7 @@ const CustomerDetail = () => {
 
                               {/* Phone Number */}
                               {phoneObj.phone === customer.phone &&
-                              editingField === "phone" ? (
+                                editingField === "phone" ? (
                                 <div className="flex items-center space-x-2">
                                   <input
                                     type="text"
@@ -602,11 +602,10 @@ const CustomerDetail = () => {
                                 </div>
                               ) : (
                                 <span
-                                  className={`${
-                                    phoneObj.is_primary
+                                  className={`${phoneObj.is_primary
                                       ? "font-semibold text-blue-600"
                                       : "text-gray-600"
-                                  } text-base md:text-lg whitespace-nowrap`}
+                                    } text-base md:text-lg whitespace-nowrap`}
                                 >
                                   {formatPhoneNumber(phoneObj.phone)}
                                   {phoneObj.is_primary && " (P)"}
@@ -694,9 +693,8 @@ const CustomerDetail = () => {
                                   className="text-gray-400 hover:text-gray-600"
                                 >
                                   <ChevronDown
-                                    className={`h-4 w-4 transform transition-transform ${
-                                      showPrimaryDropdown ? "rotate-180" : ""
-                                    }`}
+                                    className={`h-4 w-4 transform transition-transform ${showPrimaryDropdown ? "rotate-180" : ""
+                                      }`}
                                   />
                                 </button>
                               )}
@@ -780,11 +778,10 @@ const CustomerDetail = () => {
                                     <div className="flex items-center gap-2 flex-1">
                                       <Phone className="h-3.5 w-3.5 text-gray-400" />
                                       <span
-                                        className={`${
-                                          phone.is_primary
+                                        className={`${phone.is_primary
                                             ? "font-semibold text-blue-600"
                                             : "text-gray-700"
-                                        } text-base whitespace-nowrap`}
+                                          } text-base whitespace-nowrap`}
                                       >
                                         {formatPhoneNumber(phone.phone)}
                                       </span>
@@ -938,9 +935,8 @@ const CustomerDetail = () => {
                     </p>
                   </div>
                   <ChevronDown
-                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transform ${
-                      showAgentDropdown ? "rotate-180" : ""
-                    }`}
+                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transform ${showAgentDropdown ? "rotate-180" : ""
+                      }`}
                   />
                 </div>
                 {showAgentDropdown && (
@@ -1155,9 +1151,8 @@ const CustomerDetail = () => {
                   {customer?.company_type_display || "Not set"}
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-gray-400 transform transition-transform ${
-                    showOrgTypeDropdown ? "rotate-180" : ""
-                  }`}
+                  className={`w-4 h-4 text-gray-400 transform transition-transform ${showOrgTypeDropdown ? "rotate-180" : ""
+                    }`}
                 />
               </div>
               {showOrgTypeDropdown && (
@@ -1196,9 +1191,8 @@ const CustomerDetail = () => {
                     ?.name || "Not set"}
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-gray-400 transform transition-transform ${
-                    showCustomerTypeDropdown ? "rotate-180" : ""
-                  }`}
+                  className={`w-4 h-4 text-gray-400 transform transition-transform ${showCustomerTypeDropdown ? "rotate-180" : ""
+                    }`}
                 />
               </div>
               {showCustomerTypeDropdown && (
@@ -1522,7 +1516,7 @@ const CustomerDetail = () => {
               {callLogs.length > 0 &&
                 callLogs[0]?.date &&
                 new Date() - new Date(callLogs[0].date) <
-                  24 * 60 * 60 * 1000 && (
+                24 * 60 * 60 * 1000 && (
                   <button
                     onClick={handleEditLastCall}
                     className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25 text-sm"
@@ -1886,13 +1880,12 @@ const CustomerDetail = () => {
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap">
                             <span
-                              className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
-                                order.status === "Delivered"
+                              className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${order.status === "Delivered"
                                   ? "bg-green-100 text-green-800"
                                   : order.status === "Dispatched"
                                     ? "bg-blue-100 text-blue-800"
                                     : "bg-gray-100 text-gray-800"
-                              }`}
+                                }`}
                             >
                               {order.status}
                             </span>
@@ -1977,22 +1970,20 @@ const CustomerDetail = () => {
                 <div className="flex items-center space-x-4">
                   <button
                     onClick={() => setShowOldOrderHistory(true)}
-                    className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${
-                      showOldOrderHistory
+                    className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${showOldOrderHistory
                         ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/25"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
+                      }`}
                   >
                     <FileText className="h-3 w-3 inline mr-2" />
                     Old Order History
                   </button>
                   <button
                     onClick={() => setShowOldOrderHistory(false)}
-                    className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${
-                      !showOldOrderHistory
+                    className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${!showOldOrderHistory
                         ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
+                      }`}
                   >
                     <Phone className="h-3 w-3 inline mr-2" />
                     Call History
@@ -2020,10 +2011,9 @@ const CustomerDetail = () => {
             {/* Old Order History Section */}
             {showOldOrderHistory && (
               <div className="flex-1 flex flex-col min-h-0">
-                {/* Add Form - Only show for admin */}
                 {(showAddOldOrder || editingOldOrder) && isAdmin && (
                   <div className="flex-none mb-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Date *
@@ -2058,12 +2048,14 @@ const CustomerDetail = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                         />
                       </div>
-                      <div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                      <div className="flex-1">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Notes
                         </label>
-                        <input
-                          type="text"
+                        <textarea
+                          rows={1}
                           value={oldOrderForm.notes}
                           onChange={(e) =>
                             setOldOrderForm({
@@ -2072,31 +2064,31 @@ const CustomerDetail = () => {
                             })
                           }
                           placeholder="Optional notes"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm"
                         />
                       </div>
-                    </div>
-                    <div className="mt-1 flex justify-end space-x-2">
-                      <button
-                        onClick={handleCancelEdit}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={
-                          editingOldOrder
-                            ? handleUpdateOldOrder
-                            : handleAddOldOrder
-                        }
-                        disabled={
-                          addOldOrderMutation.isPending ||
-                          updateOldOrderMutation.isPending
-                        }
-                        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-colors disabled:opacity-50"
-                      >
-                        {editingOldOrder ? "Update" : "Add"} Old Order
-                      </button>
+                      <div className="flex justify-end space-x-2 sm:mb-0.5">
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={
+                            editingOldOrder
+                              ? handleUpdateOldOrder
+                              : handleAddOldOrder
+                          }
+                          disabled={
+                            addOldOrderMutation.isPending ||
+                            updateOldOrderMutation.isPending
+                          }
+                          className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-colors disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {editingOldOrder ? "Update" : "Add"} Old Order
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2297,13 +2289,12 @@ const CustomerDetail = () => {
                                 </td>
                                 <td className="px-2 py-1 whitespace-nowrap">
                                   <span
-                                    className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${
-                                      call.status === "Completed"
+                                    className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${call.status === "Completed"
                                         ? "bg-green-100 text-green-800"
                                         : call.status === "Follow-up"
                                           ? "bg-yellow-100 text-yellow-800"
                                           : "bg-gray-100 text-gray-800"
-                                    }`}
+                                      }`}
                                   >
                                     {call.status}
                                   </span>

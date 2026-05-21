@@ -208,6 +208,8 @@ const ProductPricing = () => {
   const [filterMaxWeight, setFilterMaxWeight] = useState("");
   const [filterMinPackingWeight, setFilterMinPackingWeight] = useState("");
   const [filterMaxPackingWeight, setFilterMaxPackingWeight] = useState("");
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
+  const [titleSuggestionIndex, setTitleSuggestionIndex] = useState(-1);
 
   // Active filters state - only applied when user clicks Apply button
   const [activeFilters, setActiveFilters] = useState({
@@ -477,7 +479,11 @@ const ProductPricing = () => {
               ? product.brand_category1?.name
               : product.brand_category1) ||
             "",
-          gst_rate: product.gst_rate?.id?.toString() || "",
+          gst_rate: String(
+            typeof product.gst_rate === "object"
+              ? product.gst_rate?.id || ""
+              : product.gst_rate || "",
+          ),
           gst_rate_display:
             product.gst_rate_display ||
             (typeof product.gst_rate === "object"
@@ -594,7 +600,8 @@ const ProductPricing = () => {
       const brandCategory1Match =
         !activeBrandCategory1 ||
         item.brand_category1_display === activeBrandCategory1;
-      const gstMatch = !activeGST || item.gst_rate_display === activeGST;
+      const gstMatch =
+        !activeGST || String(item.gst_rate) === String(activeGST);
       const unitMatch = !activeUnit || item.unit_display === activeUnit;
 
       const productWeight = parseFloat(item.product_weight) || 0;
@@ -635,6 +642,30 @@ const ProductPricing = () => {
       );
     });
   }, [pricingData, activeFilters]);
+
+  const productTitleSuggestions = useMemo(() => {
+    const searchText = filterTitle.trim().toLowerCase();
+    if (!searchText || !pricingData) return [];
+
+    const seen = new Set();
+    return pricingData
+      .map((item) => item.title)
+      .filter(Boolean)
+      .filter((title) => title.toLowerCase().includes(searchText))
+      .filter((title) => {
+        const normalized = title.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStarts = a.toLowerCase().startsWith(searchText);
+        const bStarts = b.toLowerCase().startsWith(searchText);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 8);
+  }, [filterTitle, pricingData]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -1391,11 +1422,11 @@ const ProductPricing = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
-        <div className="mb-2 flex flex-col gap-4">
+        <div className="mb-2 flex flex-col gap-2">
           {/* FILTER BAR WITH DEPENDENT CATEGORY DROPDOWNS */}
           <div className="w-full bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             {/* Row 1: Basic Product Info */}
-            <div className="grid grid-cols-12 gap-3 mb-4">
+            <div className="grid grid-cols-12 gap-2 mb-4">
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   SKU
@@ -1409,17 +1440,87 @@ const ProductPricing = () => {
                 />
               </div>
 
-              <div className="col-span-3">
+              <div className="col-span-4 relative">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Product Name
                 </label>
                 <input
                   type="text"
                   value={filterTitle}
-                  onChange={(e) => setFilterTitle(e.target.value)}
+                  onChange={(e) => {
+                    setFilterTitle(e.target.value);
+                    setShowTitleSuggestions(true);
+                    setTitleSuggestionIndex(-1);
+                  }}
+                  onFocus={() => setShowTitleSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowTitleSuggestions(false), 150)
+                  }
+                  onKeyDown={(e) => {
+                    if (
+                      !showTitleSuggestions ||
+                      productTitleSuggestions.length === 0
+                    ) {
+                      return;
+                    }
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setTitleSuggestionIndex((prev) =>
+                        prev < productTitleSuggestions.length - 1
+                          ? prev + 1
+                          : 0,
+                      );
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setTitleSuggestionIndex((prev) =>
+                        prev > 0
+                          ? prev - 1
+                          : productTitleSuggestions.length - 1,
+                      );
+                    } else if (e.key === "Enter") {
+                      if (
+                        titleSuggestionIndex >= 0 &&
+                        productTitleSuggestions[titleSuggestionIndex]
+                      ) {
+                        e.preventDefault();
+                        setFilterTitle(
+                          productTitleSuggestions[titleSuggestionIndex],
+                        );
+                        setShowTitleSuggestions(false);
+                        setTitleSuggestionIndex(-1);
+                      }
+                    } else if (e.key === "Escape") {
+                      setShowTitleSuggestions(false);
+                      setTitleSuggestionIndex(-1);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
                   placeholder="Enter product name"
                 />
+                {showTitleSuggestions && productTitleSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto z-50">
+                    {productTitleSuggestions.map((title, index) => (
+                      <button
+                        key={title}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setFilterTitle(title);
+                          setShowTitleSuggestions(false);
+                          setTitleSuggestionIndex(-1);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${
+                          index === titleSuggestionIndex
+                            ? "bg-blue-500 text-white"
+                            : "hover:bg-blue-50 focus:bg-blue-50"
+                        }`}
+                      >
+                        {title}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="col-span-2">
@@ -1435,6 +1536,65 @@ const ProductPricing = () => {
                 />
               </div>
 
+              <div className="col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Min Weight (kg)
+                </label>
+                <input
+                  type="number"
+                  value={filterMinWeight}
+                  onChange={(e) => setFilterMinWeight(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                  placeholder="Min"
+                  step="0.01"
+                />
+              </div>
+
+              <div className="col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Max Weight (kg)
+                </label>
+                <input
+                  type="number"
+                  value={filterMaxWeight}
+                  onChange={(e) => setFilterMaxWeight(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                  placeholder="Max"
+                  step="0.01"
+                />
+              </div>
+
+              <div className="col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Min Packing (kg)
+                </label>
+                <input
+                  type="number"
+                  value={filterMinPackingWeight}
+                  onChange={(e) => setFilterMinPackingWeight(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                  placeholder="Min"
+                  step="0.01"
+                />
+              </div>
+
+              <div className="col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Max Packing (kg)
+                </label>
+                <input
+                  type="number"
+                  value={filterMaxPackingWeight}
+                  onChange={(e) => setFilterMaxPackingWeight(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                  placeholder="Max"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Unit & Weight Filters */}
+            <div className="grid grid-cols-12 gap-3 mb-4">
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Category
@@ -1465,7 +1625,7 @@ const ProductPricing = () => {
                 </select>
               </div>
 
-              <div className="col-span-1">
+              <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Cat 1
                 </label>
@@ -1494,7 +1654,7 @@ const ProductPricing = () => {
                 </select>
               </div>
 
-              <div className="col-span-1">
+              <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Cat 2
                 </label>
@@ -1521,7 +1681,7 @@ const ProductPricing = () => {
                 </select>
               </div>
 
-              <div className="col-span-1">
+              <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Cat 3
                 </label>
@@ -1545,9 +1705,45 @@ const ProductPricing = () => {
                   ))}
                 </select>
               </div>
+
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Unit
+                </label>
+                <select
+                  value={filterUnit}
+                  onChange={(e) => setFilterUnit(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                >
+                  <option value="">All Units</option>
+                  {units?.map((unit) => (
+                    <option key={unit.id} value={unit.name}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  GST Rate
+                </label>
+                <select
+                  value={filterGST}
+                  onChange={(e) => setFilterGST(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                >
+                  <option value="">All Rates</option>
+                  {gstRates?.map((rate) => (
+                    <option key={rate.id} value={String(rate.id)}>
+                      {rate.rate}%
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Row 2: Brand & Product Attributes */}
+            {/* Row 3: Brand & Product Attributes with Actions */}
             <div className="grid grid-cols-12 gap-3 mb-4">
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
@@ -1637,101 +1833,6 @@ const ProductPricing = () => {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  GST Rate
-                </label>
-                <select
-                  value={filterGST}
-                  onChange={(e) => setFilterGST(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                >
-                  <option value="">All Rates</option>
-                  {gstRates?.map((rate) => (
-                    <option key={rate.id} value={rate.id}>
-                      {rate.rate}%
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Row 3: Unit & Weight Filters with Actions */}
-            <div className="grid grid-cols-12 gap-1">
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Unit
-                </label>
-                <select
-                  value={filterUnit}
-                  onChange={(e) => setFilterUnit(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                >
-                  <option value="">All Units</option>
-                  {units?.map((unit) => (
-                    <option key={unit.id} value={unit.name}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Min Weight (kg)
-                </label>
-                <input
-                  type="number"
-                  value={filterMinWeight}
-                  onChange={(e) => setFilterMinWeight(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                  placeholder="Min"
-                  step="0.01"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Max Weight (kg)
-                </label>
-                <input
-                  type="number"
-                  value={filterMaxWeight}
-                  onChange={(e) => setFilterMaxWeight(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                  placeholder="Max"
-                  step="0.01"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Min Packing (kg)
-                </label>
-                <input
-                  type="number"
-                  value={filterMinPackingWeight}
-                  onChange={(e) => setFilterMinPackingWeight(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                  placeholder="Min"
-                  step="0.01"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Max Packing (kg)
-                </label>
-                <input
-                  type="number"
-                  value={filterMaxPackingWeight}
-                  onChange={(e) => setFilterMaxPackingWeight(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                  placeholder="Max"
-                  step="0.01"
-                />
               </div>
 
               <div className="col-span-2">
@@ -2488,6 +2589,9 @@ const ExcelCell = React.memo(
         value,
         onTypeToggle,
         inputRef,
+        type,
+        inputValue,
+        onEdit,
       ],
     );
 
