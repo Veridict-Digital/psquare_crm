@@ -1463,13 +1463,16 @@ const ProductCombinations = () => {
         combination.rewards || [],
         combination.gifts || [],
       );
+
+      const baseCost = comboTotal.totalLandingRate;
+
       const chargesBreakdown = calculateChargesBreakdown(
-        comboTotal.netCost,
+        baseCost,
         combination,
         editedVals,
       );
       const calculatedPriceWithCharges =
-        comboTotal.netCost + chargesBreakdown.totalCharges;
+        baseCost + chargesBreakdown.totalCharges;
 
       const getManualPrice = () => {
         const key = `${combination.id || combination.name}_manual_combo_price`;
@@ -1477,18 +1480,20 @@ const ProductCombinations = () => {
         return combination.manual_combo_price || 0;
       };
       const manualPrice = formatNumber(getManualPrice());
+      
+      const sellingPrice = manualPrice > 0 ? manualPrice : calculatedPriceWithCharges;
+      const profitAmount = sellingPrice - baseCost;
       const profitMargin =
-        manualPrice > 0 && calculatedPriceWithCharges > 0
-          ? ((manualPrice - calculatedPriceWithCharges) /
-            calculatedPriceWithCharges) *
-          100
+        baseCost > 0
+          ? (profitAmount / baseCost) * 100
           : 0;
 
       return {
-        netCost: comboTotal.netCost,
+        netCost: baseCost,
         calculatedPriceWithCharges,
         manualPrice,
         profitMargin,
+        profitAmount,
         totalMRP: comboTotal.totalMRP,
         totalSaleRate: comboTotal.totalSaleRate,
         totalLandingRate: comboTotal.totalLandingRate,
@@ -1583,13 +1588,32 @@ const ProductCombinations = () => {
       }
     });
 
-    // Calculate charges
-    const parkingCharge = parseFloat(formData.parking_charge_value) || 0;
-    const transportationCharge =
-      parseFloat(formData.transportation_charge_value) || 0;
-    const handlingCharge = parseFloat(formData.handling_charge_value) || 0;
-    const deliveryCharge = parseFloat(formData.delivery_charge_value) || 0;
-    const extraCharge = parseFloat(formData.extra_charge_value) || 0;
+    // Calculate charges using the Grand Total Landing Rate of all items as base!
+    const parkingCharge = calculateCharge(
+      totalLandingRateAll,
+      formData.parking_charge_type,
+      formData.parking_charge_value,
+    );
+    const transportationCharge = calculateCharge(
+      totalLandingRateAll,
+      formData.transportation_charge_type,
+      formData.transportation_charge_value,
+    );
+    const handlingCharge = calculateCharge(
+      totalLandingRateAll,
+      formData.handling_charge_type,
+      formData.handling_charge_value,
+    );
+    const deliveryCharge = calculateCharge(
+      totalLandingRateAll,
+      formData.delivery_charge_type,
+      formData.delivery_charge_value,
+    );
+    const extraCharge = calculateCharge(
+      totalLandingRateAll,
+      formData.extra_charge_type,
+      formData.extra_charge_value,
+    );
 
     const totalCharges =
       parkingCharge +
@@ -1597,21 +1621,20 @@ const ProductCombinations = () => {
       handlingCharge +
       deliveryCharge +
       extraCharge;
-    const calculatedPriceWithCharges = totalLandingRate + totalCharges;
+    const calculatedPriceWithCharges = totalLandingRateAll + totalCharges;
     const manualPrice = parseFloat(formData.manual_combo_price) || 0;
 
     // Determine which price to use for profit calculation
-    // If manual price is entered and > 0, use manual price, otherwise use calculated price
     const sellingPrice =
       manualPrice > 0 ? manualPrice : calculatedPriceWithCharges;
 
-    // Calculate profit based on Landing Rate vs Selling Price
-    const profitAmount = sellingPrice - totalLandingRate;
+    // Calculate profit based on Grand Total Landing Rate vs Selling Price
+    const profitAmount = sellingPrice - totalLandingRateAll;
     const profitMargin =
-      totalLandingRate > 0 ? (profitAmount / totalLandingRate) * 100 : 0;
+      totalLandingRateAll > 0 ? (profitAmount / totalLandingRateAll) * 100 : 0;
 
     return {
-      netCost: totalLandingRate,
+      netCost: totalLandingRateAll,
       calculatedPriceWithCharges,
       manualPrice,
       sellingPrice, // The price used for profit calculation
@@ -2420,11 +2443,7 @@ const ProductCombinations = () => {
                     {calculations.profitMargin.toFixed(1)}%
                   </span>
                   <span className="text-md text-Black font-medium">
-                    ₹
-                    {(
-                      (calculations.profitMargin / 100) *
-                      calculations.calculatedPriceWithCharges
-                    ).toFixed(2)}
+                    ₹{calculations.profitAmount.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -7056,11 +7075,7 @@ const ProductCombinations = () => {
 
                             {/* Calculated Price = Grand Total Landing Rate + Total Charges */}
                             <td className="px-2 py-1.5 font-semibold text-blue-700 bg-blue-50">
-                              ₹
-                              {(
-                                formCalculations.totalLandingRate +
-                                (formCalculations.charges.totalCharges || 0)
-                              ).toFixed(2)}
+                              ₹{formCalculations.calculatedPriceWithCharges.toFixed(2)}
                               <div className="text-xs text-gray-500 font-normal mt-0.5">
                                 Landing Rate + Charges
                               </div>

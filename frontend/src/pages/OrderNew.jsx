@@ -29,6 +29,7 @@ const OrderNew = () => {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const urlCustomerId = searchParams.get("customer");
+  const urlCustomerName = searchParams.get("customer_name");
   const editMode = searchParams.get("mode") === "edit";
   const editOrderId = sessionStorage.getItem("orderEditId");
 
@@ -149,6 +150,7 @@ const OrderNew = () => {
   });
   
   const [showComboModal, setShowComboModal] = useState(false);
+  const [showPurchaseComboModal, setShowPurchaseComboModal] = useState(false);
   const [filterPaid, setFilterPaid] = useState(false);
   const [filterFree, setFilterFree] = useState(false);
   const [filterGift, setFilterGift] = useState(false);
@@ -195,6 +197,12 @@ const OrderNew = () => {
     queryFn: () => axios.get("/api/customers/?page_size=1000").then((res) => res.data),
   });
 
+  const { data: urlCustomer } = useQuery({
+    queryKey: ["customer", urlCustomerId],
+    queryFn: () => axios.get(`/api/customers/${urlCustomerId}/`).then((res) => res.data),
+    enabled: !!urlCustomerId,
+  });
+
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: () => axios.get("/api/products/").then((res) => res.data),
@@ -239,34 +247,49 @@ const OrderNew = () => {
 
   // Auto-assign agent and set address based on customer selection
   useEffect(() => {
-    if (formData.customer && customers) {
-      const allCustomers = customers?.results || customers || [];
-      const selectedCustomer = allCustomers.find(
-        (c) => c.id.toString() === formData.customer.toString()
-      );
+    if (formData.customer) {
+      // Find the selected customer in either urlCustomer or customers list
+      const selectedCustomer = (urlCustomer && urlCustomer.id.toString() === formData.customer.toString())
+        ? urlCustomer
+        : (customers ? (customers?.results || customers || []).find(
+            (c) => c.id.toString() === formData.customer.toString()
+          ) : null);
       
       if (selectedCustomer) {
-        setFormData((prev) => ({
-          ...prev,
-          agent: selectedCustomer.agent || "",
-        }));
+        setFormData((prev) => {
+          // Avoid setting state if nothing changed (prevents potential loops)
+          if (prev.agent === selectedCustomer.agent) return prev;
+          return {
+            ...prev,
+            agent: selectedCustomer.agent || "",
+          };
+        });
 
         if (formData.delivery_option === "primary") {
-          setFormData((prev) => ({
-            ...prev,
-            delivery_address: {
-              house_flat_no: selectedCustomer.house_flat_no || '',
-              wing_lane: selectedCustomer.wing_lane || '',
-              society_colony: selectedCustomer.society_colony || '',
-              landmark: selectedCustomer.landmark || '',
-              area: selectedCustomer.area || '',
-              pincode: selectedCustomer.pincode || '',
-              state: selectedCustomer.state || '',
-              district: selectedCustomer.district || '',
-              tahsil: selectedCustomer.tahsil || '',
-              city: selectedCustomer.city || '',
+          setFormData((prev) => {
+            // Avoid setting state if address is already loaded/matched
+            if (
+              prev.delivery_address.pincode === selectedCustomer.pincode &&
+              prev.delivery_address.city === selectedCustomer.city
+            ) {
+              return prev;
             }
-          }));
+            return {
+              ...prev,
+              delivery_address: {
+                house_flat_no: selectedCustomer.house_flat_no || '',
+                wing_lane: selectedCustomer.wing_lane || '',
+                society_colony: selectedCustomer.society_colony || '',
+                landmark: selectedCustomer.landmark || '',
+                area: selectedCustomer.area || '',
+                pincode: selectedCustomer.pincode || '',
+                state: selectedCustomer.state || '',
+                district: selectedCustomer.district || '',
+                tahsil: selectedCustomer.tahsil || '',
+                city: selectedCustomer.city || '',
+              }
+            };
+          });
         }
 
         setCustomerKPIs({
@@ -276,7 +299,7 @@ const OrderNew = () => {
         });
       }
     }
-  }, [formData.customer, customers, formData.delivery_option]);
+  }, [formData.customer, customers, urlCustomer, formData.delivery_option]);
 
   // ========== FORM HANDLERS ==========
   const handleFormChange = (e) => {
@@ -357,27 +380,52 @@ const OrderNew = () => {
     combo.items?.forEach((item) => {
       const product = products?.find(p => p.id === item.product);
       if (product) {
-        const price = parseFloat(product.price);
-        regularTotal += price * item.quantity_required * quantity;
-        if (item.offer_price && item.offer_price > 0) {
-          offerTotal += parseFloat(item.offer_price) * item.quantity_required * quantity;
-        } else {
-          offerTotal += price * item.quantity_required * quantity;
-        }
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
+          ? parseFloat(product.pricing.mrp) 
+          : parseFloat(product.mrp || product.price || 0);
+          
+        regularTotal += mrpVal * item.quantity_required * quantity;
       }
     });
+
+    if (combo.manual_combo_price !== undefined && combo.manual_combo_price !== null && parseFloat(combo.manual_combo_price) > 0) {
+      offerTotal = parseFloat(combo.manual_combo_price) * quantity;
+    } else {
+      combo.items?.forEach((item) => {
+        const product = products?.find(p => p.id === item.product);
+        if (product) {
+          const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null 
+            ? parseFloat(product.pricing.sale_rate) 
+            : parseFloat(product.price || 0);
+
+          if (item.offer_price && item.offer_price > 0) {
+            offerTotal += parseFloat(item.offer_price) * item.quantity_required * quantity;
+          } else {
+            offerTotal += saleVal * item.quantity_required * quantity;
+          }
+        }
+      });
+    }
 
     combo.rewards?.forEach((reward) => {
       const product = products?.find(p => p.id === reward.product);
       if (product) {
-        regularTotal += parseFloat(product.price) * reward.quantity_free * quantity;
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
+          ? parseFloat(product.pricing.mrp) 
+          : parseFloat(product.mrp || product.price || 0);
+          
+        regularTotal += mrpVal * reward.quantity_free * quantity;
       }
     });
 
     combo.gifts?.forEach((gift) => {
       const product = products?.find(p => p.id === gift.product);
       if (product) {
-        regularTotal += parseFloat(product.price) * quantity;
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
+          ? parseFloat(product.pricing.mrp) 
+          : parseFloat(product.mrp || product.price || 0);
+          
+        regularTotal += mrpVal * (gift.quantity || 1) * quantity;
       }
     });
 
@@ -402,6 +450,14 @@ const OrderNew = () => {
         const product = products?.find((p) => p.id === reqItem.product);
         if (!product) return;
 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
+          ? parseFloat(product.pricing.mrp) 
+          : parseFloat(product.mrp || product.price || 0);
+          
+        const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null 
+          ? parseFloat(product.pricing.sale_rate) 
+          : parseFloat(product.price || 0);
+
         const existingItemIndex = newItems.findIndex(
           (item) => item.product === reqItem.product && !item.is_free && !item.is_gift
         );
@@ -413,7 +469,7 @@ const OrderNew = () => {
             unit_price: reqItem.offer_price && reqItem.offer_price > 0 
               ? parseFloat(reqItem.offer_price) 
               : newItems[existingItemIndex].unit_price,
-            original_price: newItems[existingItemIndex].original_price || parseFloat(product.price),
+            original_price: newItems[existingItemIndex].original_price || mrpVal,
           };
         } else {
           newItems.push({
@@ -423,8 +479,8 @@ const OrderNew = () => {
             quantity: reqItem.quantity_required,
             unit_price: reqItem.offer_price && reqItem.offer_price > 0 
               ? parseFloat(reqItem.offer_price) 
-              : parseFloat(product.price),
-            original_price: parseFloat(product.price),
+              : saleVal,
+            original_price: mrpVal,
             gst_rate: product.gst_rate,
             gst_rate_value: parseFloat(product.gst_rate_display || 0),
             image: product.image,
@@ -435,6 +491,10 @@ const OrderNew = () => {
       rewardItems.forEach((reward) => {
         const product = products?.find((p) => p.id === reward.product);
         if (!product) return;
+
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
+          ? parseFloat(product.pricing.mrp) 
+          : parseFloat(product.mrp || product.price || 0);
 
         const existingFreeIndex = newItems.findIndex(
           (item) => item.product === reward.product && item.is_free
@@ -452,7 +512,7 @@ const OrderNew = () => {
             product_sku: product.sku,
             quantity: reward.quantity_free,
             unit_price: 0,
-            original_price: parseFloat(product.price) || 0,
+            original_price: mrpVal,
             gst_rate: product.gst_rate,
             gst_rate_value: parseFloat(product.gst_rate_display || 0),
             is_free: true,
@@ -466,6 +526,12 @@ const OrderNew = () => {
         const product = products?.find((p) => p.id === gift.product);
         if (!product) return;
 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
+          ? parseFloat(product.pricing.mrp) 
+          : parseFloat(product.mrp || product.price || 0);
+
+        const giftQty = gift.quantity || 1;
+
         const existingGiftIndex = newItems.findIndex(
           (item) => item.product === gift.product && item.is_gift
         );
@@ -473,16 +539,16 @@ const OrderNew = () => {
         if (existingGiftIndex !== -1) {
           newItems[existingGiftIndex] = {
             ...newItems[existingGiftIndex],
-            quantity: newItems[existingGiftIndex].quantity + 1,
+            quantity: newItems[existingGiftIndex].quantity + giftQty,
           };
         } else {
           newItems.push({
             product: product.id,
             product_title: `${product.title} (GIFT)`,
             product_sku: product.sku,
-            quantity: 1,
+            quantity: giftQty,
             unit_price: 0,
-            original_price: parseFloat(product.price) || 0,
+            original_price: mrpVal,
             gst_rate: product.gst_rate,
             gst_rate_value: parseFloat(product.gst_rate_display || 0),
             is_gift: true,
@@ -796,13 +862,21 @@ const OrderNew = () => {
         );
       }
 
+      const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
+        ? parseFloat(product.pricing.mrp) 
+        : parseFloat(product.mrp || product.price || 0);
+        
+      const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null 
+        ? parseFloat(product.pricing.sale_rate) 
+        : parseFloat(product.price || 0);
+
       return [...prev, {
         product: product.id,
         product_title: product.title,
         product_sku: product.sku,
         quantity: quantity,
-        unit_price: parseFloat(product.price) || 0,
-        original_price: parseFloat(product.price) || 0,
+        unit_price: saleVal,
+        original_price: mrpVal,
         gst_rate: product.gst_rate,
         gst_rate_value: !isNaN(parseFloat(product.gst_rate_display)) ? parseFloat(product.gst_rate_display) : 0,
         image: product.image,
@@ -1002,6 +1076,18 @@ const OrderNew = () => {
   // ========== HELPER FUNCTIONS ==========
   const getSelectedCustomerName = () => {
     if (!formData.customer) return "Select Customer";
+    
+    // 1. Instant query-parameter name display
+    if (urlCustomerName && formData.customer.toString() === urlCustomerId?.toString()) {
+      return urlCustomerName;
+    }
+    
+    // 2. Direct single-customer fetch result display
+    if (urlCustomer && urlCustomer.id.toString() === formData.customer.toString()) {
+      return urlCustomer.name;
+    }
+
+    // 3. Fallback to loaded customers list search
     if (!customers) return "Loading...";
     const allCustomers = customers?.results || customers || [];
     const customer = allCustomers.find(
@@ -1011,7 +1097,14 @@ const OrderNew = () => {
   };
 
   const getSelectedCustomerAgent = () => {
-    if (!formData.customer || !customers) return "";
+    if (!formData.customer) return "";
+
+    // Direct single-customer fetch result agent
+    if (urlCustomer && urlCustomer.id.toString() === formData.customer.toString()) {
+      return urlCustomer.agent_name || "";
+    }
+
+    if (!customers) return "";
     const allCustomers = customers?.results || customers || [];
     const customer = allCustomers.find(
       (c) => c.id.toString() === formData.customer.toString()
@@ -1114,40 +1207,128 @@ const OrderNew = () => {
   }, [selectedProduct, filterPaid, filterFree, filterGift]);
 
   // Combo Offers Table Component
-  const ComboOffersTable = ({ combinations, showActions = true }) => {
+  const ComboOffersTable = ({ combinations, showActions = true, showGrandTotals = false, excludeApplied = false }) => {
     const filteredCombos = getFilteredCombinations(combinations);
+
+    const displayCombos = excludeApplied
+      ? filteredCombos.filter(combo => !appliedCombos.some(ac => (ac.comboId === combo.id) || (ac.combo_id === combo.id)))
+      : filteredCombos;
+
+    // Calculate Grand Totals based on applied quantities of combinations in this table
+    let totalPurchaseQty = 0;
+    let totalPurchaseMrp = 0;
+    let totalPurchaseOffer = 0;
+
+    let totalFreeQty = 0;
+    let totalFreeMrp = 0;
+    let totalFreeSave = 0;
+
+    let totalGiftQty = 0;
+    let totalGiftMrp = 0;
+
+    let totalRegular = 0;
+    let totalCombo = 0;
+    let totalSavings = 0;
+
+    displayCombos.forEach((combo) => {
+      const appliedQuantity = appliedCombos.find(c => {
+        const comboId = c.comboId || c.combo_id;
+        return comboId === combo.id;
+      })?.quantity || 0;
+
+      if (appliedQuantity > 0) {
+        const firstRequiredItem = combo.items?.[0];
+        const firstFreeItem = combo.rewards?.[0];
+        const firstGiftItem = combo.gifts?.[0];
+        
+        const requiredProduct = firstRequiredItem ? products?.find(p => p.id === firstRequiredItem.product) : null;
+        const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
+        const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
+
+        const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null 
+          ? parseFloat(requiredProduct.pricing.mrp) 
+          : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
+
+        const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null 
+          ? parseFloat(freeProduct.pricing.mrp) 
+          : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
+
+        const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null 
+          ? parseFloat(giftProduct.pricing.mrp) 
+          : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
+
+        // Purchase Products
+        if (firstRequiredItem) {
+          totalPurchaseQty += firstRequiredItem.quantity_required * appliedQuantity;
+          totalPurchaseMrp += requiredProductMrp * firstRequiredItem.quantity_required * appliedQuantity;
+          if (combo.manual_combo_price !== undefined && combo.manual_combo_price !== null && parseFloat(combo.manual_combo_price) > 0) {
+            totalPurchaseOffer += parseFloat(combo.manual_combo_price) * appliedQuantity;
+          } else {
+            const offerPrice = firstRequiredItem.offer_price 
+              ? parseFloat(firstRequiredItem.offer_price) 
+              : (requiredProduct?.pricing?.sale_rate !== undefined && requiredProduct?.pricing?.sale_rate !== null 
+                 ? parseFloat(requiredProduct.pricing.sale_rate) 
+                 : parseFloat(requiredProduct?.price || 0));
+            totalPurchaseOffer += offerPrice * firstRequiredItem.quantity_required * appliedQuantity;
+          }
+        }
+
+        // Free Products
+        if (firstFreeItem) {
+          totalFreeQty += firstFreeItem.quantity_free * appliedQuantity;
+          totalFreeMrp += freeProductMrp * firstFreeItem.quantity_free * appliedQuantity;
+          totalFreeSave += freeProductMrp * firstFreeItem.quantity_free * appliedQuantity;
+        }
+
+        // Gifts
+        if (giftProduct) {
+          const giftQty = firstGiftItem?.quantity || 1;
+          totalGiftQty += giftQty * appliedQuantity;
+          totalGiftMrp += giftProductMrp * giftQty * appliedQuantity;
+        }
+
+        // Savings & Totals
+        const savingsObj = calculateComboSavings(combo, appliedQuantity);
+        totalRegular += savingsObj.regularTotal;
+        totalCombo += savingsObj.offerTotal;
+        totalSavings += savingsObj.savings;
+      }
+    });
+
+    const totalSavingsPercentage = totalRegular > 0 ? ((totalRegular - totalCombo) / totalRegular * 100).toFixed(1) : 0;
 
     return (
       <table className="w-full border-collapse">
         <thead>
-          <tr className="bg-gray-100">
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700">Offer</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700" colSpan="4">Paid Items</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700" colSpan="4">Free Items</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700" colSpan="2">Gifts</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700" colSpan="3">Total</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700">Action</th>
+          <tr className="bg-[#1a2332]">
+            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Combo</th>
+            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="4">Purchase Product</th>
+            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="4">Free Product</th>
+            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Gifts Product</th>
+            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Total</th>
+            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Action</th>
             </tr>
-          <tr className="bg-gray-50">
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600"></th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Offer Price</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">You Save</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Value</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Regular Total</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Combo Total</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Savings</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600"></th>
+          <tr className="bg-[#1a2332]">
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Offer Price</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">You Save</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total Mrp</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Combo Total</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Savings</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
             </tr>
         </thead>
         <tbody>
-          {filteredCombos.map((combo) => {
+          {displayCombos.map((combo) => {
             const isApplied = appliedCombos.some(c => {
               const comboId = c.comboId || c.combo_id;
               return comboId === combo.id;
@@ -1165,6 +1346,18 @@ const OrderNew = () => {
             const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
             const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
 
+            const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null 
+              ? parseFloat(requiredProduct.pricing.mrp) 
+              : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
+
+            const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null 
+              ? parseFloat(freeProduct.pricing.mrp) 
+              : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
+
+            const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null 
+              ? parseFloat(giftProduct.pricing.mrp) 
+              : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
+
             return (
               <tr key={combo.id} className={`${isApplied ? 'bg-green-50' : ''} hover:bg-gray-50`}>
                 <td className="border border-gray-300 px-4 py-3">
@@ -1181,7 +1374,7 @@ const OrderNew = () => {
                   {firstRequiredItem?.quantity_required || '-'}
                   </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                  {requiredProduct ? `₹${parseFloat(requiredProduct.price).toFixed(2)}` : '-'}
+                  {requiredProduct ? `₹${requiredProductMrp.toFixed(2)}` : '-'}
                   </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
                   {firstRequiredItem?.offer_price ? `₹${parseFloat(firstRequiredItem.offer_price).toFixed(2)}` : '-'}
@@ -1194,17 +1387,20 @@ const OrderNew = () => {
                   {firstFreeItem?.quantity_free || '-'}
                   </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                  {freeProduct ? `₹${parseFloat(freeProduct.price).toFixed(2)}` : '-'}
+                  {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
                   </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
-                  {freeProduct ? `₹${parseFloat(freeProduct.price).toFixed(2)}` : '-'}
+                  {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
                   </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm">
                   {giftProduct?.title || '-'}
                   {combo.gifts?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.gifts.length - 1} more</span>}
                   </td>
+                <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                  {giftProduct ? (firstGiftItem?.quantity || 1) : '-'}
+                  </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                  {giftProduct ? `₹${parseFloat(giftProduct.price).toFixed(2)}` : '-'}
+                  {giftProduct ? `₹${giftProductMrp.toFixed(2)}` : '-'}
                   </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
                   ₹{calculateComboSavings(combo, 1).regularTotal.toFixed(2)}
@@ -1260,10 +1456,63 @@ const OrderNew = () => {
                 </tr>
             );
           })}
-          {filteredCombos.length === 0 && selectedProduct && (
+          {showGrandTotals && totalRegular > 0 && (
+            <tr className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
+              <td className="border border-gray-300 px-4 py-3 text-gray-900 font-bold">
+                Grand Totals
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                {totalPurchaseQty > 0 ? totalPurchaseQty : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
+                {totalPurchaseMrp > 0 ? `₹${totalPurchaseMrp.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-700 font-bold">
+                {totalPurchaseOffer > 0 ? `₹${totalPurchaseOffer.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                {totalFreeQty > 0 ? totalFreeQty : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
+                {totalFreeMrp > 0 ? `₹${totalFreeMrp.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-700 font-bold">
+                {totalFreeSave > 0 ? `₹${totalFreeSave.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                {totalGiftQty > 0 ? totalGiftQty : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
+                {totalGiftMrp > 0 ? `₹${totalGiftMrp.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
+                ₹{totalRegular.toFixed(2)}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold text-green-700">
+                ₹{totalCombo.toFixed(2)}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-right font-bold">
+                <div className="text-sm font-bold text-green-800">
+                  ₹{totalSavings.toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-600 font-medium">
+                  ({totalSavingsPercentage}%)
+                </div>
+              </td>
+              <td className="border border-gray-300 px-4 py-3"></td>
+            </tr>
+          )}
+          {displayCombos.length === 0 && (
             <tr>
-              <td colSpan="15" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                No combo offers match the selected filters for this product
+              <td colSpan="16" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                {selectedProduct 
+                  ? "No combo offers match the selected filters for this product" 
+                  : (excludeApplied 
+                      ? "All available combo offers applied or none match the selected filters" 
+                      : "No combo offers available")}
               </td>
             </tr>
           )}
@@ -1273,15 +1522,9 @@ const OrderNew = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="container mx-auto px-4 max-w-full py-6">
+    <form onSubmit={handleSubmit} className="min-h-screen bg-white">
+      <div className="container mx-auto px-4 max-w-full py-2">
         <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center space-x-3">
-            <ShoppingCart className="w-6 h-6 text-blue-600" />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              {editMode ? 'Edit Order Items' : 'New Order'}
-            </h1>
-          </div>
           <div className="flex items-center space-x-3">
             {editMode && (
               <>
@@ -1307,266 +1550,269 @@ const OrderNew = () => {
           </div>
         </div>
 
-        {/* Customer and Order Details */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2 relative" style={{ zIndex: 30 }}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <User className="w-4 h-4 mr-2 text-blue-500" />
-              Customer *
-            </label>
-            <div className="relative" ref={customerDropdownRef}>
-              <button
-                type="button"
-                onClick={() => !editMode && setCustomerDropdownOpen(!customerDropdownOpen)}
-                className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 text-left flex items-center justify-between ${editMode ? 'cursor-not-allowed opacity-75' : ''}`}
-                disabled={editMode}
-              >
-                <span className={formData.customer ? "text-gray-900" : "text-gray-500"}>
-                  {getSelectedCustomerName()}
-                </span>
-                {!editMode && <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${customerDropdownOpen ? "rotate-180" : ""}`} />}
-              </button>
-              
-              {!editMode && customerDropdownOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-80 overflow-auto">
-                  <div className="p-2 border-b border-gray-200">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search customers..."
-                        value={customerSearch}
-                        onChange={(e) => setCustomerSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="py-1">
-                    {customerSearchLoading || customersLoading ? (
-                      <div className="px-4 py-2 text-gray-500">Loading...</div>
-                    ) : filteredCustomers.length > 0 ? (
-                      filteredCustomers.map((customer) => (
-                        <button
-                          key={customer.id}
-                          type="button"
-                          onClick={() => {
-                            setFormData((prev) => ({ ...prev, customer: customer.id }));
-                            setCustomerDropdownOpen(false);
-                            setCustomerSearch("");
-                          }}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-gray-900">{customer.name}</div>
-                              <div className="text-sm text-gray-500">{customer.phone}</div>
-                            </div>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              customer.contact_type === 'Customer'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {customer.contact_type}
-                            </span>
+        {/* Main 60% / 40% Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          
+          {/* Left Column (60% Width) - Customer Details, Delivery Address, Product Add, Combo Offers */}
+          <div className="lg:col-span-3 space-y-6">
+            
+            {/* Customer and Order Details Card */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-4 relative" style={{ zIndex: 30 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <User className="w-4 h-4 mr-2 text-blue-500" />
+                    Customer *
+                  </label>
+                  <div className="relative" ref={customerDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => !editMode && setCustomerDropdownOpen(!customerDropdownOpen)}
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 text-left flex items-center justify-between ${editMode ? 'cursor-not-allowed opacity-75' : ''}`}
+                      disabled={editMode}
+                    >
+                      <span className={formData.customer ? "text-gray-900" : "text-gray-500"}>
+                        {getSelectedCustomerName()}
+                      </span>
+                      {!editMode && <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${customerDropdownOpen ? "rotate-180" : ""}`} />}
+                    </button>
+                    
+                    {!editMode && customerDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-80 overflow-auto">
+                        <div className="p-2 border-b border-gray-200">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search customers..."
+                              value={customerSearch}
+                              onChange={(e) => setCustomerSearch(e.target.value)}
+                              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              autoFocus
+                            />
                           </div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-2 text-gray-500">No customers found</div>
+                        </div>
+                        
+                        <div className="py-1">
+                          {customerSearchLoading || customersLoading ? (
+                            <div className="px-4 py-2 text-gray-500">Loading...</div>
+                          ) : filteredCustomers.length > 0 ? (
+                            filteredCustomers.map((customer) => (
+                              <button
+                                key={customer.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({ ...prev, customer: customer.id }));
+                                  setCustomerDropdownOpen(false);
+                                  setCustomerSearch("");
+                                }}
+                                className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="font-medium text-gray-900">{customer.name}</div>
+                                    <div className="text-sm text-gray-500">{customer.phone}</div>
+                                  </div>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    customer.contact_type === 'Customer'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {customer.contact_type}
+                                  </span>
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-2 text-gray-500">No customers found</div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <User className="w-4 h-4 mr-2 text-purple-500" />
+                    Agent
+                  </label>
+                  <input
+                    type="text"
+                    value={getSelectedCustomerAgent()}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50"
+                    readOnly
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="Placed">Placed</option>
+                    <option value="Dispatched">Dispatched</option>
+                    <option value="Delivered">Delivered</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <CreditCard className="w-4 h-4 mr-2 text-indigo-500" />
+                    Payment Status
+                  </label>
+                  <select
+                    name="payment_status"
+                    value={formData.payment_status}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="Credit">Credit</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Partial">Partial</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <MapPin className="w-4 h-4 mr-2 text-red-500" />
+                    Delivery Option
+                  </label>
+                  <select
+                    name="delivery_option"
+                    value={formData.delivery_option}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="primary">Use Primary Address</option>
+                    <option value="custom">Enter Custom Address</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <MapPin className="w-4 h-4 mr-2 text-red-500" />
+                    Delivery Address
+                  </label>
+                  {formData.delivery_option === "primary" ? (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                      <div className="flex items-center mb-1">
+                        <MapPin className="w-4 h-4 text-green-600 mr-2" />
+                        <span className="font-medium text-green-800">Primary Address Selected</span>
+                      </div>
+                      <div className="text-sm text-green-700">
+                        {Object.values(formData.delivery_address).filter(Boolean).join(', ')}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">House/Flat No</label>
+                        <input
+                          name="delivery_address.house_flat_no"
+                          value={formData.delivery_address.house_flat_no}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Wing/Lane</label>
+                        <input
+                          name="delivery_address.wing_lane"
+                          value={formData.delivery_address.wing_lane}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Society/Colony</label>
+                        <input
+                          name="delivery_address.society_colony"
+                          value={formData.delivery_address.society_colony}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Landmark</label>
+                        <input
+                          name="delivery_address.landmark"
+                          value={formData.delivery_address.landmark}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Area</label>
+                        <input
+                          name="delivery_address.area"
+                          value={formData.delivery_address.area}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Pincode *</label>
+                        <input
+                          name="delivery_address.pincode"
+                          value={formData.delivery_address.pincode}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
+                        <input
+                          name="delivery_address.state"
+                          value={formData.delivery_address.state}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">District</label>
+                        <input
+                          name="delivery_address.district"
+                          value={formData.delivery_address.district}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Tahsil</label>
+                        <input
+                          name="delivery_address.tahsil"
+                          value={formData.delivery_address.tahsil}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="col-span-2 sm:col-span-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
+                        <input
+                          name="delivery_address.city"
+                          value={formData.delivery_address.city}
+                          onChange={handleFormChange}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <User className="w-4 h-4 mr-2 text-purple-500" />
-              Agent
-            </label>
-            <input
-              type="text"
-              value={getSelectedCustomerAgent()}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50"
-              readOnly
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-              Status
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleFormChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="Placed">Placed</option>
-              <option value="Dispatched">Dispatched</option>
-              <option value="Delivered">Delivered</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <CreditCard className="w-4 h-4 mr-2 text-indigo-500" />
-              Payment Status
-            </label>
-            <select
-              name="payment_status"
-              value={formData.payment_status}
-              onChange={handleFormChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="Credit">Credit</option>
-              <option value="Paid">Paid</option>
-              <option value="Partial">Partial</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Delivery Address Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <MapPin className="w-4 h-4 mr-2 text-red-500" />
-              Delivery Option
-            </label>
-            <select
-              name="delivery_option"
-              value={formData.delivery_option}
-              onChange={handleFormChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="primary">Use Primary Address</option>
-              <option value="custom">Enter Custom Address</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <MapPin className="w-4 h-4 mr-2 text-red-500" />
-              Delivery Address
-            </label>
-            {formData.delivery_option === "primary" ? (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                <div className="flex items-center mb-1">
-                  <MapPin className="w-4 h-4 text-green-600 mr-2" />
-                  <span className="font-medium text-green-800">Primary Address Selected</span>
-                </div>
-                <div className="text-sm text-green-700">
-                  {Object.values(formData.delivery_address).filter(Boolean).join(', ')}
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">House/Flat No</label>
-                  <input
-                    name="delivery_address.house_flat_no"
-                    value={formData.delivery_address.house_flat_no}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Wing/Lane</label>
-                  <input
-                    name="delivery_address.wing_lane"
-                    value={formData.delivery_address.wing_lane}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Society/Colony</label>
-                  <input
-                    name="delivery_address.society_colony"
-                    value={formData.delivery_address.society_colony}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Landmark</label>
-                  <input
-                    name="delivery_address.landmark"
-                    value={formData.delivery_address.landmark}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Area</label>
-                  <input
-                    name="delivery_address.area"
-                    value={formData.delivery_address.area}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Pincode *</label>
-                  <input
-                    name="delivery_address.pincode"
-                    value={formData.delivery_address.pincode}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
-                  <input
-                    name="delivery_address.state"
-                    value={formData.delivery_address.state}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">District</label>
-                  <input
-                    name="delivery_address.district"
-                    value={formData.delivery_address.district}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Tahsil</label>
-                  <input
-                    name="delivery_address.tahsil"
-                    value={formData.delivery_address.tahsil}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="lg:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
-                  <input
-                    name="delivery_address.city"
-                    value={formData.delivery_address.city}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left Column - Product Selection and Combo Offers */}
-          <div className="space-y-6">
             {/* Product Selection */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-4 relative" style={{ zIndex: 20 }}>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-3">
                   <Package className="w-6 h-6 text-purple-600" />
                   <h2 className="text-xl font-bold text-gray-900">Add Products</h2>
@@ -1583,7 +1829,7 @@ const OrderNew = () => {
 
               {showFilters && (
                 <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
                       <input
@@ -1606,19 +1852,6 @@ const OrderNew = () => {
                         <option value="100-500">₹100 - ₹500</option>
                         <option value="500-1000">₹500 - ₹1000</option>
                         <option value="1000">₹1000+</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Stock Status</label>
-                      <select
-                        value={productFilters.stockStatus}
-                        onChange={(e) => setProductFilters((prev) => ({ ...prev, stockStatus: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      >
-                        <option value="">All Stock</option>
-                        <option value="in-stock">In Stock (10+)</option>
-                        <option value="low-stock">Low Stock (1-10)</option>
-                        <option value="out-of-stock">Out of Stock</option>
                       </select>
                     </div>
                   </div>
@@ -1710,7 +1943,7 @@ const OrderNew = () => {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                     <Gift className="w-5 h-5 mr-2 text-yellow-600" />
-                    Available Combo Offers
+                    Combo Offers
                   </h3>
                   <button
                     type="button"
@@ -1723,21 +1956,31 @@ const OrderNew = () => {
                 </div>
                 
                 <div className="overflow-x-auto">
-                  <ComboOffersTable combinations={relevantCombinations} showActions={true} />
+                  <ComboOffersTable combinations={relevantCombinations} showActions={true} excludeApplied={true} />
                 </div>
               </div>
             )}  
           </div>
 
-          {/* Right Column - Applied Combos and Order Summary */}
-          <div className="space-y-6">
-            {/* Applied Combos Section */}
+          {/* Right Column - Purchase Combos and Order Summary */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Purchase Combos Section */}
             {appliedCombos.length > 0 && (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Gift className="w-5 h-5 mr-2 text-green-600" />
-                  Applied Combos
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Gift className="w-5 h-5 mr-2 text-green-600" />
+                    Purchase Combos
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowPurchaseComboModal(true)}
+                    className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                    title="Expand view"
+                  >
+                    <Maximize2 className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
                 
                 <div className="overflow-x-auto">
                   <ComboOffersTable 
@@ -1745,6 +1988,7 @@ const OrderNew = () => {
                       appliedCombos.some(ac => (ac.comboId === c.id) || (ac.combo_id === c.id))
                     ) || []} 
                     showActions={true} 
+                    showGrandTotals={true}
                   />
                 </div>
               </div>
@@ -1834,9 +2078,10 @@ const OrderNew = () => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900 flex items-center">
                 <Gift className="w-6 h-6 mr-2 text-yellow-600" />
-                Available Combo Offers - Full View
+                Combo Offers - Full View
               </h3>
               <button
+                type="button"
                 onClick={() => setShowComboModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
@@ -1877,6 +2122,7 @@ const OrderNew = () => {
                   </label>
                   {(filterPaid || filterFree || filterGift) && (
                     <button
+                      type="button"
                       onClick={() => {
                         setFilterPaid(false);
                         setFilterFree(false);
@@ -1892,7 +2138,44 @@ const OrderNew = () => {
             )}
             
             <div className="p-6 overflow-auto max-h-[calc(90vh-180px)]">
-              <ComboOffersTable combinations={relevantCombinations} showActions={true} />
+              <ComboOffersTable combinations={relevantCombinations} showActions={true} excludeApplied={true} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Purchase Combos Modal */}
+      {showPurchaseComboModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPurchaseComboModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl max-w-8xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                <Gift className="w-6 h-6 mr-2 text-green-600" />
+                Purchase Combos - Full View
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPurchaseComboModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-auto max-h-[calc(90vh-100px)]">
+              <ComboOffersTable 
+                combinations={combinations?.filter(c => 
+                  appliedCombos.some(ac => (ac.comboId === c.id) || (ac.combo_id === c.id))
+                ) || []} 
+                showActions={true} 
+                showGrandTotals={true}
+              />
             </div>
           </div>
         </div>

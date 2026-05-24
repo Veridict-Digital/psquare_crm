@@ -1315,6 +1315,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         date_from = self.request.query_params.get('date_from')
         date_to = self.request.query_params.get('date_to')
         search = self.request.query_params.get('search')
+        min_price = self.request.query_params.get('min_price')
+        max_price = self.request.query_params.get('max_price')
+        min_items = self.request.query_params.get('min_items')
+        max_items = self.request.query_params.get('max_items')
+        product_name = self.request.query_params.get('product_name')
+        brand_name = self.request.query_params.get('brand_name')
 
         if agent:
             queryset = queryset.filter(agent__username=agent)
@@ -1332,7 +1338,23 @@ class OrderViewSet(viewsets.ModelViewSet):
                 Q(order_id__icontains=search) |
                 Q(customer__name__icontains=search)
             )
+        if min_price:
+            queryset = queryset.filter(total_amount__gte=min_price)
+        if max_price:
+            queryset = queryset.filter(total_amount__lte=max_price)
+        if min_items or max_items:
+            from django.db.models import Count
+            queryset = queryset.annotate(items_count=Count('items'))
+            if min_items:
+                queryset = queryset.filter(items_count__gte=min_items)
+            if max_items:
+                queryset = queryset.filter(items_count__lte=max_items)
+        if product_name:
+            queryset = queryset.filter(items__product__title__icontains=product_name).distinct()
+        if brand_name:
+            queryset = queryset.filter(items__product__brand__name__icontains=brand_name).distinct()
         return queryset
+
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)

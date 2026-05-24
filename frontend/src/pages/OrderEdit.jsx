@@ -35,6 +35,16 @@ const OrderEdit = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Format currency helper
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(parseFloat(amount) || 0);
+  };
+
   const customerDropdownRef = useRef(null);
 
   const { data: order, isLoading, error } = useQuery({
@@ -270,15 +280,6 @@ const OrderEdit = () => {
       className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50"
     >
       <div className="container mx-auto px-4 max-w-full">
-        <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center space-x-3 mr-4">
-            <ShoppingCart className="w-5 h-5 text-blue-600" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Edit Order
-            </h1>
-          </div>
-        </div>
-
         {/* Order Details Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-7 gap-2">

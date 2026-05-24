@@ -453,7 +453,7 @@ export const CallPopupProvider = ({ children }) => {
   };
 
   const placeOrder = () => {
-    navigate('/orders/new?customer=' + customer.id);
+    navigate('/orders/new?customer=' + customer.id + '&customer_name=' + encodeURIComponent(customer.name || ''));
   };
 
   const convertToCustomer = async () => {

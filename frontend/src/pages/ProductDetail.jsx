@@ -94,6 +94,33 @@ const ProductDetail = () => {
     }).format(amount);
   };
 
+  // Helper to format charge values based on type (% vs ₹)
+  const formatChargeValue = (value, type) => {
+    if (value === undefined || value === null) return "-";
+    const num = parseFloat(value);
+    if (type === "percent") {
+      return `${num}%`;
+    }
+    return formatCurrency(num);
+  };
+
+  // Resolved pricing with ProductPricing overrides & base fallback values
+  const displayPrice = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null
+    ? parseFloat(product.pricing.sale_rate)
+    : parseFloat(product?.price || 0);
+
+  const displayMRP = product?.pricing?.mrp !== undefined && product?.pricing?.mrp !== null
+    ? parseFloat(product.pricing.mrp)
+    : parseFloat(product?.mrp || 0);
+
+  const displayLandingRate = product?.pricing?.landing_rate !== undefined && product?.pricing?.landing_rate !== null
+    ? parseFloat(product.pricing.landing_rate)
+    : null;
+
+  const displayCalculatedRate = product?.pricing?.calculated_rate !== undefined && product?.pricing?.calculated_rate !== null
+    ? parseFloat(product.pricing.calculated_rate)
+    : null;
+
   // Get all product images
   const getProductImages = () => {
     const images = [];
@@ -294,25 +321,42 @@ const ProductDetail = () => {
               </h1>
 
               {/* Price Section */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <div className="bg-gradient-to-br from-[#1a2332] to-[#253247] border border-slate-100 rounded-xl p-5 mb-6 shadow-sm">
+                <div className="text-xs font-semibold text-white uppercase tracking-wider mb-1">Selling Price</div>
                 <div className="flex items-baseline gap-3 mb-2">
-                  <span className="text-3xl font-bold text-gray-900">
-                    {formatCurrency(product?.price)}
+                  <span className="text-3xl font-bold text-white">
+                    {formatCurrency(displayPrice)}
                   </span>
-                  {product?.mrp > product?.price && (
+                  {displayMRP > displayPrice && (
                     <>
-                      <span className="text-lg text-gray-500 line-through">
-                        {formatCurrency(product?.mrp)}
+                      <span className="text-lg text-white line-through">
+                        {formatCurrency(displayMRP)}
                       </span>
-                      <span className="text-sm text-green-600 font-semibold">
-                        Save {formatCurrency(product?.mrp - product?.price)}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700">
+                        Save {formatCurrency(displayMRP - displayPrice)}
                       </span>
                     </>
                   )}
                 </div>
-                <div className="text-sm text-green-600 font-medium">
-                  ✓ Inclusive of all taxes
+                <div className="text-xs text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle className="h-3.5 w-3.5" /> Inclusive of all taxes
                 </div>
+
+                {/* Batch & Mfg date if present in pricing */}
+                {product?.pricing && (product.pricing.batch_no || product.pricing.mfg_date) && (
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-white mt-3">
+                    {product.pricing.batch_no && (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[#1a2332]/10 text-white border border-white">
+                        <span className="font-semibold mr-1">Batch:</span> {product.pricing.batch_no}
+                      </span>
+                    )}
+                    {product.pricing.mfg_date && (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[#1a2332]/10 text-white border border-white">
+                        <span className="font-semibold mr-1">Mfg Date:</span> {new Date(product.pricing.mfg_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Product Details Table */}
@@ -410,7 +454,7 @@ const ProductDetail = () => {
                           MRP
                         </td>
                         <td className="px-4 py-3">
-                          {formatCurrency(product?.mrp)}
+                          {formatCurrency(displayMRP)}
                         </td>
                       </tr>
                     </tbody>
@@ -424,9 +468,29 @@ const ProductDetail = () => {
                           Selling Price
                         </td>
                         <td className="px-4 py-3">
-                          {formatCurrency(product?.price)}
+                          {formatCurrency(displayPrice)}
                         </td>
                       </tr>
+                      {displayLandingRate !== null && (
+                        <tr className="border-b border-gray-200">
+                          <td className="font-semibold px-4 py-3 bg-[#1a2332] text-white w-1/3">
+                            Landing Cost
+                          </td>
+                          <td className="px-4 py-3">
+                            {formatCurrency(displayLandingRate)}
+                          </td>
+                        </tr>
+                      )}
+                      {displayCalculatedRate !== null && (
+                        <tr className="border-b border-gray-200">
+                          <td className="font-semibold px-4 py-3 bg-[#1a2332] text-white w-1/3">
+                            Calculated Price
+                          </td>
+                          <td className="px-4 py-3">
+                            {formatCurrency(displayCalculatedRate)}
+                          </td>
+                        </tr>
+                      )}
                       {product?.b2c_price > 0 && (
                         <tr className="border-b border-gray-200">
                           <td className="font-semibold px-4 py-3 bg-[#1a2332] text-white w-1/3">
@@ -447,13 +511,13 @@ const ProductDetail = () => {
                           </td>
                         </tr>
                       )}
-                      {product?.purchase_price > 0 && (
+                      {(product?.pricing?.purchase_value > 0 || product?.purchase_price > 0) && (
                         <tr className="border-b border-gray-200">
                           <td className="font-semibold px-4 py-3 bg-[#1a2332] text-white w-1/3">
                             Purchase Price
                           </td>
                           <td className="px-4 py-3">
-                            {formatCurrency(product?.purchase_price)}
+                            {formatCurrency(product?.pricing?.purchase_value || product?.purchase_price)}
                           </td>
                         </tr>
                       )}
@@ -620,6 +684,9 @@ const ProductDetail = () => {
               </div>
             </div>
           </div>
+
+          {/* Detailed Pricing & Cost Structure Dashboard */}
+          
         </div>
       </div>
 

@@ -38,14 +38,14 @@ import {
 import { toast } from 'react-hot-toast';
 
 const OrderDetail = () => {
-    // Fetch products for original price lookup
-    const { data: products } = useQuery({
-      queryKey: ['products'],
-      queryFn: async () => {
-        const response = await axios.get('/api/products/');
-        return response.data;
-      },
-    });
+  // Fetch products for original price lookup
+  const { data: products } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const response = await axios.get('/api/products/');
+      return response.data;
+    },
+  });
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -112,7 +112,7 @@ const OrderDetail = () => {
   };
 
   const getPaymentStatusBadge = (status) => {
-    return status === 'Paid' 
+    return status === 'Paid'
       ? 'bg-emerald-100 text-emerald-800'
       : 'bg-rose-100 text-rose-800';
   };
@@ -196,8 +196,8 @@ const OrderDetail = () => {
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-gray-800 text-center mb-2">Error Loading Order</h2>
         <p className="text-gray-600 text-center mb-6">{error.message}</p>
-        <Link 
-          to="/orders" 
+        <Link
+          to="/orders"
           className="block w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded transition text-center"
         >
           Back to Orders
@@ -212,8 +212,8 @@ const OrderDetail = () => {
         <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-gray-800 mb-2">Order Not Found</h2>
         <p className="text-gray-600 mb-6">The requested order could not be found.</p>
-        <Link 
-          to="/orders" 
+        <Link
+          to="/orders"
           className="inline-flex items-center px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -380,142 +380,635 @@ const OrderDetail = () => {
           {/* Items Table */}
           <table className="w-full border-collapse border-t border-gray-300">
             <thead>
-              <tr className="bg-gray-100 border-b border-gray-300">
-                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">Combo Offer</th>
-                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="4">Paid Items</th>
-                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="3">Free Items</th>
-                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700" colSpan="2">Gifts</th>
+              <tr className="bg-[#1a2332] border-b border-gray-300">
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-white">Combo Name</th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-white" colSpan="4">Purchase Product</th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-white" colSpan="3">Free Product</th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-white" colSpan="3">Gift Product</th>
+                <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-white" colSpan="2">Total</th>
               </tr>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600"></th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Offer Price</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Qty</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Product</th>
-                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-gray-600">Original Price</th>
-                
+              <tr className="bg-[#1a2332] border-b border-gray-300">
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Mrp</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Offer Price</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Mrp</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Mrp</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total Mrp</th>
+                <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Combo Price</th>
               </tr>
             </thead>
             <tbody>
-              {comboDetails.length > 0 ? (
-                comboDetails.map((combo, idx) => {
-                  // Find applied quantity
-                  const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
-                  const appliedQuantity = appliedCombo?.quantity || 1;
-                  // Paid Items
-                  const paidItems = combo.items || [];
-                  // Free Items
-                  const freeItems = combo.rewards || [];
-                  // Gifts
-                  const giftItems = combo.gifts || [];
+              {(() => {
+                // Initialize Grand Total accumulators
+                let purchaseTotalQty = 0;
+                let purchaseTotalMrp = 0;
+                let purchaseTotalOffer = 0;
+                let purchaseTotalTaxable = 0;
+                let purchaseTotalGst = 0;
 
-                  // Lookup original price for paid/free/gift items
-                  const getOriginalPrice = (productId) => {
-                    const productObj = products && products.find(p => p.id === productId);
-                    return productObj && productObj.price ? parseFloat(productObj.price) : 0;
+                let freeTotalQty = 0;
+                let freeTotalMrp = 0;
+                let freeTotalTaxable = 0;
+                let freeTotalGst = 0;
+
+                let giftTotalQty = 0;
+                let giftTotalMrp = 0;
+                let giftTotalTaxable = 0;
+                let giftTotalGst = 0;
+
+                let grandTotalRegular = 0;
+                let grandTotalOffer = 0;
+
+                // Render helpers
+                const formatCurrencyVal = (val) => formatCurrency(val);
+
+                // Helper: Get original price (MRP) from products list (supporting ProductPricing)
+                const getOriginalPrice = (productId) => {
+                  const productObj = products && products.find(p => p.id === productId);
+                  if (productObj) {
+                    if (productObj.pricing?.mrp !== undefined && productObj.pricing?.mrp !== null) {
+                      return parseFloat(productObj.pricing.mrp);
+                    }
+                    return parseFloat(productObj.mrp || productObj.price || 0);
+                  }
+                  return 0;
+                };
+
+                // Helper: Get GST rate from products list
+                const getProductGstRate = (productId) => {
+                  const productObj = products && products.find(p => p.id === productId);
+                  if (productObj) {
+                    if (productObj.gst_rate_display) {
+                      return parseFloat(productObj.gst_rate_display) || 0;
+                    }
+                    if (productObj.gst_rate) {
+                      if (typeof productObj.gst_rate === 'object') {
+                        return parseFloat(productObj.gst_rate.rate) || 0;
+                      }
+                      return parseFloat(productObj.gst_rate) || 0;
+                    }
+                  }
+                  return 0;
+                };
+
+                // Helper: Replicate OrderNew calculateComboSavings supporting manual combo price
+                const calculateComboSavings = (combo, quantity = 1) => {
+                  let regularTotal = 0;
+                  let offerTotal = 0;
+
+                  combo.items?.forEach((item) => {
+                    const mrpVal = getOriginalPrice(item.product);
+                    regularTotal += mrpVal * item.quantity_required * quantity;
+                  });
+
+                  if (combo.manual_combo_price !== undefined && combo.manual_combo_price !== null && parseFloat(combo.manual_combo_price) > 0) {
+                    offerTotal = parseFloat(combo.manual_combo_price) * quantity;
+                  } else {
+                    combo.items?.forEach((item) => {
+                      const prodObj = products?.find(p => p.id === item.product);
+                      const saleVal = prodObj?.pricing?.sale_rate !== undefined && prodObj?.pricing?.sale_rate !== null
+                        ? parseFloat(prodObj.pricing.sale_rate)
+                        : parseFloat(prodObj?.price || 0);
+                      const offerPrice = item.offer_price ? parseFloat(item.offer_price) : saleVal;
+                      offerTotal += offerPrice * item.quantity_required * quantity;
+                    });
+                  }
+
+                  combo.rewards?.forEach((reward) => {
+                    const mrpVal = getOriginalPrice(reward.product);
+                    regularTotal += mrpVal * reward.quantity_free * quantity;
+                  });
+
+                  combo.gifts?.forEach((gift) => {
+                    const mrpVal = getOriginalPrice(gift.product);
+                    const giftQty = gift.quantity_free || gift.quantity || 1;
+                    regularTotal += mrpVal * giftQty * quantity;
+                  });
+
+                  return {
+                    regularTotal,
+                    offerTotal,
+                    savings: regularTotal - offerTotal,
+                    savingsPercentage: regularTotal > 0 ? ((regularTotal - offerTotal) / regularTotal * 100).toFixed(1) : 0
                   };
+                };
+
+                if (comboDetails.length > 0) {
+                  return (
+                    <>
+                      {comboDetails.flatMap((combo, comboIdx) => {
+                        const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
+                        const appliedQuantity = appliedCombo?.quantity || 1;
+                        
+                        const savingsObj = calculateComboSavings(combo, appliedQuantity);
+                        grandTotalRegular += savingsObj.regularTotal;
+                        grandTotalOffer += savingsObj.offerTotal;
+
+                        const paidItems = combo.items || [];
+                        const freeItems = combo.rewards || [];
+                        const giftItems = combo.gifts || [];
+
+                        const maxLength = Math.max(paidItems.length, freeItems.length, giftItems.length, 1);
+
+                        return Array.from({ length: maxLength }).map((_, i) => {
+                          const paidItem = paidItems[i];
+                          const freeItem = freeItems[i];
+                          const giftItem = giftItems[i];
+
+                          // Calculations for Paid Item
+                          let paidItemJsx = (
+                            <>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            </>
+                          );
+                          if (paidItem) {
+                            const unitMrp = getOriginalPrice(paidItem.product);
+                            const itemQty = paidItem.quantity_required * appliedQuantity;
+                            const totalMrp = unitMrp * itemQty;
+                            const unitOffer = parseFloat(paidItem.offer_price) || 0;
+                            const totalOffer = unitOffer * itemQty;
+                            const gstRate = getProductGstRate(paidItem.product);
+                            const taxableOffer = totalOffer / (1 + gstRate / 100);
+                            const gstOfferAmount = totalOffer - taxableOffer;
+
+                            purchaseTotalQty += itemQty;
+                            purchaseTotalMrp += totalMrp;
+                            purchaseTotalOffer += totalOffer;
+                            purchaseTotalTaxable += taxableOffer;
+                            purchaseTotalGst += gstOfferAmount;
+
+                            paidItemJsx = (
+                              <>
+                                <td className="border border-gray-300 px-4 py-3 text-sm">
+                                  <div className="font-semibold text-gray-900">{paidItem.product_title}</div>
+                                  <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                                    GST: {gstRate}% | Taxable: {formatCurrencyVal(taxableOffer)} | Tax: {formatCurrencyVal(gstOfferAmount)}
+                                  </div>
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-sm text-center font-medium text-gray-900">
+                                  {itemQty}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                  <div className="text-gray-900 font-medium">{formatCurrencyVal(totalMrp)}</div>
+                                  <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(unitMrp)}</div>
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                  <div className="text-green-700 font-bold">{formatCurrencyVal(totalOffer)}</div>
+                                  <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(unitOffer)}</div>
+                                </td>
+                              </>
+                            );
+                          }
+
+                          // Calculations for Free Item
+                          let freeItemJsx = (
+                            <>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            </>
+                          );
+                          if (freeItem) {
+                            const unitMrp = getOriginalPrice(freeItem.product);
+                            const itemQty = freeItem.quantity_free * appliedQuantity;
+                            const totalMrp = unitMrp * itemQty;
+                            const gstRate = getProductGstRate(freeItem.product);
+                            const taxableMrp = totalMrp / (1 + gstRate / 100);
+                            const gstMrpAmount = totalMrp - taxableMrp;
+
+                            freeTotalQty += itemQty;
+                            freeTotalMrp += totalMrp;
+                            freeTotalTaxable += taxableMrp;
+                            freeTotalGst += gstMrpAmount;
+
+                            freeItemJsx = (
+                              <>
+                                <td className="border border-gray-300 px-4 py-3 text-sm">
+                                  <div className="font-semibold text-gray-900">{freeItem.product_title}</div>
+                                  <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                                    GST: {gstRate}% | Taxable: {formatCurrencyVal(taxableMrp)} | Tax: {formatCurrencyVal(gstMrpAmount)}
+                                  </div>
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-sm text-center font-medium text-gray-900">
+                                  {itemQty}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                  <div className="text-gray-900 font-medium">{formatCurrencyVal(totalMrp)}</div>
+                                  <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(unitMrp)}</div>
+                                </td>
+                              </>
+                            );
+                          }
+
+                          // Calculations for Gift Item
+                          let giftItemJsx = (
+                            <>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            </>
+                          );
+                          const giftQtyVal = giftItem ? (giftItem.quantity_free || giftItem.quantity || 1) : 0;
+                          if (giftItem) {
+                            const unitMrp = getOriginalPrice(giftItem.product);
+                            const itemQty = giftQtyVal * appliedQuantity;
+                            const totalMrp = unitMrp * itemQty;
+                            const gstRate = getProductGstRate(giftItem.product);
+                            const taxableMrp = totalMrp / (1 + gstRate / 100);
+                            const gstMrpAmount = totalMrp - taxableMrp;
+
+                            giftTotalQty += itemQty;
+                            giftTotalMrp += totalMrp;
+                            giftTotalTaxable += taxableMrp;
+                            giftTotalGst += gstMrpAmount;
+
+                            giftItemJsx = (
+                              <>
+                                <td className="border border-gray-300 px-4 py-3 text-sm">
+                                  <div className="font-semibold text-gray-900">{giftItem.product_title}</div>
+                                  <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                                    GST: {gstRate}% | Taxable: {formatCurrencyVal(taxableMrp)} | Tax: {formatCurrencyVal(gstMrpAmount)}
+                                  </div>
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-sm text-center font-medium text-gray-900">
+                                  {itemQty}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                  <div className="text-gray-900 font-medium">{formatCurrencyVal(totalMrp)}</div>
+                                  <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(unitMrp)}</div>
+                                </td>
+                              </>
+                            );
+                          }
+
+                          return (
+                            <tr key={`${combo.id}-${i}`} className="hover:bg-gray-50">
+                              {i === 0 && (
+                                <td className="border border-gray-300 px-4 py-3 align-middle bg-gray-50/50" rowSpan={maxLength}>
+                                  <div className="font-bold text-gray-900 text-sm">{combo.name}</div>
+                                  <div className="text-xs text-green-700 mt-1 font-semibold">Qty: {appliedQuantity}</div>
+                                </td>
+                              )}
+                              {paidItemJsx}
+                              {freeItemJsx}
+                              {giftItemJsx}
+                              {i === 0 && (
+                                <>
+                                  <td className="border border-gray-300 px-4 py-3 text-sm text-right align-middle font-medium text-gray-900 bg-gray-50/20" rowSpan={maxLength}>
+                                    {formatCurrencyVal(savingsObj.regularTotal)}
+                                  </td>
+                                  <td className="border border-gray-300 px-4 py-3 text-sm text-right align-middle font-bold text-green-700 bg-gray-50/20" rowSpan={maxLength}>
+                                    {formatCurrencyVal(savingsObj.offerTotal)}
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          );
+                        });
+                      })}
+                      {renderGrandTotalsRow()}
+                    </>
+                  );
+                } else {
+                  // Non-combo order items list
+                  if (!products || !Array.isArray(products)) {
+                    return (
+                      <tr>
+                        <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                          Loading product data...
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  if (!order.items || order.items.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                          No items found for this order
+                        </td>
+                      </tr>
+                    );
+                  }
 
                   return (
-                    <tr key={combo.id} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-3">
-                        <div className="font-medium text-gray-900">{combo.name}</div>
-                        <div className="text-xs text-green-600 mt-1">Qty: {appliedQuantity}</div>
+                    <>
+                      {order.items.map((item, idx) => {
+                        let itemType = 'Paid';
+                        if (item.is_free) itemType = 'Free';
+                        if (item.is_gift) itemType = 'Gift';
+
+                        const originalPrice = getOriginalPrice(item.product);
+                        const gstRate = parseFloat(item.gst_rate_display) || getProductGstRate(item.product);
+
+                        let paidItemJsx = (
+                          <>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                          </>
+                        );
+
+                        let freeItemJsx = (
+                          <>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                          </>
+                        );
+
+                        let giftItemJsx = (
+                          <>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400">-</td>
+                          </>
+                        );
+
+                        if (itemType === 'Paid') {
+                          const totalMrp = originalPrice * item.quantity;
+                          const totalOffer = parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0;
+                          const taxableOffer = totalOffer / (1 + gstRate / 100);
+                          const gstOfferAmount = totalOffer - taxableOffer;
+
+                          purchaseTotalQty += item.quantity;
+                          purchaseTotalMrp += totalMrp;
+                          purchaseTotalOffer += totalOffer;
+                          purchaseTotalTaxable += taxableOffer;
+                          purchaseTotalGst += gstOfferAmount;
+
+                          paidItemJsx = (
+                            <>
+                              <td className="border border-gray-300 px-4 py-3 text-sm">
+                                <div className="font-semibold text-gray-900">{item.product_title}</div>
+                                <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                                  GST: {gstRate}% | Taxable: {formatCurrencyVal(taxableOffer)} | Tax: {formatCurrencyVal(gstOfferAmount)}
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center font-medium text-gray-900">
+                                {item.quantity}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                <div className="text-gray-900 font-medium">{formatCurrencyVal(totalMrp)}</div>
+                                <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(originalPrice)}</div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                <div className="text-green-700 font-bold">{formatCurrencyVal(totalOffer)}</div>
+                                <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(parseFloat(item.unit_price) || 0)}</div>
+                              </td>
+                            </>
+                          );
+                        } else if (itemType === 'Free') {
+                          const totalMrp = originalPrice * item.quantity;
+                          const taxableMrp = totalMrp / (1 + gstRate / 100);
+                          const gstMrpAmount = totalMrp - taxableMrp;
+
+                          freeTotalQty += item.quantity;
+                          freeTotalMrp += totalMrp;
+                          freeTotalTaxable += taxableMrp;
+                          freeTotalGst += gstMrpAmount;
+
+                          freeItemJsx = (
+                            <>
+                              <td className="border border-gray-300 px-4 py-3 text-sm">
+                                <div className="font-semibold text-gray-900">{item.product_title}</div>
+                                <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                                  GST: {gstRate}% | Taxable: {formatCurrencyVal(taxableMrp)} | Tax: {formatCurrencyVal(gstMrpAmount)}
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center font-medium text-gray-900">
+                                {item.quantity}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                <div className="text-gray-900 font-medium">{formatCurrencyVal(totalMrp)}</div>
+                                <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(originalPrice)}</div>
+                              </td>
+                            </>
+                          );
+                        } else if (itemType === 'Gift') {
+                          const totalMrp = originalPrice * item.quantity;
+                          const taxableMrp = totalMrp / (1 + gstRate / 100);
+                          const gstMrpAmount = totalMrp - taxableMrp;
+
+                          giftTotalQty += item.quantity;
+                          giftTotalMrp += totalMrp;
+                          giftTotalTaxable += taxableMrp;
+                          giftTotalGst += gstMrpAmount;
+
+                          giftItemJsx = (
+                            <>
+                              <td className="border border-gray-300 px-4 py-3 text-sm">
+                                <div className="font-semibold text-gray-900">{item.product_title}</div>
+                                <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                                  GST: {gstRate}% | Taxable: {formatCurrencyVal(taxableMrp)} | Tax: {formatCurrencyVal(gstMrpAmount)}
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-center font-medium text-gray-900">
+                                {item.quantity}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                                <div className="text-gray-900 font-medium">{formatCurrencyVal(totalMrp)}</div>
+                                <div className="text-[10px] text-gray-400">Unit: {formatCurrencyVal(originalPrice)}</div>
+                              </td>
+                            </>
+                          );
+                        }
+
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-600 bg-gray-50/50">
+                              {itemType}
+                            </td>
+                            {paidItemJsx}
+                            {freeItemJsx}
+                            {giftItemJsx}
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400 bg-gray-50/5">-</td>
+                            <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-400 bg-gray-50/5">-</td>
+                          </tr>
+                        );
+                      })}
+                      {renderGrandTotalsRow()}
+                    </>
+                  );
+                }
+
+                // Helper: Grand totals row renderer
+                function renderGrandTotalsRow() {
+                  return (
+                    <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-gray-900 uppercase tracking-wider">
+                        GRAND TOTALS
                       </td>
-                      {/* Paid Items */}
-                      <td className="border border-gray-300 px-4 py-3 text-sm">
-                        {paidItems.length > 0 ? paidItems[0].product_title || '-' : '-'}
-                        {paidItems.length > 1 && (
-                          <span className="ml-1 text-xs text-gray-500">+{paidItems.length - 1} more</span>
-                        )}
+                      {/* Purchase Section Totals */}
+                      <td className="border border-gray-300 px-4 py-3 text-[11px] text-gray-700 leading-tight">
+                        <div>Taxable: {formatCurrencyVal(purchaseTotalTaxable)}</div>
+                        <div className="mt-0.5">GST: {formatCurrencyVal(purchaseTotalGst)}</div>
                       </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                        {paidItems.length > 0 ? paidItems[0].quantity_required : '-'}
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-900 font-bold">
+                        {purchaseTotalQty}
                       </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                        {paidItems.length > 0 ? formatCurrency(getOriginalPrice(paidItems[0].product)) : '-'}
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right text-gray-900 font-bold">
+                        {formatCurrencyVal(purchaseTotalMrp)}
                       </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
-                        {paidItems.length > 0 ? formatCurrency(paidItems[0].offer_price || 0) : '-'}
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-800 font-extrabold">
+                        {formatCurrencyVal(purchaseTotalOffer)}
                       </td>
-                      {/* Free Items */}
-                      <td className="border border-gray-300 px-4 py-3 text-sm">
-                        {freeItems.length > 0 ? freeItems[0].product_title || '-' : '-'}
-                        {freeItems.length > 1 && (
-                          <span className="ml-1 text-xs text-gray-500">+{freeItems.length - 1} more</span>
-                        )}
+
+                      {/* Free Section Totals */}
+                      <td className="border border-gray-300 px-4 py-3 text-[11px] text-gray-700 leading-tight">
+                        <div>Taxable: {formatCurrencyVal(freeTotalTaxable)}</div>
+                        <div className="mt-0.5">GST: {formatCurrencyVal(freeTotalGst)}</div>
                       </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                        {freeItems.length > 0 ? freeItems[0].quantity_free : '-'}
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-900 font-bold">
+                        {freeTotalQty}
                       </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                        {freeItems.length > 0 ? formatCurrency(getOriginalPrice(freeItems[0].product)) : '-'}
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right text-gray-900 font-bold">
+                        {formatCurrencyVal(freeTotalMrp)}
                       </td>
-                      {/* Gifts */}
-                      <td className="border border-gray-300 px-4 py-3 text-sm">
-                        {giftItems.length > 0 ? giftItems[0].product_title || '-' : '-'}
-                        {giftItems.length > 1 && (
-                          <span className="ml-1 text-xs text-gray-500">+{giftItems.length - 1} more</span>
-                        )}
+
+                      {/* Gift Section Totals */}
+                      <td className="border border-gray-300 px-4 py-3 text-[11px] text-gray-700 leading-tight">
+                        <div>Taxable: {formatCurrencyVal(giftTotalTaxable)}</div>
+                        <div className="mt-0.5">GST: {formatCurrencyVal(giftTotalGst)}</div>
                       </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                        {giftItems.length > 0 ? formatCurrency(getOriginalPrice(giftItems[0].product)) : '-'}
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-900 font-bold">
+                        {giftTotalQty}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right text-gray-900 font-bold">
+                        {formatCurrencyVal(giftTotalMrp)}
+                      </td>
+
+                      {/* Overall Totals */}
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold text-gray-900">
+                        {grandTotalRegular > 0 ? formatCurrencyVal(grandTotalRegular) : '-'}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold text-green-700">
+                        {grandTotalOffer > 0 ? formatCurrencyVal(grandTotalOffer) : '-'}
                       </td>
                     </tr>
                   );
-                })
-              ) : (
-                (!products || !Array.isArray(products)) ? (
-                  <tr>
-                    <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                      Loading product data...
-                    </td>
-                  </tr>
-                ) : (
-                  order.items && order.items.length > 0 ? (
-                    order.items.map((item, idx) => {
-                      // Determine item type
-                      let itemType = 'Paid';
-                      if (item.is_free) itemType = 'Free';
-                      if (item.is_gift) itemType = 'Gift';
-                      // Lookup original price from products array
-                      let originalPrice = 0;
-                      const productObj = products && products.find(p => p.id === item.product);
-                      if (productObj && productObj.price) {
-                        originalPrice = parseFloat(productObj.price);
-                      }
-                      return (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="border border-gray-300 px-4 py-3 font-medium text-gray-900">{itemType}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm">{item.product_title}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-center">{item.quantity}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-right">{formatCurrency(originalPrice)}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">{formatCurrency(item.total_price)}</td>
-                          {/* Free Items */}
-                          <td className="border border-gray-300 px-4 py-3 text-sm">{item.is_free ? item.product_title : '-'}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-center">{item.is_free ? item.quantity : '-'}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-right">{item.is_free ? formatCurrency(originalPrice) : '-'}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">{item.is_free ? formatCurrency(item.total_price) : '-'}</td>
-                          {/* Gifts */}
-                          <td className="border border-gray-300 px-4 py-3 text-sm">{item.is_gift ? item.product_title : '-'}</td>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-right">{item.is_gift ? formatCurrency(item.total_price) : '-'}</td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                        No items found for this order
-                      </td>
-                    </tr>
-                  )
-                )
-              )}
+                }
+              })()}
             </tbody>
           </table>
+
+          {/* Consolidated Product Quantity Summary Table */}
+          {(() => {
+            const consolidatedProducts = {};
+            const getProductTitle = (productId, fallbackTitle) => {
+              const productObj = products && products.find(p => p.id === productId);
+              return productObj && productObj.title ? productObj.title : fallbackTitle;
+            };
+
+            const addConsolidated = (productId, fallbackTitle, qty, type) => {
+              if (!productId) return;
+              if (!consolidatedProducts[productId]) {
+                consolidatedProducts[productId] = {
+                  productTitle: getProductTitle(productId, fallbackTitle) || `Product #${productId}`,
+                  paidQty: 0,
+                  freeQty: 0,
+                  giftQty: 0,
+                };
+              }
+              if (type === 'Paid') {
+                consolidatedProducts[productId].paidQty += qty;
+              } else if (type === 'Free') {
+                consolidatedProducts[productId].freeQty += qty;
+              } else if (type === 'Gift') {
+                consolidatedProducts[productId].giftQty += qty;
+              }
+            };
+
+            if (comboDetails.length > 0) {
+              comboDetails.forEach((combo) => {
+                const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
+                const appliedQuantity = appliedCombo?.quantity || 1;
+
+                (combo.items || []).forEach(item => {
+                  const qty = item.quantity_required * appliedQuantity;
+                  addConsolidated(item.product, item.product_title, qty, 'Paid');
+                });
+
+                (combo.rewards || []).forEach(reward => {
+                  const qty = reward.quantity_free * appliedQuantity;
+                  addConsolidated(reward.product, reward.product_title, qty, 'Free');
+                });
+
+                (combo.gifts || []).forEach(gift => {
+                  const giftQtyVal = gift.quantity_free || gift.quantity || 1;
+                  const qty = giftQtyVal * appliedQuantity;
+                  addConsolidated(gift.product, gift.product_title, qty, 'Gift');
+                });
+              });
+            } else if (order.items && order.items.length > 0) {
+              order.items.forEach(item => {
+                let type = 'Paid';
+                if (item.is_free) type = 'Free';
+                if (item.is_gift) type = 'Gift';
+                addConsolidated(item.product, item.product_title, item.quantity, type);
+              });
+            }
+
+            const productKeys = Object.keys(consolidatedProducts);
+            if (productKeys.length === 0) return null;
+
+            return (
+              <table className="w-full border-collapse border-t border-gray-300">
+                <thead>
+                  <tr className="bg-[#1a2332] border-b border-gray-300">
+                    <th colSpan="5" className="px-6 py-3 text-left text-sm font-semibold text-white">
+                      <div className="flex items-center">
+                        <Package className="h-4 w-4 mr-2 text-blue-400" />
+                        CONSOLIDATED PRODUCT QUANTITY SUMMARY
+                      </div>
+                    </th>
+                  </tr>
+                  <tr className="bg-gray-100 border-b border-gray-300">
+                    <th className="px-6 py-2 border border-gray-300 text-left text-xs font-semibold text-gray-700 w-1/2">Product Name</th>
+                    <th className="px-4 py-2 border border-gray-300 text-center text-xs font-semibold text-gray-700 w-1/8">Paid Qty</th>
+                    <th className="px-4 py-2 border border-gray-300 text-center text-xs font-semibold text-gray-700 w-1/8">Free Qty</th>
+                    <th className="px-4 py-2 border border-gray-300 text-center text-xs font-semibold text-gray-700 w-1/8">Gift Qty</th>
+                    <th className="px-6 py-2 border border-gray-300 text-center text-xs font-bold text-gray-900 bg-gray-200/50 w-1/8">Total Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productKeys.map((key) => {
+                    const prod = consolidatedProducts[key];
+                    const totalQty = prod.paidQty + prod.freeQty + prod.giftQty;
+                    return (
+                      <tr key={key} className="hover:bg-gray-50 border-b border-gray-200">
+                        <td className="px-6 py-3 border border-gray-300 text-sm font-semibold text-gray-800">
+                          {prod.productTitle}
+                        </td>
+                        <td className="px-4 py-3 border border-gray-300 text-sm text-center text-gray-700 font-medium">
+                          {prod.paidQty || <span className="text-gray-300">-</span>}
+                        </td>
+                        <td className="px-4 py-3 border border-gray-300 text-sm text-center text-gray-700 font-medium">
+                          {prod.freeQty || <span className="text-gray-300">-</span>}
+                        </td>
+                        <td className="px-4 py-3 border border-gray-300 text-sm text-center text-gray-700 font-medium">
+                          {prod.giftQty || <span className="text-gray-300">-</span>}
+                        </td>
+                        <td className="px-6 py-3 border border-gray-300 text-sm text-center font-bold text-blue-700 bg-blue-50/30">
+                          {totalQty}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+          })()}
 
           {/* Payment & Status Table */}
           <table className="w-full border-collapse border-t border-gray-300">

@@ -164,6 +164,13 @@ class ProductSerializer(serializers.ModelSerializer):
             response['packing_weight_unit_id'] = None
             response['packing_weight_unit_display'] = None
         
+        # Serialize related ProductPricing if it exists
+        pricing_instance = instance.pricings.first()
+        if pricing_instance:
+            response['pricing'] = ProductPricingSerializer(pricing_instance, context=self.context).data
+        else:
+            response['pricing'] = None
+
         return response
 
 # ProductPricing Serializer

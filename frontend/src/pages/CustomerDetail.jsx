@@ -1064,7 +1064,7 @@ const CustomerDetail = () => {
                 Call
               </button>
               <button
-                onClick={() => navigate(`/orders/new?customer=${customer?.id}`)}
+                onClick={() => navigate(`/orders/new?customer=${customer?.id}&customer_name=${encodeURIComponent(customer?.name || "")}`)}
                 className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm whitespace-nowrap"
               >
                 <ShoppingBag className="h-4 w-4 mr-2" />
