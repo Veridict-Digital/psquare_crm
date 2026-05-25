@@ -62,6 +62,8 @@ const ProductList = () => {
   const [filterMaxPackingWeight, setFilterMaxPackingWeight] = useState('');
   const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
   const [titleSuggestionIndex, setTitleSuggestionIndex] = useState(-1);
+  const [showSkuSuggestions, setShowSkuSuggestions] = useState(false);
+  const [skuSuggestionIndex, setSkuSuggestionIndex] = useState(-1);
 
   // Price range filters
   const [filterPriceType, setFilterPriceType] = useState('');
@@ -453,6 +455,31 @@ const ProductList = () => {
       .slice(0, 8);
   }, [filterTitle, productsData]);
 
+  // Product SKU searchable suggestions using useMemo
+  const productSkuSuggestions = useMemo(() => {
+    const searchText = filterSKU.trim().toLowerCase();
+    if (!searchText || !productsData) return [];
+
+    const seen = new Set();
+    return productsData
+      .map((item) => item.sku)
+      .filter(Boolean)
+      .filter((sku) => sku.toLowerCase().includes(searchText))
+      .filter((sku) => {
+        const normalized = sku.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStarts = a.toLowerCase().startsWith(searchText);
+        const bStarts = b.toLowerCase().startsWith(searchText);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 8);
+  }, [filterSKU, productsData]);
+
   // Apply filters handler - copies draft filters to active filters
   const handleApplyFilters = useCallback(() => {
     setActiveFilters({
@@ -513,6 +540,10 @@ const ProductList = () => {
     setSearch("");
     setFilterSKU("");
     setFilterTitle("");
+    setShowSkuSuggestions(false);
+    setSkuSuggestionIndex(-1);
+    setShowTitleSuggestions(false);
+    setTitleSuggestionIndex(-1);
     setSelectedCategoryId("");
     setSelectedCategory1Id("");
     setSelectedCategory2Id("");
@@ -648,17 +679,86 @@ const ProductList = () => {
           <div className="w-full bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
             {/* Row 1: Basic Product Info & Weight Range */}
             <div className="grid grid-cols-12 gap-3 mb-4">
-              <div className="col-span-2">
+              <div className="col-span-2 relative">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   SKU
                 </label>
                 <input
                   type="text"
                   value={filterSKU}
-                  onChange={(e) => setFilterSKU(e.target.value)}
+                  onChange={(e) => {
+                    setFilterSKU(e.target.value);
+                    setShowSkuSuggestions(true);
+                    setSkuSuggestionIndex(-1);
+                  }}
+                  onFocus={() => setShowSkuSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowSkuSuggestions(false), 150)
+                  }
+                  onKeyDown={(e) => {
+                    if (
+                      !showSkuSuggestions ||
+                      productSkuSuggestions.length === 0
+                    ) {
+                      return;
+                    }
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSkuSuggestionIndex((prev) =>
+                        prev < productSkuSuggestions.length - 1
+                          ? prev + 1
+                          : 0
+                      );
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSkuSuggestionIndex((prev) =>
+                        prev > 0
+                          ? prev - 1
+                          : productSkuSuggestions.length - 1
+                      );
+                    } else if (e.key === "Enter") {
+                      if (
+                        skuSuggestionIndex >= 0 &&
+                        productSkuSuggestions[skuSuggestionIndex]
+                      ) {
+                        e.preventDefault();
+                        setFilterSKU(
+                          productSkuSuggestions[skuSuggestionIndex]
+                        );
+                        setShowSkuSuggestions(false);
+                        setSkuSuggestionIndex(-1);
+                      }
+                    } else if (e.key === "Escape") {
+                      setShowSkuSuggestions(false);
+                      setSkuSuggestionIndex(-1);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
                   placeholder="Enter SKU"
                 />
+                {showSkuSuggestions && productSkuSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto z-50">
+                    {productSkuSuggestions.map((sku, index) => (
+                      <button
+                        key={sku}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setFilterSKU(sku);
+                          setShowSkuSuggestions(false);
+                          setSkuSuggestionIndex(-1);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${index === skuSuggestionIndex
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-blue-50 focus:bg-blue-50"
+                          }`}
+                      >
+                        {sku}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="col-span-4 relative">

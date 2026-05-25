@@ -155,6 +155,15 @@ const OrderNew = () => {
   const [filterFree, setFilterFree] = useState(false);
   const [filterGift, setFilterGift] = useState(false);
 
+  // Clear combo filters if no product is selected
+  useEffect(() => {
+    if (!selectedProduct) {
+      setFilterPaid(false);
+      setFilterFree(false);
+      setFilterGift(false);
+    }
+  }, [selectedProduct]);
+
   // Persist to sessionStorage (only for new orders, not edit mode)
   useEffect(() => {
     if (!editMode) {
@@ -1932,6 +1941,58 @@ const OrderNew = () => {
                     >
                       <Plus className="w-4 h-4" />
                     </button>
+                  </div>
+
+                  {/* Filter combos by selected product placement */}
+                  <div className="flex flex-col justify-center bg-gray-50 border border-gray-200 rounded-xl p-2.5">
+                    <div className="text-xs font-semibold text-gray-500 mb-1.5 px-1">
+                      Filter Combos by Selected Product:
+                    </div>
+                    <div className="flex items-center space-x-4 px-1">
+                      <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                        <input
+                          type="checkbox"
+                          disabled={!selectedProduct}
+                          checked={filterPaid}
+                          onChange={(e) => setFilterPaid(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700">Paid Items</span>
+                      </label>
+                      <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                        <input
+                          type="checkbox"
+                          disabled={!selectedProduct}
+                          checked={filterFree}
+                          onChange={(e) => setFilterFree(e.target.checked)}
+                          className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                        />
+                        <span className="text-gray-700">Free Items</span>
+                      </label>
+                      <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                        <input
+                          type="checkbox"
+                          disabled={!selectedProduct}
+                          checked={filterGift}
+                          onChange={(e) => setFilterGift(e.target.checked)}
+                          className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                        />
+                        <span className="text-gray-700">Gifts</span>
+                      </label>
+                      {(filterPaid || filterFree || filterGift) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterPaid(false);
+                            setFilterFree(false);
+                            setFilterGift(false);
+                          }}
+                          className="text-[10px] text-red-600 hover:text-red-800 font-semibold underline ml-auto"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

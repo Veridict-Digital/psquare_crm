@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useNavigate } from "react-router-dom";
@@ -71,6 +71,12 @@ const ProductNew = () => {
   const [image2Preview, setImage2Preview] = useState(null);
   const [image3Preview, setImage3Preview] = useState(null);
   const [image4Preview, setImage4Preview] = useState(null);
+
+  // Auto-suggest states
+  const [showSkuSuggestions, setShowSkuSuggestions] = useState(false);
+  const [skuSuggestionIndex, setSkuSuggestionIndex] = useState(-1);
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
+  const [titleSuggestionIndex, setTitleSuggestionIndex] = useState(-1);
 
   // GST Rate States
   const [showNewGSTRateForm, setShowNewGSTRateForm] = useState(false);
@@ -245,6 +251,62 @@ const ProductNew = () => {
       return response.data;
     },
   });
+
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const response = await axios.get("/api/products/");
+      return response.data;
+    },
+  });
+
+  const productTitleSuggestions = useMemo(() => {
+    const searchText = formData.title.trim().toLowerCase();
+    if (!searchText || !products) return [];
+
+    const seen = new Set();
+    return products
+      .map((item) => item.title)
+      .filter(Boolean)
+      .filter((title) => title.toLowerCase().includes(searchText))
+      .filter((title) => {
+        const normalized = title.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStarts = a.toLowerCase().startsWith(searchText);
+        const bStarts = b.toLowerCase().startsWith(searchText);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 8);
+  }, [formData.title, products]);
+
+  const productSkuSuggestions = useMemo(() => {
+    const searchText = formData.sku.trim().toLowerCase();
+    if (!searchText || !products) return [];
+
+    const seen = new Set();
+    return products
+      .map((item) => item.sku)
+      .filter(Boolean)
+      .filter((sku) => sku.toLowerCase().includes(searchText))
+      .filter((sku) => {
+        const normalized = sku.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStarts = a.toLowerCase().startsWith(searchText);
+        const bStarts = b.toLowerCase().startsWith(searchText);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 8);
+  }, [formData.sku, products]);
 
   const { data: brandCategories1, refetch: refetchBrandCategories1 } = useQuery(
     {
@@ -1137,7 +1199,7 @@ const ProductNew = () => {
           <form onSubmit={handleSubmit}>
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <label className="block text-sm font-semibold text-gray-700">
                   SKU Code <span className="text-red-500">*</span>
                 </label>
@@ -1145,14 +1207,84 @@ const ProductNew = () => {
                   type="text"
                   name="sku"
                   value={formData.sku}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  onChange={(e) => {
+                    handleChange(e);
+                    setShowSkuSuggestions(true);
+                    setSkuSuggestionIndex(-1);
+                  }}
+                  onFocus={() => setShowSkuSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowSkuSuggestions(false), 150)
+                  }
+                  onKeyDown={(e) => {
+                    if (
+                      !showSkuSuggestions ||
+                      productSkuSuggestions.length === 0
+                    ) {
+                      return;
+                    }
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSkuSuggestionIndex((prev) =>
+                        prev < productSkuSuggestions.length - 1
+                          ? prev + 1
+                          : 0
+                      );
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSkuSuggestionIndex((prev) =>
+                        prev > 0
+                          ? prev - 1
+                          : productSkuSuggestions.length - 1
+                      );
+                    } else if (e.key === "Enter") {
+                      if (
+                        skuSuggestionIndex >= 0 &&
+                        productSkuSuggestions[skuSuggestionIndex]
+                      ) {
+                        e.preventDefault();
+                        setFormData((prev) => ({
+                          ...prev,
+                          sku: productSkuSuggestions[skuSuggestionIndex],
+                        }));
+                        setShowSkuSuggestions(false);
+                        setSkuSuggestionIndex(-1);
+                      }
+                    } else if (e.key === "Escape") {
+                      setShowSkuSuggestions(false);
+                      setSkuSuggestionIndex(-1);
+                    }
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
                   placeholder="Enter SKU code"
                   required
                 />
+                {showSkuSuggestions && productSkuSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-56 overflow-auto z-50">
+                    {productSkuSuggestions.map((sku, index) => (
+                      <button
+                        key={sku}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setFormData((prev) => ({ ...prev, sku }));
+                          setShowSkuSuggestions(false);
+                          setSkuSuggestionIndex(-1);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm focus:outline-none ${index === skuSuggestionIndex
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-blue-50 focus:bg-blue-50"
+                          }`}
+                      >
+                        {sku}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-2 md:col-span-4">
+              <div className="space-y-2 md:col-span-4 relative">
                 <label className="block text-sm font-semibold text-gray-700">
                   Product Name <span className="text-red-500">*</span>
                 </label>
@@ -1160,11 +1292,81 @@ const ProductNew = () => {
                   type="text"
                   name="title"
                   value={formData.title}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  onChange={(e) => {
+                    handleChange(e);
+                    setShowTitleSuggestions(true);
+                    setTitleSuggestionIndex(-1);
+                  }}
+                  onFocus={() => setShowTitleSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowTitleSuggestions(false), 150)
+                  }
+                  onKeyDown={(e) => {
+                    if (
+                      !showTitleSuggestions ||
+                      productTitleSuggestions.length === 0
+                    ) {
+                      return;
+                    }
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setTitleSuggestionIndex((prev) =>
+                        prev < productTitleSuggestions.length - 1
+                          ? prev + 1
+                          : 0
+                      );
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setTitleSuggestionIndex((prev) =>
+                        prev > 0
+                          ? prev - 1
+                          : productTitleSuggestions.length - 1
+                      );
+                    } else if (e.key === "Enter") {
+                      if (
+                        titleSuggestionIndex >= 0 &&
+                        productTitleSuggestions[titleSuggestionIndex]
+                      ) {
+                        e.preventDefault();
+                        setFormData((prev) => ({
+                          ...prev,
+                          title: productTitleSuggestions[titleSuggestionIndex],
+                        }));
+                        setShowTitleSuggestions(false);
+                        setTitleSuggestionIndex(-1);
+                      }
+                    } else if (e.key === "Escape") {
+                      setShowTitleSuggestions(false);
+                      setTitleSuggestionIndex(-1);
+                    }
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
                   placeholder="Enter product name"
                   required
                 />
+                {showTitleSuggestions && productTitleSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-56 overflow-auto z-50">
+                    {productTitleSuggestions.map((title, index) => (
+                      <button
+                        key={title}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setFormData((prev) => ({ ...prev, title }));
+                          setShowTitleSuggestions(false);
+                          setTitleSuggestionIndex(-1);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm focus:outline-none ${index === titleSuggestionIndex
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-blue-50 focus:bg-blue-50"
+                          }`}
+                      >
+                        {title}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

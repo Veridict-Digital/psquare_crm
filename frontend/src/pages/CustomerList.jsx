@@ -144,10 +144,12 @@ const CustomerList = () => {
     tahsil: "",
     city: "",
       appointment_date: "",
+      gstin_no: "",
     });
 
   // Validation states
   const [phoneError, setPhoneError] = useState("");
+  const [gstinError, setGstinError] = useState("");
   const [pendingNameSearch, setPendingNameSearch] = useState(() => searchParams.get("name") || "");
   const [pendingSurnameSearch, setPendingSurnameSearch] = useState(() => searchParams.get("surname") || "");
   
@@ -505,6 +507,21 @@ const CustomerList = () => {
     enabled: newContact.phone.length >= 10,
   });
 
+  // GSTIN check query
+  const { data: gstinCheckData, isLoading: gstinCheckLoading } = useQuery({
+    queryKey: ["gstinCheck", newContact.gstin_no],
+    queryFn: async () => {
+      if (newContact.gstin_no && newContact.gstin_no.length >= 15) {
+        const response = await axios.get(
+          `/api/customers/?gstin_no=${newContact.gstin_no}&page_size=1`,
+        );
+        return response.data;
+      }
+      return null;
+    },
+    enabled: !!newContact.gstin_no && newContact.gstin_no.length >= 15,
+  });
+
   const data = customersData;
   const isLoading = customersLoading;
   const error = customersError;
@@ -641,6 +658,28 @@ const CustomerList = () => {
     }
   }, [newContact.phone]);
 
+  // GSTIN validation while typing
+  useEffect(() => {
+    if (newContact.gstin_no && newContact.gstin_no.length > 0 && newContact.gstin_no.length < 15) {
+      setGstinError("GSTIN must be exactly 15 characters");
+    } else if (!newContact.gstin_no || newContact.gstin_no.length === 0) {
+      setGstinError("");
+    }
+  }, [newContact.gstin_no]);
+
+  // GSTIN duplicate checking effect
+  useEffect(() => {
+    if (newContact.gstin_no && newContact.gstin_no.length === 15) {
+      if (gstinCheckLoading) {
+        setGstinError("Checking GSTIN...");
+      } else if (gstinCheckData && gstinCheckData.count > 0) {
+        setGstinError("GSTIN already exists");
+      } else if (gstinCheckData && gstinCheckData.count === 0) {
+        setGstinError("");
+      }
+    }
+  }, [newContact.gstin_no, gstinCheckLoading, gstinCheckData]);
+
   // Phone check and auto-fill Quick Add form if phone exists
 const [existingCustomerId, setExistingCustomerId] = useState(null);
 
@@ -649,6 +688,7 @@ useEffect(() => {
   if (!newContact.phone || newContact.phone.length === 0) {
     setExistingCustomerId(null);
     setPhoneError("");
+    setGstinError("");
     setNewContact({
       name: "",
       surname: "",
@@ -669,6 +709,7 @@ useEffect(() => {
       tahsil: "",
       city: "",
       appointment_date: "",
+      gstin_no: "",
     });
     return;
   }
@@ -697,6 +738,7 @@ useEffect(() => {
       tahsil: "",
       city: "",
       appointment_date: "",
+      gstin_no: "",
       phone: prev.phone, // Preserve the phone being typed
     }));
     return;
@@ -751,6 +793,7 @@ useEffect(() => {
         tahsil: customer.tahsil || "",
         city: customer.city || "",
         appointment_date: customer.appointment_date || "",
+        gstin_no: customer.gstin_no || "",
       }));
     }
   } else if (phoneCheckData && phoneCheckData.count === 0) {
@@ -775,28 +818,40 @@ useEffect(() => {
       district: "",
       tahsil: "",
       city: "",
+      gstin_no: "",
       phone: prev.phone, // Preserve the phone being entered
     }));
   }
 }, [newContact.phone, phoneCheckLoading, phoneCheckData, organizationTypes]);
 
+  // Helper to format phone number in 3 - 3 - 4 format
+  const formatPhoneSearch = (digits) => {
+    if (!digits) return "";
+    const clean = digits.replace(/\D/g, "");
+    if (clean.length <= 3) {
+      return clean;
+    } else if (clean.length <= 6) {
+      return `${clean.slice(0, 3)} - ${clean.slice(3)}`;
+    } else {
+      return `${clean.slice(0, 3)} - ${clean.slice(3, 6)} - ${clean.slice(6, 10)}`;
+    }
+  };
+
   // Phone search handler (auto-apply with debounce)
   const handlePhoneSearchChange = (e) => {
     const value = e.target.value;
-    if (value && !/^\d*$/.test(value)) {
+    const cleanVal = value.replace(/\D/g, ""); // Extract raw digits
+    if (cleanVal.length > 10) {
       return;
     }
-    if (value.length > 10) {
-      return;
-    }
-    setPhoneSearchInput(value);
+    setPhoneSearchInput(cleanVal);
     if (phoneSearchTimeoutRef.current) {
       clearTimeout(phoneSearchTimeoutRef.current);
     }
     phoneSearchTimeoutRef.current = setTimeout(() => {
-      setPhoneSearch(value);
+      setPhoneSearch(cleanVal);
       setCurrentPage(1);
-    }, 2000);
+    }, 8000);
   };
 
   const handlePhoneSearchKeyDown = (e) => {
@@ -983,6 +1038,7 @@ useEffect(() => {
         district: "",
         tahsil: "",
         city: "",
+        gstin_no: "",
       });
       setSuccessMessage("Customer added successfully!");
       setTimeout(() => {
@@ -1091,6 +1147,10 @@ useEffect(() => {
       if (addFormPhoneInputRef.current) {
         addFormPhoneInputRef.current.focus();
       }
+      return;
+    }
+    if (gstinError && gstinError !== "Checking GSTIN...") {
+      setErrorMessage(gstinError);
       return;
     }
 
@@ -1315,16 +1375,16 @@ useEffect(() => {
           {/* Row 1: Quick Search - Phone, Name, Surname, Organization */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 ref={phoneSearchInputRef}
                 type="text"
                 placeholder="Phone number"
-                value={phoneSearchInput}
+                value={formatPhoneSearch(phoneSearchInput)}
                 onChange={handlePhoneSearchChange}
                 onKeyDown={handlePhoneSearchKeyDown}
-                className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
-                maxLength="10"
+                className="w-full pl-9 pr-3 py-2 text-lg text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
+                maxLength={16}
                 autoFocus={true}
               />
               {phoneSearchInput !== phoneSearch && phoneSearchInput && (
@@ -1836,6 +1896,27 @@ useEffect(() => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                GSTIN No
+              </label>
+              <input
+                type="text"
+                value={newContact.gstin_no || ""}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                  if (value.length <= 15) {
+                    setNewContact({ ...newContact, gstin_no: value });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="15-digit GSTIN"
+                maxLength="15"
+              />
+              {gstinError && (
+                <p className="mt-1 text-sm text-red-600">{gstinError}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Telecaller
               </label>
               <select
@@ -2081,6 +2162,7 @@ useEffect(() => {
                         tahsil: "",
                         city: "",
                           appointment_date: "",
+                          gstin_no: "",
                         });
                       queryClient.invalidateQueries({
                         queryKey: ["customers"],

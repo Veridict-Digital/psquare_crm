@@ -39,6 +39,8 @@ const CustomerDetail = () => {
   const [showAddPhone, setShowAddPhone] = useState(false);
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [gstinError, setGstinError] = useState("");
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
   const [editingContactPerson, setEditingContactPerson] = useState(null);
   const [tempContactPerson, setTempContactPerson] = useState("");
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
@@ -242,22 +244,23 @@ const CustomerDetail = () => {
 
   // Add phone mutation
   const addPhoneMutation = useMutation({
-    mutationFn: (phoneData) =>
-      axios.post(`/api/customers/${id}/add_phone/`, phoneData),
-    onSuccess: () => {
-      queryClient.invalidateQueries(["customer-details", id]);
-      setShowAddPhone(false);
-      setNewPhoneNumber("");
-      setPhoneError("");
-    },
-    onError: (error) => {
-      if (error.response && error.response.data && error.response.data.error) {
-        setPhoneError(error.response.data.error);
-      } else {
-        setPhoneError("Failed to add phone number.");
-      }
-    },
-  });
+  mutationFn: (phoneData) =>
+    axios.post(`/api/customers/${id}/add_phone/`, phoneData),
+  onSuccess: () => {
+    queryClient.invalidateQueries(["customer-details", id]);
+    setShowAddPhone(false);
+    setNewPhoneNumber("");
+    setPhoneError("");
+  },
+  onError: (error) => {
+    // Only show error if it's not a duplicate (though frontend should catch it)
+    if (error.response?.data?.error?.includes("already exists")) {
+      setPhoneError("Phone number already exists");
+    } else {
+      setPhoneError(error.response?.data?.error || "Failed to add phone number");
+    }
+  },
+});
 
   // Add or update contact person for a phone
   const updatePhoneContactPerson = useMutation({
@@ -273,6 +276,15 @@ const CustomerDetail = () => {
       return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3");
     }
     return phone;
+  };
+
+  const formatGstin = (gstin) => {
+    if (!gstin) return "";
+    const cleaned = gstin.toString().replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    if (cleaned.length === 15) {
+      return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 12)}-${cleaned.slice(12, 15)}`;
+    }
+    return cleaned;
   };
 
   // Set primary phone mutation
@@ -603,8 +615,8 @@ const CustomerDetail = () => {
                               ) : (
                                 <span
                                   className={`${phoneObj.is_primary
-                                      ? "font-semibold text-blue-600"
-                                      : "text-gray-600"
+                                    ? "font-semibold text-blue-600"
+                                    : "text-gray-600"
                                     } text-base md:text-lg whitespace-nowrap`}
                                 >
                                   {formatPhoneNumber(phoneObj.phone)}
@@ -779,8 +791,8 @@ const CustomerDetail = () => {
                                       <Phone className="h-3.5 w-3.5 text-gray-400" />
                                       <span
                                         className={`${phone.is_primary
-                                            ? "font-semibold text-blue-600"
-                                            : "text-gray-700"
+                                          ? "font-semibold text-blue-600"
+                                          : "text-gray-700"
                                           } text-base whitespace-nowrap`}
                                       >
                                         {formatPhoneNumber(phone.phone)}
@@ -967,82 +979,148 @@ const CustomerDetail = () => {
             {/* Right side: Buttons - Fixed width, wrap on mobile */}
             <div className="flex flex-wrap gap-2 items-center justify-end flex-shrink-0">
               {!showAddPhone ? (
-                <button
-                  onClick={() => {
-                    setShowAddPhone(true);
-                    setTimeout(() => {
-                      const phoneInput =
-                        document.getElementById("new-phone-input");
-                      if (phoneInput) phoneInput.focus();
-                    }, 100);
-                  }}
-                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Phone
-                </button>
-              ) : (
-                <div className="flex flex-col space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <input
-                      id="new-phone-input"
-                      type="text"
-                      value={newPhoneNumber}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        if (value.length <= 10) {
-                          setNewPhoneNumber(value);
-                          setPhoneError("");
-                          if (value.length > 0 && value.length < 10) {
-                            setPhoneError("Phone number must be 10 digits.");
-                          }
-                          // Immediately trigger add if 10 digits
-                          if (value.length === 10) {
-                            addPhoneMutation.mutate({ phone: value });
-                          }
-                        }
-                      }}
-                      onBlur={() => {
-                        if (newPhoneNumber && newPhoneNumber.length === 10) {
-                          // Already handled in onChange, just close
-                          setShowAddPhone(false);
-                          setNewPhoneNumber("");
-                        } else if (
-                          newPhoneNumber.length > 0 &&
-                          newPhoneNumber.length < 10
-                        ) {
-                          setPhoneError("Phone number must be 10 digits.");
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          if (newPhoneNumber && newPhoneNumber.length === 10) {
-                            // Already handled in onChange, just close
-                            setShowAddPhone(false);
-                            setNewPhoneNumber("");
-                          } else {
-                            setPhoneError("Phone number must be 10 digits.");
-                          }
-                        } else if (e.key === "Escape") {
-                          setShowAddPhone(false);
-                          setNewPhoneNumber("");
-                          setPhoneError("");
-                        }
-                      }}
-                      placeholder="Enter 10-digit number"
-                      className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      maxLength={10}
-                      autoFocus
-                    />
-                  </div>
-                  {phoneError && (
-                    <div className="text-xs text-red-500 mt-1">
-                      {phoneError}
-                    </div>
-                  )}
-                </div>
-              )}
+  <button
+    onClick={() => {
+      setShowAddPhone(true);
+      setTimeout(() => {
+        const phoneInput = document.getElementById("new-phone-input");
+        if (phoneInput) phoneInput.focus();
+      }, 100);
+    }}
+    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+  >
+    <Plus className="h-4 w-4 mr-1" />
+    Phone
+  </button>
+) : (
+  <div className="flex flex-col space-y-1">
+    <div className="flex items-center space-x-2">
+      <Phone className="h-4 w-4 text-gray-400" />
+      <input
+        id="new-phone-input"
+        type="text"
+        value={newPhoneNumber}
+        onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, "");
+          if (value.length <= 10) {
+            setNewPhoneNumber(value);
+            
+            // Clear previous errors
+            if (phoneError === "Phone number must be 10 digits.") {
+              setPhoneError("");
+            }
+            
+            // Validation for length
+            if (value.length > 0 && value.length < 10) {
+              setPhoneError("Phone number must be 10 digits.");
+            } else if (value.length === 10) {
+              // Check if phone number already exists
+              setPhoneError(""); // Clear length error first
+              
+              // 1. Check against current customer's existing phone numbers
+              const phoneExistsLocally = customer?.all_phones?.some(
+                (phoneObj) => phoneObj.phone === value
+              );
+              
+              if (phoneExistsLocally) {
+                setPhoneError("Phone number already exists");
+              } else {
+                // 2. Perform global duplicate check in entire database
+                setIsCheckingPhone(true);
+                axios.get(`/api/customers/?phone=${value}`)
+                  .then((res) => {
+                    const results = res.data?.results || res.data || [];
+                    if (results.length > 0) {
+                      setPhoneError("Phone number already exists");
+                    } else {
+                      setPhoneError(""); // Clear error if not duplicate
+                    }
+                  })
+                  .catch((err) => {
+                    console.error("Duplicate check failed:", err);
+                  })
+                  .finally(() => {
+                    setIsCheckingPhone(false);
+                  });
+              }
+            } else {
+              setPhoneError("");
+            }
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
+              addPhoneMutation.mutate({ phone: newPhoneNumber });
+            } else if (newPhoneNumber.length !== 10) {
+              setPhoneError("Phone number must be 10 digits.");
+            }
+          } else if (e.key === "Escape") {
+            setShowAddPhone(false);
+            setNewPhoneNumber("");
+            setPhoneError("");
+          }
+        }}
+        placeholder="Enter 10-digit number"
+        className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+        maxLength={10}
+        autoFocus
+        disabled={addPhoneMutation.isPending || isCheckingPhone}
+      />
+      
+      {/* Save and Cancel Buttons */}
+      <div className="flex items-center space-x-1">
+        <button
+          onClick={() => {
+            if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
+              addPhoneMutation.mutate({ phone: newPhoneNumber });
+            } else if (newPhoneNumber.length !== 10) {
+              setPhoneError("Phone number must be 10 digits.");
+            }
+          }}
+          disabled={
+            !newPhoneNumber || 
+            newPhoneNumber.length !== 10 || 
+            !!phoneError || 
+            isCheckingPhone ||
+            addPhoneMutation.isPending
+          }
+          className="inline-flex items-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          <Save className="h-3 w-3 mr-1" />
+          Save
+        </button>
+        <button
+          onClick={() => {
+            setShowAddPhone(false);
+            setNewPhoneNumber("");
+            setPhoneError("");
+          }}
+          disabled={addPhoneMutation.isPending}
+          className="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          X
+        </button>
+      </div>
+    </div>
+    
+    {isCheckingPhone && (
+      <div className="text-xs text-blue-500 ml-7">Verifying duplicate phone number...</div>
+    )}
+    
+    {addPhoneMutation.isPending && (
+      <div className="text-xs text-blue-500 ml-7">Adding phone number...</div>
+    )}
+    
+    {/* Show error message */}
+    {phoneError && (
+      <div className="text-xs text-red-500 mt-1 ml-7">
+        {phoneError}
+      </div>
+    )}
+  </div>
+)}
 
               <button
                 onClick={() => {
@@ -1089,7 +1167,7 @@ const CustomerDetail = () => {
           </div>
 
           {/* Secondary info below */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 mt-2">
             <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <User className="h-5 w-5 mr-2 text-gray-400" />
               <span className="font-medium mr-2">Org:</span>
@@ -1257,6 +1335,87 @@ const CustomerDetail = () => {
                 />
               </div>
             </div>
+            <div className="flex flex-col text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
+              <div className="flex items-center w-full">
+                <FileText className="h-5 w-5 mr-2 text-gray-400 flex-shrink-0" />
+                <span className="font-medium mr-2 whitespace-nowrap">GSTIN No:</span>
+                <input
+                  type="text"
+                  defaultValue={customer?.gstin_no ? formatGstin(customer.gstin_no) : ""}
+                  key={customer?.gstin_no ? formatGstin(customer.gstin_no) : "empty"}
+                  maxLength="17"
+                  placeholder="XX-XXXXXXXXXX-XXX"
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                    const limited = value.slice(0, 15);
+                    if (e.target.value !== limited) {
+                      e.target.value = limited;
+                    }
+
+                    if (limited.length > 0 && limited.length < 15) {
+                      setGstinError("GSTIN must be exactly 15 characters");
+                    } else if (limited.length === 15) {
+                      axios.get(`/api/customers/?gstin_no=${limited}`)
+                        .then((res) => {
+                          const existingCustomers = res.data;
+                          const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
+                          if (isDuplicate) {
+                            setGstinError("GSTIN already exists");
+                          } else {
+                            setGstinError("");
+                          }
+                        })
+                        .catch(() => {
+                          setGstinError("");
+                        });
+                    } else {
+                      setGstinError("");
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                    if (value !== (customer?.gstin_no || "")) {
+                      if (value && value.length !== 15) {
+                        toast.error("GSTIN must be exactly 15 characters");
+                        return;
+                      }
+
+                      if (value.length === 15) {
+                        axios.get(`/api/customers/?gstin_no=${value}`)
+                          .then((res) => {
+                            const existingCustomers = res.data;
+                            const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
+                            if (isDuplicate) {
+                              toast.error("GSTIN already exists");
+                            } else {
+                              updateMutation.mutate({ gstin_no: value || null });
+                              setGstinError("");
+                            }
+                          })
+                          .catch(() => {
+                            updateMutation.mutate({ gstin_no: value || null });
+                            setGstinError("");
+                          });
+                      } else {
+                        updateMutation.mutate({ gstin_no: null });
+                        setGstinError("");
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              {gstinError && (
+                <span className="text-red-500 text-xs font-semibold mt-1 ml-7">
+                  {gstinError}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Address Section */}
@@ -1274,6 +1433,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.house_flat_no || ""}
+                        title={customer?.house_flat_no || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.house_flat_no) {
                             updateMutation.mutate({
@@ -1294,6 +1454,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.wing_lane || ""}
+                        title={customer?.wing_lane || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.wing_lane) {
                             updateMutation.mutate({
@@ -1314,6 +1475,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.society_colony || ""}
+                        title={customer?.society_colony || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.society_colony) {
                             updateMutation.mutate({
@@ -1334,6 +1496,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.landmark || ""}
+                        title={customer?.landmark || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.landmark) {
                             updateMutation.mutate({
@@ -1354,6 +1517,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.area || ""}
+                        title={customer?.area || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.area) {
                             updateMutation.mutate({
@@ -1374,6 +1538,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.pincode || ""}
+                        title={customer?.pincode || ""}
                         onBlur={(e) => {
                           const value = e.target.value
                             .replace(/\D/g, "")
@@ -1407,6 +1572,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.city || ""}
+                        title={customer?.city || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.city) {
                             updateMutation.mutate({
@@ -1427,6 +1593,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.district || ""}
+                        title={customer?.district || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.district) {
                             updateMutation.mutate({
@@ -1447,6 +1614,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.tahsil || ""}
+                        title={customer?.tahsil || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.tahsil) {
                             updateMutation.mutate({
@@ -1467,6 +1635,7 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.state || ""}
+                        title={customer?.state || ""}
                         onBlur={(e) => {
                           if (e.target.value !== customer?.state) {
                             updateMutation.mutate({
@@ -1810,7 +1979,7 @@ const CustomerDetail = () => {
             </div>
 
             {orders.length === 0 ? (
-              <div className="flex-1 flex flex-col justify-center items-center py-4">
+              <div className="flex-none h-[250px] flex flex-col justify-center items-center py-4">
                 <svg
                   className="w-12 h-12 text-gray-300 mb-2"
                   fill="none"
@@ -1829,7 +1998,7 @@ const CustomerDetail = () => {
                 </p>
               </div>
             ) : (
-              <div className="flex-none mb-2 max-h-[250px] overflow-y-auto">
+              <div className="flex-none mb-2 h-[250px] overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
@@ -1881,10 +2050,10 @@ const CustomerDetail = () => {
                           <td className="px-2 py-1 whitespace-nowrap">
                             <span
                               className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${order.status === "Delivered"
-                                  ? "bg-green-100 text-green-800"
-                                  : order.status === "Dispatched"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
+                                ? "bg-green-100 text-green-800"
+                                : order.status === "Dispatched"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-gray-100 text-gray-800"
                                 }`}
                             >
                               {order.status}
@@ -1971,8 +2140,8 @@ const CustomerDetail = () => {
                   <button
                     onClick={() => setShowOldOrderHistory(true)}
                     className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${showOldOrderHistory
-                        ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/25"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/25"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                   >
                     <FileText className="h-3 w-3 inline mr-2" />
@@ -1981,8 +2150,8 @@ const CustomerDetail = () => {
                   <button
                     onClick={() => setShowOldOrderHistory(false)}
                     className={`px-2 py-1 rounded-lg font-medium transition-all duration-200 ${!showOldOrderHistory
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                   >
                     <Phone className="h-3 w-3 inline mr-2" />
@@ -2290,10 +2459,10 @@ const CustomerDetail = () => {
                                 <td className="px-2 py-1 whitespace-nowrap">
                                   <span
                                     className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${call.status === "Completed"
-                                        ? "bg-green-100 text-green-800"
-                                        : call.status === "Follow-up"
-                                          ? "bg-yellow-100 text-yellow-800"
-                                          : "bg-gray-100 text-gray-800"
+                                      ? "bg-green-100 text-green-800"
+                                      : call.status === "Follow-up"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-gray-100 text-gray-800"
                                       }`}
                                   >
                                     {call.status}

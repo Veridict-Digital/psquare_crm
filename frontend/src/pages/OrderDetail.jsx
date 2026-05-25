@@ -99,6 +99,15 @@ const OrderDetail = () => {
     });
   };
 
+  const formatGstin = (gstin) => {
+    if (!gstin) return "";
+    const cleaned = gstin.toString().replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    if (cleaned.length === 15) {
+      return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 12)}-${cleaned.slice(12, 15)}`;
+    }
+    return cleaned;
+  };
+
   // Get status badge
   const getStatusBadge = (status) => {
     const colors = {
@@ -358,7 +367,20 @@ const OrderDetail = () => {
                 </td>
               </tr>
 
-              {/* Row 4: Delivery Address */}
+              {/* Row 4: GSTIN No */}
+              <tr className="border-b border-gray-200 hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm font-medium text-gray-600 bg-gray-50 border-r border-gray-200">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-gray-400" />
+                    GSTIN No
+                  </div>
+                </td>
+                <td colSpan="3" className="px-6 py-4 text-sm text-gray-900 font-semibold tracking-wider">
+                  {order.customer_details?.gstin_no ? formatGstin(order.customer_details.gstin_no) : '—'}
+                </td>
+              </tr>
+
+              {/* Row 5: Delivery Address */}
               <tr className="border-b border-gray-200 hover:bg-gray-50">
                 <td className="px-6 py-4 text-sm font-medium text-gray-600 bg-gray-50 border-r border-gray-200">
                   <div className="flex items-center">

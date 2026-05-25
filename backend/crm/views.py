@@ -501,6 +501,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             time = self.request.query_params.get('time')
             search = self.request.query_params.get('search')
             has_appointment = self.request.query_params.get('has_appointment')
+            gstin_no = self.request.query_params.get('gstin_no')
             
             # NEW: Individual address field filters
             house_flat_no = self.request.query_params.get('house_flat_no')
@@ -547,6 +548,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     models.Q(phone__icontains=phone_search) |
                     models.Q(phones__phone__icontains=phone_search)
                 )
+            
+            if gstin_no:
+                queryset = queryset.filter(gstin_no__iexact=gstin_no)
             
             # UPDATED: Separate name and surname search
             if name_search:
@@ -949,6 +953,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     'Company Name': customer.company_name or '',
                     'Company Type': getattr(customer, 'company_type_display', '') or '',
                     'Customer Type': getattr(customer, 'customer_type_display', '') or '',
+                    'GSTIN No': customer.gstin_no or '',
                     'Contact Type': customer.contact_type or '',
                     'Pincode': customer.pincode or '',
                     'House/Flat No': customer.house_flat_no or '',

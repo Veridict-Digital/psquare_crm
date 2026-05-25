@@ -915,6 +915,8 @@ const ProductCombinations = () => {
   const [titleSuggestionIndex, setTitleSuggestionIndex] = useState(-1);
   const [showComboSuggestions, setShowComboSuggestions] = useState(false);
   const [comboSuggestionIndex, setComboSuggestionIndex] = useState(-1);
+  const [showSkuSuggestions, setShowSkuSuggestions] = useState(false);
+  const [skuSuggestionIndex, setSkuSuggestionIndex] = useState(-1);
 
   // Active filters state - only applied when user clicks Apply button
   const [activeFilters, setActiveFilters] = useState({
@@ -1903,6 +1905,30 @@ const ProductCombinations = () => {
       .slice(0, 8);
   }, [filterName, combinations]);
 
+  const productSkuSuggestions = useMemo(() => {
+    const searchText = filterSKU.trim().toLowerCase();
+    if (!searchText || !products) return [];
+
+    const seen = new Set();
+    return products
+      .map((item) => item.sku)
+      .filter(Boolean)
+      .filter((sku) => sku.toLowerCase().includes(searchText))
+      .filter((sku) => {
+        const normalized = sku.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStarts = a.toLowerCase().startsWith(searchText);
+        const bStarts = b.toLowerCase().startsWith(searchText);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 8);
+  }, [filterSKU, products]);
+
   // Apply filters
   const handleApplyFilters = useCallback(() => {
     setActiveFilters({
@@ -1964,6 +1990,12 @@ const ProductCombinations = () => {
     setFilterSKU("");
     setFilterTitle("");
     setSelectedCategoryId("");
+    setShowComboSuggestions(false);
+    setComboSuggestionIndex(-1);
+    setShowTitleSuggestions(false);
+    setTitleSuggestionIndex(-1);
+    setShowSkuSuggestions(false);
+    setSkuSuggestionIndex(-1);
     setSelectedCategory1Id("");
     setSelectedCategory2Id("");
     setSelectedCategory3Id("");
@@ -2791,17 +2823,87 @@ const ProductCombinations = () => {
               )}
             </div>
 
-            <div className="col-span-2">
+            <div className="col-span-2 relative">
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                 SKU
               </label>
               <input
                 type="text"
                 value={filterSKU}
-                onChange={(e) => setFilterSKU(e.target.value)}
+                onChange={(e) => {
+                  setFilterSKU(e.target.value);
+                  setShowSkuSuggestions(true);
+                  setSkuSuggestionIndex(-1);
+                }}
+                onFocus={() => setShowSkuSuggestions(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowSkuSuggestions(false), 150)
+                }
+                onKeyDown={(e) => {
+                  if (
+                    !showSkuSuggestions ||
+                    productSkuSuggestions.length === 0
+                  ) {
+                    return;
+                  }
+
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setSkuSuggestionIndex((prev) =>
+                      prev < productSkuSuggestions.length - 1
+                        ? prev + 1
+                        : 0,
+                    );
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setSkuSuggestionIndex((prev) =>
+                      prev > 0
+                        ? prev - 1
+                        : productSkuSuggestions.length - 1,
+                    );
+                  } else if (e.key === "Enter") {
+                    if (
+                      skuSuggestionIndex >= 0 &&
+                      productSkuSuggestions[skuSuggestionIndex]
+                    ) {
+                      e.preventDefault();
+                      setFilterSKU(
+                        productSkuSuggestions[skuSuggestionIndex],
+                      );
+                      setShowSkuSuggestions(false);
+                      setSkuSuggestionIndex(-1);
+                    }
+                  } else if (e.key === "Escape") {
+                    setShowSkuSuggestions(false);
+                    setSkuSuggestionIndex(-1);
+                  }
+                }}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                 placeholder="Enter SKU"
               />
+              {showSkuSuggestions && productSkuSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto z-50">
+                  {productSkuSuggestions.map((sku, index) => (
+                    <button
+                      key={sku}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFilterSKU(sku);
+                        setShowSkuSuggestions(false);
+                        setSkuSuggestionIndex(-1);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${
+                        index === skuSuggestionIndex
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-blue-50 focus:bg-blue-50"
+                      }`}
+                    >
+                      {sku}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="col-span-4 relative">
@@ -3345,6 +3447,8 @@ const ProductCombinations = () => {
                       onClick={() => {
                         setFilterName("");
                         setActiveFilters((prev) => ({ ...prev, filterName: "" }));
+                        setShowComboSuggestions(false);
+                        setComboSuggestionIndex(-1);
                       }}
                       className="hover:text-blue-900 font-bold ml-1"
                     >
@@ -3359,6 +3463,8 @@ const ProductCombinations = () => {
                       onClick={() => {
                         setFilterSKU("");
                         setActiveFilters((prev) => ({ ...prev, filterSKU: "" }));
+                        setShowSkuSuggestions(false);
+                        setSkuSuggestionIndex(-1);
                       }}
                       className="hover:text-blue-900 font-bold ml-1"
                     >
@@ -3373,6 +3479,8 @@ const ProductCombinations = () => {
                       onClick={() => {
                         setFilterTitle("");
                         setActiveFilters((prev) => ({ ...prev, filterTitle: "" }));
+                        setShowTitleSuggestions(false);
+                        setTitleSuggestionIndex(-1);
                       }}
                       className="hover:text-blue-900 font-bold ml-1"
                     >

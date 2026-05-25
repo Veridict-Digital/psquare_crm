@@ -210,6 +210,7 @@ export const CallPopupProvider = ({ children }) => {
         };
         try {
             await externalSaveFn(payload);
+            resetCallState();
             return callId;
         } catch (e) {
             alert('Failed to update call log.');
@@ -300,6 +301,9 @@ export const CallPopupProvider = ({ children }) => {
                 setCallIdString(response.data.call_id);
             }
             
+            if (isEditing || isEditingLastCall) {
+                resetCallState();
+            }
             return response.data.id;
         }
 

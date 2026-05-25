@@ -75,6 +75,7 @@ const CustomerEdit = () => {
     phone: '',
     address: '',
     appointment_date: '',
+    gstin_no: '',
   });
 
   useEffect(() => {
@@ -94,6 +95,7 @@ const CustomerEdit = () => {
         tahsil: customer.tahsil || '',
         city: customer.city || '',
         appointment_date: customer.appointment_date || customer.created_at || '',
+        gstin_no: customer.gstin_no || '',
       });
     }
   }, [customer]);
@@ -200,6 +202,23 @@ const CustomerEdit = () => {
             value={formData.phone}
             onChange={handleChange}
             className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">GSTIN No</label>
+          <input
+            type="text"
+            name="gstin_no"
+            value={formData.gstin_no || ''}
+            onChange={(e) => {
+              const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+              if (value.length <= 15) {
+                setFormData({ ...formData, gstin_no: value });
+              }
+            }}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            maxLength="15"
+            placeholder="15-digit GSTIN"
           />
         </div>
         <div>

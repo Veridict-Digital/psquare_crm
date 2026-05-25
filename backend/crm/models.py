@@ -64,6 +64,7 @@ class Customer(models.Model):
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=15)
+    gstin_no = models.CharField(max_length=15, blank=True, null=True, unique=True)
     contact_type = models.CharField(max_length=20, choices=CONTACT_TYPES, default='Customer')
     # Structured Address Fields
     house_flat_no = models.CharField(max_length=50, blank=True, null=True)
