@@ -458,6 +458,50 @@ class CustomerViewSet(viewsets.ModelViewSet):
             .order_by('society_colony')[:20]
         )
         return Response(list(society_colonies))
+
+    @action(detail=False, methods=['get'], url_path='unique_phones')
+    def unique_phones(self, request):
+        q = request.query_params.get('q', '').strip()
+        import re
+        q_digits = re.sub(r'\D', '', q)
+        
+        qs = Customer.objects.all()
+        user = request.user
+        if user.role != 'Admin':
+            qs = qs.filter(agent=user)
+            
+        # Get matching customer phone numbers
+        phone_qs = qs
+        if q_digits:
+            phone_qs = phone_qs.filter(phone__contains=q_digits)
+        elif q:
+            phone_qs = phone_qs.filter(phone__contains=q)
+            
+        customer_phones = (
+            phone_qs.values_list('phone', flat=True)
+            .exclude(phone__isnull=True)
+            .exclude(phone__exact='')
+            .distinct()
+        )
+        
+        # Get matching related Phone model numbers
+        other_phones_qs = Phone.objects.filter(customer__in=qs)
+        if q_digits:
+            other_phones_qs = other_phones_qs.filter(phone__contains=q_digits)
+        elif q:
+            other_phones_qs = other_phones_qs.filter(phone__contains=q)
+            
+        other_phones = (
+            other_phones_qs.values_list('phone', flat=True)
+            .exclude(phone__isnull=True)
+            .exclude(phone__exact='')
+            .distinct()
+        )
+        
+        # Combine unique values
+        all_phones = list(set(list(customer_phones) + list(other_phones)))
+        all_phones.sort()
+        return Response(all_phones[:20])
         
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer

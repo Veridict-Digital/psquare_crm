@@ -108,6 +108,68 @@ const OrderDetail = () => {
     return cleaned;
   };
 
+  const getGstBreakdown = () => {
+    const gstin = order?.customer_details?.gstin_no || "";
+    const cleanGstin = gstin.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    const stateCode = cleanGstin.slice(0, 2);
+    
+    const customerState = (order?.customer_details?.state || "").toLowerCase().trim();
+    const isLocalState = customerState.includes("maharashtra") || customerState === "mh" || customerState === "27";
+    const isMaharashtra = stateCode === "27" || (!stateCode && isLocalState) || (!stateCode && !customerState);
+    
+    let paidTotalOffer = 0;
+    let paidTotalTaxable = 0;
+    let paidTotalGst = 0;
+    
+    const getProductGstRate = (productId) => {
+      const productObj = products && products.find(p => p.id === productId);
+      if (productObj) {
+        if (productObj.gst_rate_display) {
+          return parseFloat(productObj.gst_rate_display) || 0;
+        }
+        if (productObj.gst_rate) {
+          if (typeof productObj.gst_rate === 'object') {
+            return parseFloat(productObj.gst_rate.rate) || 0;
+          }
+          return parseFloat(productObj.gst_rate) || 0;
+        }
+      }
+      return 0;
+    };
+    
+    if (order?.items && order.items.length > 0) {
+      order.items.forEach((item) => {
+        const isFree = item.is_free;
+        const isGift = item.is_gift;
+        if (!isFree && !isGift) {
+          const gstRate = parseFloat(item.gst_rate_display) || parseFloat(item.gst_rate) || getProductGstRate(item.product);
+          const totalOffer = parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0;
+          const taxableOffer = totalOffer / (1 + gstRate / 100);
+          const gstOfferAmount = totalOffer - taxableOffer;
+          
+          paidTotalOffer += totalOffer;
+          paidTotalTaxable += taxableOffer;
+          paidTotalGst += gstOfferAmount;
+        }
+      });
+    } else {
+      paidTotalOffer = parseFloat(order?.total_amount) || 0;
+      paidTotalTaxable = paidTotalOffer / 1.18;
+      paidTotalGst = paidTotalOffer - paidTotalTaxable;
+    }
+    
+    const cgstSgstValue = paidTotalGst / 2;
+    const igstValue = paidTotalGst;
+    
+    return {
+      isMaharashtra,
+      taxableValue: paidTotalTaxable,
+      totalGst: paidTotalGst,
+      cgstSgstValue,
+      igstValue
+    };
+  };
+
   // Get status badge
   const getStatusBadge = (status) => {
     const colors = {
@@ -231,6 +293,8 @@ const OrderDetail = () => {
       </div>
     </div>
   );
+
+  const { isMaharashtra, taxableValue, totalGst, cgstSgstValue, igstValue } = getGstBreakdown();
 
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-4">
@@ -556,9 +620,13 @@ const OrderDetail = () => {
                             const unitMrp = getOriginalPrice(paidItem.product);
                             const itemQty = paidItem.quantity_required * appliedQuantity;
                             const totalMrp = unitMrp * itemQty;
-                            const unitOffer = parseFloat(paidItem.offer_price) || 0;
-                            const totalOffer = unitOffer * itemQty;
-                            const gstRate = getProductGstRate(paidItem.product);
+                            
+                            // Find actual OrderItem in dynamic database records to get exact billed prices and tax rates
+                            const orderItemObj = order.items?.find(item => item.product === paidItem.product && !item.is_free && !item.is_gift);
+                            const unitOffer = orderItemObj ? parseFloat(orderItemObj.unit_price) : (parseFloat(paidItem.offer_price) || 0);
+                            const totalOffer = orderItemObj ? parseFloat(orderItemObj.total_price) : (unitOffer * itemQty);
+                            const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(paidItem.product);
+                            
                             const taxableOffer = totalOffer / (1 + gstRate / 100);
                             const gstOfferAmount = totalOffer - taxableOffer;
 
@@ -603,7 +671,11 @@ const OrderDetail = () => {
                             const unitMrp = getOriginalPrice(freeItem.product);
                             const itemQty = freeItem.quantity_free * appliedQuantity;
                             const totalMrp = unitMrp * itemQty;
-                            const gstRate = getProductGstRate(freeItem.product);
+                            
+                            // Find actual OrderItem in dynamic database records to get exact tax rates
+                            const orderItemObj = order.items?.find(item => item.product === freeItem.product && item.is_free);
+                            const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(freeItem.product);
+                            
                             const taxableMrp = totalMrp / (1 + gstRate / 100);
                             const gstMrpAmount = totalMrp - taxableMrp;
 
@@ -644,7 +716,11 @@ const OrderDetail = () => {
                             const unitMrp = getOriginalPrice(giftItem.product);
                             const itemQty = giftQtyVal * appliedQuantity;
                             const totalMrp = unitMrp * itemQty;
-                            const gstRate = getProductGstRate(giftItem.product);
+                            
+                            // Find actual OrderItem in dynamic database records to get exact tax rates
+                            const orderItemObj = order.items?.find(item => item.product === giftItem.product && item.is_gift);
+                            const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(giftItem.product);
+                            
                             const taxableMrp = totalMrp / (1 + gstRate / 100);
                             const gstMrpAmount = totalMrp - taxableMrp;
 
@@ -1053,7 +1129,18 @@ const OrderDetail = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-900 font-bold w-64 border-r border-gray-200">
-                  {formatCurrency(order.total_amount)}
+                  <div>{formatCurrency(order.total_amount)}</div>
+                  <div className="text-[11px] text-gray-500 font-normal mt-1.5 leading-normal">
+                    {isMaharashtra ? (
+                      <div>
+                        <div>CGST (Inclusive): {formatCurrency(cgstSgstValue)}</div>
+                        <div className="mt-0.5">SGST (Inclusive): {formatCurrency(cgstSgstValue)}</div>
+                      </div>
+                    ) : (
+                      <div>IGST (Inclusive): {formatCurrency(igstValue)}</div>
+                    )}
+                    <div className="mt-1 border-t border-gray-200 pt-1 text-gray-400">Taxable Value: {formatCurrency(taxableValue)}</div>
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-600 bg-gray-50 w-48 border-r border-gray-200">
                   <div className="flex items-center">
@@ -1118,11 +1205,32 @@ const OrderDetail = () => {
           <div className="bg-gray-100 border-t border-gray-300 p-4">
             <div className="flex justify-end">
               <div className="w-80">
-                <div className="flex justify-between items-center py-2">
+                <div className="flex justify-between items-center py-1.5">
                   <span className="text-sm font-medium text-gray-600">Total Items:</span>
                   <span className="text-sm font-bold text-gray-900">{order.items?.length || 0}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-t border-gray-300">
+                <div className="flex justify-between items-center py-1 text-xs border-t border-gray-200 pt-1.5">
+                  <span className="text-gray-500 font-medium">Total Taxable Value (Inclusive):</span>
+                  <span className="text-gray-900 font-bold">{formatCurrency(taxableValue)}</span>
+                </div>
+                {isMaharashtra ? (
+                  <>
+                    <div className="flex justify-between items-center py-1 text-xs">
+                      <span className="text-gray-500 font-medium">CGST (Inclusive):</span>
+                      <span className="text-gray-900 font-bold">{formatCurrency(cgstSgstValue)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 text-xs">
+                      <span className="text-gray-500 font-medium">SGST (Inclusive):</span>
+                      <span className="text-gray-900 font-bold">{formatCurrency(cgstSgstValue)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between items-center py-1 text-xs">
+                    <span className="text-gray-500 font-medium">IGST (Inclusive):</span>
+                    <span className="text-gray-900 font-bold">{formatCurrency(igstValue)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-2 border-t border-gray-300 mt-1.5">
                   <span className="text-base font-bold text-gray-800">Grand Total:</span>
                   <span className="text-lg font-bold text-blue-600">{formatCurrency(order.total_amount)}</span>
                 </div>

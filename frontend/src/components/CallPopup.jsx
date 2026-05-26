@@ -441,7 +441,7 @@ const CallPopup = () => {
       ) : (
         <div
           ref={popupRef}
-          className="fixed bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
+          className="fixed bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden flex flex-col"
           style={{
             left: position.x,
             top: position.y,
@@ -450,7 +450,7 @@ const CallPopup = () => {
           }}
         >
           {/* Drag Handle */}
-          <div className="drag-handle bg-gray-100 px-4 py-2 cursor-move border-b border-gray-200 flex items-center justify-between" onMouseDown={handleMouseDown}>
+          <div className="drag-handle bg-gray-100 px-4 py-2 cursor-move border-b border-gray-200 flex items-center justify-between flex-shrink-0" onMouseDown={handleMouseDown}>
             <h2 className="text-lg font-bold text-gray-800">Call Tracker</h2>
             <div className="flex items-center gap-2">
               <button onClick={toggleMinimize} className="text-gray-400 hover:text-gray-600 text-lg">
@@ -460,95 +460,86 @@ const CallPopup = () => {
             </div>
           </div>
 
-          {/* Scrollable Content */}
-          <div className="p-3 overflow-y-auto h-full pb-2">
-            {/* Compact Header */}
-            <div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
-                    <span className="text-white font-bold text-xs">
-                      {(customer?.name?.[0] || lead?.name?.[0] || 'C').toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-sm truncate">
-                      {customer?.name || lead?.name}
-                    </h3>
-                    <p className="text-gray-600 text-xs truncate">
-                      {customer?.phone || lead?.phone}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end flex-shrink-0">
-                  <span className="text-xs font-medium text-gray-500">Duration</span>
-                  <span className="text-base font-mono font-bold text-blue-600">
-                    {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
+          {/* Frozen / Sticky Call Tracker Header & Controls Section */}
+          <div>
+            <div className="flex items-center justify-between gap-3 p-2 bg-gray-50 rounded-lg border border-gray-100">
+              {/* Left: Avatar & Name/Phone */}
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
+                  <span className="text-white font-bold text-xs">
+                    {(customer?.name?.[0] || lead?.name?.[0] || 'C').toUpperCase()}
                   </span>
                 </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 text-xs truncate leading-tight">
+                    {customer?.name || lead?.name}
+                  </h3>
+                  <p className="text-gray-500 text-[10px] truncate leading-normal">
+                    {customer?.phone || lead?.phone}
+                  </p>
+                </div>
+              </div>
+
+              {/* Middle: Controls (Start/End/Save, Order, Order ID input) */}
+              <div className="flex items-center gap-1.5 flex-1 max-w-md min-w-0">
+                {!isEditingLastCall && (
+                  <>
+                    {!isRunning ? (
+                      <button
+                        onClick={startTimer}
+                        className="inline-flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-2 py-1.5 rounded text-[10px] font-bold transition-all duration-200 shadow-sm flex-shrink-0 uppercase"
+                      >
+                        Start
+                      </button>
+                    ) : (
+                      <button
+                        onClick={endCall}
+                        className="inline-flex items-center gap-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-2 py-1.5 rounded text-[10px] font-bold transition-all duration-200 shadow-sm flex-shrink-0 uppercase"
+                      >
+                        End
+                      </button>
+                    )}
+                  </>
+                )}
+                {isEditingLastCall && (
+                  <button
+                    onClick={() => { console.log('Save Info button clicked (floating)'); saveInfo(true); }}
+                    className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white px-2 py-1.5 rounded text-[10px] font-bold transition-all duration-200 shadow-sm flex-shrink-0 uppercase"
+                  >
+                    Save Info
+                  </button>
+                )}
+                {/* {customer && (
+                  <button
+                    onClick={placeOrder}
+                    className="inline-flex items-center gap-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-2 py-1.5 rounded text-[10px] font-bold transition-all duration-200 shadow-sm flex-shrink-0 uppercase"
+                  >
+                    Order
+                  </button>
+                )} */}
+
+                {/* Order ID Input */}
+                <input
+                  type="text"
+                  value={orderId}
+                  onChange={(e) => setOrderId(e.target.value)}
+                  className="flex-1 min-w-[80px] max-w-[160px] px-2 py-1.5 text-[11px] border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white placeholder-gray-400 h-7 font-medium"
+                  placeholder="Order ID..."
+                />
+              </div>
+
+              {/* Right: Duration */}
+              <div className="flex flex-col items-end flex-shrink-0 bg-blue-50/60 border border-blue-100/50 rounded px-2 py-1">
+                <span className="text-[9px] uppercase tracking-wider font-bold text-blue-500 leading-none mb-0.5">Duration</span>
+                <span className="text-sm font-mono font-black text-blue-700 leading-none">
+                  {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
+                </span>
               </div>
             </div>
+          </div>
 
-            {/* Compact Call Controls */}
-            <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-gray-50 rounded-lg">
-              {!isEditingLastCall && (
-                <>
-                  {!isRunning ? (
-                    <button
-                      onClick={startTimer}
-                      className="inline-flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm flex-shrink-0"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      </svg>
-                      Start
-                    </button>
-                  ) : (
-                    <button
-                      onClick={endCall}
-                      className="inline-flex items-center gap-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm flex-shrink-0"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" />
-                      </svg>
-                      End
-                    </button>
-                  )}
-                </>
-              )}
-              {isEditingLastCall && (
-                <button
-                  onClick={() => { console.log('Save Info button clicked (floating)'); saveInfo(true); }}
-                  className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm flex-shrink-0"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
-                  Save Info
-                </button>
-              )}
-              {customer && (
-                <button
-                  onClick={placeOrder}
-                  className="inline-flex items-center gap-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-2.5 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm flex-shrink-0"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                  </svg>
-                  Order
-                </button>
-              )}
-
-              {/* Compact Order ID Input placed side by side with the controls */}
-              <input
-                type="text"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                className="flex-1 min-w-[70px] px-2 py-1.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 bg-white placeholder-gray-400 h-7"
-                placeholder="Order ID..."
-              />
-            </div>
+          {/* Scrollable Content Section */}
+          <div className="p-3 overflow-y-auto flex-1 pb-2">
 
             {/* Assumption Section */}
             <div className="mb-2">
@@ -753,7 +744,7 @@ const CallPopup = () => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full p-2 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/50 placeholder-gray-400 resize-none overflow-hidden"
-                rows="8"
+                rows="10"
                 placeholder="Call notes..."
               />
             </div>

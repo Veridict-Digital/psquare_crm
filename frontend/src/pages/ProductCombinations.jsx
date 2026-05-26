@@ -1858,20 +1858,26 @@ const ProductCombinations = () => {
   }, [filteredData, currentPage, itemsPerPage]);
 
   const productTitleSuggestions = useMemo(() => {
-    const searchText = filterTitle.trim().toLowerCase();
-    if (!searchText || !products) return [];
-
+    if (!products || !Array.isArray(products)) return [];
+    
     const seen = new Set();
-    return products
+    const allTitles = products
       .map((item) => item.title)
       .filter(Boolean)
-      .filter((title) => title.toLowerCase().includes(searchText))
       .filter((title) => {
         const normalized = title.toLowerCase();
         if (seen.has(normalized)) return false;
         seen.add(normalized);
         return true;
-      })
+      });
+
+    const searchText = filterTitle.trim().toLowerCase();
+    if (!searchText) {
+      return allTitles.slice(0, 8);
+    }
+
+    return allTitles
+      .filter((title) => title.toLowerCase().includes(searchText))
       .sort((a, b) => {
         const aStarts = a.toLowerCase().startsWith(searchText);
         const bStarts = b.toLowerCase().startsWith(searchText);
@@ -1882,20 +1888,26 @@ const ProductCombinations = () => {
   }, [filterTitle, products]);
 
   const comboNameSuggestions = useMemo(() => {
-    const searchText = filterName.trim().toLowerCase();
-    if (!searchText || !combinations) return [];
+    if (!combinations || !Array.isArray(combinations)) return [];
 
     const seen = new Set();
-    return combinations
+    const allNames = combinations
       .map((combo) => combo.name)
       .filter(Boolean)
-      .filter((name) => name.toLowerCase().includes(searchText))
       .filter((name) => {
         const normalized = name.toLowerCase();
         if (seen.has(normalized)) return false;
         seen.add(normalized);
         return true;
-      })
+      });
+
+    const searchText = filterName.trim().toLowerCase();
+    if (!searchText) {
+      return allNames.slice(0, 8);
+    }
+
+    return allNames
+      .filter((name) => name.toLowerCase().includes(searchText))
       .sort((a, b) => {
         const aStarts = a.toLowerCase().startsWith(searchText);
         const bStarts = b.toLowerCase().startsWith(searchText);
@@ -1906,20 +1918,26 @@ const ProductCombinations = () => {
   }, [filterName, combinations]);
 
   const productSkuSuggestions = useMemo(() => {
-    const searchText = filterSKU.trim().toLowerCase();
-    if (!searchText || !products) return [];
+    if (!products || !Array.isArray(products)) return [];
 
     const seen = new Set();
-    return products
+    const allSkus = products
       .map((item) => item.sku)
       .filter(Boolean)
-      .filter((sku) => sku.toLowerCase().includes(searchText))
       .filter((sku) => {
         const normalized = sku.toLowerCase();
         if (seen.has(normalized)) return false;
         seen.add(normalized);
         return true;
-      })
+      });
+
+    const searchText = filterSKU.trim().toLowerCase();
+    if (!searchText) {
+      return allSkus.slice(0, 8);
+    }
+
+    return allSkus
+      .filter((sku) => sku.toLowerCase().includes(searchText))
       .sort((a, b) => {
         const aStarts = a.toLowerCase().startsWith(searchText);
         const bStarts = b.toLowerCase().startsWith(searchText);

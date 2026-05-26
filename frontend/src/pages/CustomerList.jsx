@@ -162,6 +162,15 @@ const CustomerList = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Phone search suggestion states
+  const [phoneSuggestions, setPhoneSuggestions] = useState([]);
+  const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
+  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [phoneHighlighted, setPhoneHighlighted] = useState(-1);
+  const [phoneIsTyping, setPhoneIsTyping] = useState(false);
+  const phoneContainerRef = useRef(null);
+  const phoneFetchTimeoutRef = useRef(null);
+
   // Refs
   const phoneSearchInputRef = useRef(null);
   const nameSearchInputRef = useRef(null);
@@ -837,7 +846,81 @@ useEffect(() => {
     }
   };
 
-  // Phone search handler (auto-apply with debounce)
+  // Phone search suggestion fetch effect
+  useEffect(() => {
+    if (phoneFetchTimeoutRef.current) {
+      clearTimeout(phoneFetchTimeoutRef.current);
+    }
+
+    if (!phoneIsTyping || !phoneSearchInput || phoneSearchInput.trim().length < 1) {
+      setPhoneSuggestions([]);
+      setShowPhoneDropdown(false);
+      setPhoneLoading(false);
+      return;
+    }
+
+    setPhoneLoading(true);
+
+    phoneFetchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await axios.get(`/api/customers/unique_phones/?q=${encodeURIComponent(phoneSearchInput)}`);
+        
+        let optionsArray = [];
+        if (Array.isArray(response.data)) {
+          optionsArray = response.data;
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          optionsArray = response.data.results;
+        }
+        
+        setPhoneSuggestions(optionsArray);
+        if (phoneIsTyping && optionsArray.length > 0) {
+          setShowPhoneDropdown(true);
+        }
+      } catch (err) {
+        console.error("Phone dropdown fetch error", err);
+        setPhoneSuggestions([]);
+        setShowPhoneDropdown(false);
+      } finally {
+        setPhoneLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      if (phoneFetchTimeoutRef.current) {
+        clearTimeout(phoneFetchTimeoutRef.current);
+      }
+    };
+  }, [phoneSearchInput, phoneIsTyping]);
+
+  // Click outside listener for phone dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (phoneContainerRef.current && !phoneContainerRef.current.contains(event.target)) {
+        setShowPhoneDropdown(false);
+        setPhoneIsTyping(false);
+        setPhoneHighlighted(-1);
+      }
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handlePhoneSelect = (phone) => {
+    if (phoneFetchTimeoutRef.current) {
+      clearTimeout(phoneFetchTimeoutRef.current);
+    }
+    
+    setShowPhoneDropdown(false);
+    setPhoneIsTyping(false);
+    setPhoneHighlighted(-1);
+    setPhoneSuggestions([]);
+    
+    setPhoneSearchInput(phone);
+    setPhoneSearch(phone);
+    setCurrentPage(1);
+  };
+
   const handlePhoneSearchChange = (e) => {
     const value = e.target.value;
     const cleanVal = value.replace(/\D/g, ""); // Extract raw digits
@@ -845,22 +928,47 @@ useEffect(() => {
       return;
     }
     setPhoneSearchInput(cleanVal);
-    if (phoneSearchTimeoutRef.current) {
-      clearTimeout(phoneSearchTimeoutRef.current);
-    }
-    phoneSearchTimeoutRef.current = setTimeout(() => {
-      setPhoneSearch(cleanVal);
+    setPhoneIsTyping(true);
+    setPhoneHighlighted(-1);
+
+    // If cleared, reset search immediately
+    if (!cleanVal) {
+      setPhoneSearch("");
       setCurrentPage(1);
-    }, 8000);
+      setShowPhoneDropdown(false);
+      setPhoneIsTyping(false);
+    }
   };
 
   const handlePhoneSearchKeyDown = (e) => {
+    if (showPhoneDropdown && phoneSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setPhoneHighlighted((prev) => Math.min(prev + 1, phoneSuggestions.length - 1));
+        return;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setPhoneHighlighted((prev) => Math.max(prev - 1, 0));
+        return;
+      } else if (e.key === "Enter" && phoneHighlighted >= 0) {
+        e.preventDefault();
+        handlePhoneSelect(phoneSuggestions[phoneHighlighted]);
+        return;
+      } else if (e.key === "Escape") {
+        setShowPhoneDropdown(false);
+        setPhoneIsTyping(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter") {
-      if (phoneSearchTimeoutRef.current) {
-        clearTimeout(phoneSearchTimeoutRef.current);
+      if (phoneFetchTimeoutRef.current) {
+        clearTimeout(phoneFetchTimeoutRef.current);
       }
       setPhoneSearch(phoneSearchInput);
       setCurrentPage(1);
+      setShowPhoneDropdown(false);
+      setPhoneIsTyping(false);
     }
   };
 
@@ -1261,6 +1369,12 @@ useEffect(() => {
     setPendingNameSearch("");
     setPendingSurnameSearch("");
 
+    // Clear phone suggestion states
+    setPhoneSuggestions([]);
+    setShowPhoneDropdown(false);
+    setPhoneIsTyping(false);
+    setPhoneHighlighted(-1);
+
     // Reset page
     setCurrentPage(1);
   }, []);
@@ -1374,7 +1488,7 @@ useEffect(() => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           {/* Row 1: Quick Search - Phone, Name, Surname, Organization */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-            <div className="relative">
+            <div ref={phoneContainerRef} className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 ref={phoneSearchInputRef}
@@ -1383,14 +1497,42 @@ useEffect(() => {
                 value={formatPhoneSearch(phoneSearchInput)}
                 onChange={handlePhoneSearchChange}
                 onKeyDown={handlePhoneSearchKeyDown}
+                onFocus={() => {
+                  if (phoneSearchInput && phoneSuggestions.length > 0) {
+                    setShowPhoneDropdown(true);
+                  }
+                }}
                 className="w-full pl-9 pr-3 py-2 text-lg text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
                 maxLength={16}
                 autoFocus={true}
+                autoComplete="off"
               />
-              {phoneSearchInput !== phoneSearch && phoneSearchInput && (
+              {phoneLoading && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
+              )}
+              {showPhoneDropdown && phoneSuggestions.length > 0 && (
+                <ul
+                  className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+                  style={{ zIndex: 9999 }}
+                >
+                  {phoneSuggestions.map((phone, idx) => (
+                    <li
+                      key={idx}
+                      className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
+                        idx === phoneHighlighted ? "bg-blue-100" : ""
+                      }`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handlePhoneSelect(phone);
+                      }}
+                      onMouseEnter={() => setPhoneHighlighted(idx)}
+                    >
+                      {formatPhoneSearch(phone)}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 
@@ -2361,7 +2503,7 @@ useEffect(() => {
                       </div>
                     </td>
                     <td className="px-6 py-3">
-                      <div className="text-sm text-gray-700 max-w-36 overflow-hidden">
+                      <div className="text-sm text-gray-700 max-w-80 overflow-hidden">
                         {(() => {
                           const addressParts = [
                             customer.house_flat_no,

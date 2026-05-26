@@ -47,6 +47,16 @@ const OrderNew = () => {
     }).format(amount);
   };
 
+  const safeParseFloat = (val, fallback = 0) => {
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? fallback : parsed;
+  };
+
+  const roundToTwoDecimals = (val) => {
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
+  };
+
   // State initialization with edit mode support
   const [formData, setFormData] = useState(() => {
     const defaultData = {
@@ -914,9 +924,122 @@ const OrderNew = () => {
   }, [removeProduct]);
 
   // ========== MEMOIZED CALCULATIONS ==========
+  const pricedOrderItems = useMemo(() => {
+    if (!orderItems.length) return [];
+
+    // 1. Initialize allocations maps
+    const comboQuantityAllocated = {}; // productId -> quantity
+    const comboBilledTotal = {}; // productId -> total adjusted amount
+
+    // 2. Loop over applied combos to compute their quantities and adjust prices of items
+    appliedCombos.forEach((ac) => {
+      const comboId = ac.comboId || ac.combo_id;
+      const comboQty = safeParseFloat(ac.quantity || 0);
+      if (comboQty <= 0) return;
+
+      const combo = combinations?.find((c) => c.id === comboId);
+      if (!combo) return;
+
+      // Loop over required items to find their regular values
+      const comboItemsDetails = combo.items?.map((item) => {
+        const product = products?.find((p) => p.id === item.product);
+        const mrpVal = product?.pricing?.mrp !== undefined && product?.pricing?.mrp !== null 
+          ? safeParseFloat(product.pricing.mrp) 
+          : safeParseFloat(product?.mrp || product?.price || 0);
+          
+        const saleVal = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null 
+          ? safeParseFloat(product.pricing.sale_rate) 
+          : safeParseFloat(product?.price || 0);
+
+        const regularPricePerUnit = item.offer_price && safeParseFloat(item.offer_price) > 0 
+          ? safeParseFloat(item.offer_price) 
+          : saleVal;
+
+        const qtyReq = safeParseFloat(item.quantity_required, 1);
+        const itemRegularValue = regularPricePerUnit * qtyReq;
+
+        return {
+          productId: item.product,
+          qtyRequired: qtyReq,
+          regularPricePerUnit,
+          itemRegularValue: isNaN(itemRegularValue) ? 0 : itemRegularValue,
+        };
+      }) || [];
+
+      const totalRegularValue = comboItemsDetails.reduce((sum, item) => sum + (item.itemRegularValue || 0), 0);
+
+      // Determine the offer total for 1 quantity of combo
+      let offerTotalPerCombo = 0;
+      if (combo.manual_combo_price !== undefined && combo.manual_combo_price !== null && safeParseFloat(combo.manual_combo_price) > 0) {
+        offerTotalPerCombo = safeParseFloat(combo.manual_combo_price);
+      } else {
+        offerTotalPerCombo = totalRegularValue;
+      }
+
+      // Total offer total for all applied quantities of this combo
+      const comboOfferTotal = offerTotalPerCombo * comboQty;
+      const comboItemsCount = comboItemsDetails.length;
+
+      // Distribute comboOfferTotal among the required items
+      comboItemsDetails.forEach((item) => {
+        let adjustedItemTotal = 0;
+        if (totalRegularValue > 0) {
+          adjustedItemTotal = (item.itemRegularValue / totalRegularValue) * comboOfferTotal;
+        } else if (comboItemsCount > 0) {
+          adjustedItemTotal = comboOfferTotal / comboItemsCount;
+        }
+
+        if (isNaN(adjustedItemTotal) || !isFinite(adjustedItemTotal)) {
+          adjustedItemTotal = 0;
+        }
+
+        // Track allocations
+        const pId = item.productId;
+        comboQuantityAllocated[pId] = (comboQuantityAllocated[pId] || 0) + (item.qtyRequired * comboQty);
+        comboBilledTotal[pId] = (comboBilledTotal[pId] || 0) + adjustedItemTotal;
+      });
+    });
+
+    // 3. Map orderItems to pricedOrderItems with weighted unit price
+    return orderItems.map((item) => {
+      // Free and gift items have 0 price
+      if (item.is_free || item.is_gift) {
+        return { ...item, unit_price: 0 };
+      }
+
+      const totalQty = safeParseFloat(item.quantity, 1);
+      const allocatedQty = comboQuantityAllocated[item.product] || 0;
+      const standaloneQty = Math.max(0, totalQty - allocatedQty);
+
+      // Standalone unit price is the sale rate of the product
+      const product = products?.find((p) => p.id === item.product);
+      const productSaleRate = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null 
+        ? safeParseFloat(product.pricing.sale_rate) 
+        : safeParseFloat(product?.price || 0);
+
+      // If the item already had a unit_price, use it as fallback for standalone
+      const standaloneUnitPrice = item.unit_price !== undefined ? safeParseFloat(item.unit_price) : productSaleRate;
+
+      const comboTotal = comboBilledTotal[item.product] || 0;
+      const standaloneTotal = standaloneQty * standaloneUnitPrice;
+
+      const totalBilledAmount = comboTotal + standaloneTotal;
+      let adjustedUnitPrice = totalQty > 0 ? (totalBilledAmount / totalQty) : standaloneUnitPrice;
+
+      if (isNaN(adjustedUnitPrice) || !isFinite(adjustedUnitPrice)) {
+        adjustedUnitPrice = standaloneUnitPrice;
+      }
+
+      return {
+        ...item,
+        unit_price: roundToTwoDecimals(adjustedUnitPrice),
+      };
+    });
+  }, [orderItems, appliedCombos, products, combinations]);
+
   const totals = useMemo(() => {
-    if (!orderItems.length) {
-      return { subtotal: 0, gstAmount: 0, total: 0, savings: 0, originalTotal: 0 };
+    if (!pricedOrderItems.length) {
+      return { subtotal: 0, gstAmount: 0, total: 0, savings: 0, originalTotal: 0, totalDiscount: 0 };
     }
 
     let subtotal = 0;
@@ -926,28 +1049,31 @@ const OrderNew = () => {
     let originalTotal = 0;
     let grandTotal = 0;
 
-    orderItems.forEach((item) => {
+    pricedOrderItems.forEach((item) => {
       if (!item.is_free && !item.is_gift) {
         // Discounted price
-        const itemTotal = item.unit_price * item.quantity;
-        const gstRate = !isNaN(item.gst_rate_value) ? item.gst_rate_value : 0;
-        const itemGST = (itemTotal * gstRate) / (100 + gstRate);
-        const taxableValue = itemTotal - itemGST;
+        const itemQty = safeParseFloat(item.quantity, 1);
+        const itemUnitPrice = safeParseFloat(item.unit_price, 0);
+        const itemTotal = roundToTwoDecimals(itemUnitPrice * itemQty);
+        const gstRate = safeParseFloat(item.gst_rate_value, 0);
+        const itemGST = roundToTwoDecimals((itemTotal * gstRate) / (100 + gstRate));
+        const taxableValue = roundToTwoDecimals(itemTotal - itemGST);
         subtotal += taxableValue;
         gstAmount += itemGST;
         grandTotal += itemTotal;
 
         // Original price
-        const originalItemTotal = item.original_price * item.quantity;
-        const originalItemGST = (originalItemTotal * gstRate) / (100 + gstRate);
-        const originalTaxableValue = originalItemTotal - originalItemGST;
+        const originalPrice = safeParseFloat(item.original_price || item.unit_price || 0);
+        const originalItemTotal = roundToTwoDecimals(originalPrice * itemQty);
+        const originalItemGST = roundToTwoDecimals((originalItemTotal * gstRate) / (100 + gstRate));
+        const originalTaxableValue = roundToTwoDecimals(originalItemTotal - originalItemGST);
         originalSubtotal += originalTaxableValue;
         originalGstAmount += originalItemGST;
         originalTotal += originalItemTotal;
       }
     });
 
-    const savings = originalTotal - grandTotal;
+    const savings = roundToTwoDecimals(originalTotal - grandTotal);
 
     // Use backend total_amount in edit mode if available
     let backendTotal = null;
@@ -962,15 +1088,16 @@ const OrderNew = () => {
     }
 
     return {
-      subtotal,
-      gstAmount,
-      total: backendTotal !== null ? backendTotal : grandTotal,
+      subtotal: roundToTwoDecimals(subtotal),
+      gstAmount: roundToTwoDecimals(gstAmount),
+      total: roundToTwoDecimals(backendTotal !== null ? backendTotal : grandTotal),
       savings,
-      originalTotal,
-      originalSubtotal,
-      originalGstAmount
+      originalTotal: roundToTwoDecimals(originalTotal),
+      originalSubtotal: roundToTwoDecimals(originalSubtotal),
+      originalGstAmount: roundToTwoDecimals(originalGstAmount),
+      totalDiscount: savings
     };
-  }, [orderItems, editMode]);
+  }, [pricedOrderItems, editMode]);
 
   // ========== MUTATION ==========
   const mutation = useMutation({
@@ -1043,13 +1170,14 @@ const OrderNew = () => {
       return;
     }
 
-    if (orderItems.length === 0) {
+    if (pricedOrderItems.length === 0) {
       alert("Please add at least one product to the order.");
       return;
     }
 
     console.log('=== SUBMITTING ORDER ===');
-    console.log('Order Items:', orderItems);
+    console.log('Raw Order Items:', orderItems);
+    console.log('Priced Order Items:', pricedOrderItems);
     console.log('Applied Combos:', appliedCombos);
     console.log('Totals:', totals);
 
@@ -1063,7 +1191,7 @@ const OrderNew = () => {
       total_amount: totals.total,
       paid_amount: formData.payment_status === "Paid" ? totals.total : 
                    formData.payment_status === "Partial" ? parseFloat(formData.partial_amount) : 0,
-      items: orderItems.map((item) => ({
+      items: pricedOrderItems.map((item) => ({
         product: item.product,
         quantity: item.quantity,
         unit_price: item.unit_price,
@@ -2062,15 +2190,6 @@ const OrderNew = () => {
                 <h2 className="text-xl font-bold text-gray-900">Order Summary</h2>
               </div>
 
-              {totals.totalDiscount > 0 && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex justify-between text-yellow-700">
-                    <span className="font-medium">Total Savings from Combos</span>
-                    <span className="font-bold">-₹{totals.totalDiscount.toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-3">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal (excl. GST)</span>
@@ -2080,12 +2199,6 @@ const OrderNew = () => {
                   <span>GST Amount</span>
                   <span className="font-medium">₹{totals.gstAmount.toFixed(2)}</span>
                 </div>
-                {totals.originalTotal > totals.total && (
-                  <div className="flex justify-between text-gray-400">
-                    <span>Regular Total (without discounts)</span>
-                    <span className="line-through">₹{totals.originalTotal.toFixed(2)}</span>
-                  </div>
-                )}
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex justify-between text-lg font-bold text-gray-900">
                     <span>Grand Total</span>
@@ -2277,7 +2390,27 @@ const OrderNew = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => navigator.clipboard.writeText(generatedOrderId)}
+                    onClick={async () => {
+                      try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                          await navigator.clipboard.writeText(generatedOrderId);
+                        } else {
+                          const textArea = document.createElement("textarea");
+                          textArea.value = generatedOrderId;
+                          textArea.style.top = "0";
+                          textArea.style.left = "0";
+                          textArea.style.position = "fixed";
+                          textArea.style.opacity = "0";
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          document.execCommand("copy");
+                          document.body.removeChild(textArea);
+                        }
+                      } catch (err) {
+                        console.error("Failed to copy order ID:", err);
+                      }
+                    }}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
                   >
                     Copy

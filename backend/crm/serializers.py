@@ -47,6 +47,11 @@ class CustomerSerializer(serializers.ModelSerializer):
         allow_null=True
     )
 
+    def validate_gstin_no(self, value):
+        if not value or str(value).strip() == "":
+            return None
+        return value
+
     def get_total_order_value(self, obj):
         # Calculate total order value from all orders for this customer
         total = obj.order_set.aggregate(total=models.Sum('total_amount'))['total'] or 0

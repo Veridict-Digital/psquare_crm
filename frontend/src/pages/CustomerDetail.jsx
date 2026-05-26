@@ -66,6 +66,7 @@ const CustomerDetail = () => {
   });
   const [showOldOrderHistory, setShowOldOrderHistory] = useState(true); // Default to Old Order History
   const [oldOrdersPage, setOldOrdersPage] = useState(1);
+  const [tempGstinValue, setTempGstinValue] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const itemsPerPage = 5;
 
@@ -214,10 +215,37 @@ const CustomerDetail = () => {
       .catch(() => setCustomerTypes([]));
   }, []);
 
+  const formatGstinWithDashes = (gstin) => {
+  if (!gstin) return "";
+  const cleaned = gstin.toString().replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  
+  if (cleaned.length === 0) return "";
+  if (cleaned.length <= 2) return cleaned;
+  if (cleaned.length <= 12) return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+  return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 12)}-${cleaned.slice(12, 15)}`;
+};
+
   // Copy phone number to clipboard
   const copyToClipboard = async (phoneNumber, phoneId) => {
     try {
-      await navigator.clipboard.writeText(phoneNumber);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(phoneNumber);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = phoneNumber;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!successful) {
+          throw new Error("document.execCommand('copy') was unsuccessful");
+        }
+      }
       setCopiedPhone(phoneId);
       setTimeout(() => setCopiedPhone(null), 2000);
     } catch (err) {
@@ -1337,79 +1365,101 @@ const CustomerDetail = () => {
             </div>
             <div className="flex flex-col text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <div className="flex items-center w-full">
-                <FileText className="h-5 w-5 mr-2 text-gray-400 flex-shrink-0" />
-                <span className="font-medium mr-2 whitespace-nowrap">GSTIN No:</span>
-                <input
-                  type="text"
-                  defaultValue={customer?.gstin_no ? formatGstin(customer.gstin_no) : ""}
-                  key={customer?.gstin_no ? formatGstin(customer.gstin_no) : "empty"}
-                  maxLength="17"
-                  placeholder="XX-XXXXXXXXXX-XXX"
-                  onChange={(e) => {
-                    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                    const limited = value.slice(0, 15);
-                    if (e.target.value !== limited) {
-                      e.target.value = limited;
-                    }
-
-                    if (limited.length > 0 && limited.length < 15) {
-                      setGstinError("GSTIN must be exactly 15 characters");
-                    } else if (limited.length === 15) {
-                      axios.get(`/api/customers/?gstin_no=${limited}`)
-                        .then((res) => {
-                          const existingCustomers = res.data;
-                          const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
-                          if (isDuplicate) {
-                            setGstinError("GSTIN already exists");
-                          } else {
-                            setGstinError("");
-                          }
-                        })
-                        .catch(() => {
-                          setGstinError("");
-                        });
-                    } else {
-                      setGstinError("");
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                    if (value !== (customer?.gstin_no || "")) {
-                      if (value && value.length !== 15) {
-                        toast.error("GSTIN must be exactly 15 characters");
-                        return;
-                      }
-
-                      if (value.length === 15) {
-                        axios.get(`/api/customers/?gstin_no=${value}`)
-                          .then((res) => {
-                            const existingCustomers = res.data;
-                            const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
-                            if (isDuplicate) {
-                              toast.error("GSTIN already exists");
-                            } else {
-                              updateMutation.mutate({ gstin_no: value || null });
-                              setGstinError("");
-                            }
-                          })
-                          .catch(() => {
-                            updateMutation.mutate({ gstin_no: value || null });
-                            setGstinError("");
-                          });
-                      } else {
-                        updateMutation.mutate({ gstin_no: null });
-                        setGstinError("");
-                      }
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.target.blur();
-                    }
-                  }}
-                  className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+  <span className="font-small mr-2 whitespace-nowrap">GST:</span>
+  <input
+    type="text"
+    value={(() => {
+      // Format the value for display while typing
+      if (tempGstinValue !== undefined && tempGstinValue !== null) {
+        return formatGstinWithDashes(tempGstinValue);
+      }
+      return customer?.gstin_no ? formatGstinWithDashes(customer?.gstin_no) : "";
+    })()}
+    onChange={(e) => {
+      // Get the raw input value and remove any dashes
+      let rawValue = e.target.value.replace(/-/g, "").toUpperCase();
+      
+      // Limit to 15 characters
+      if (rawValue.length > 15) {
+        rawValue = rawValue.slice(0, 15);
+      }
+      
+      setTempGstinValue(rawValue);
+      
+      // Validate length
+      if (rawValue.length > 0 && rawValue.length < 15) {
+        setGstinError("GSTIN must be exactly 15 characters");
+      } else if (rawValue.length === 15) {
+        // Check for duplicates
+        axios.get(`/api/customers/?gstin_no=${rawValue}`)
+          .then((res) => {
+            const existingCustomers = res.data;
+            const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
+            if (isDuplicate) {
+              setGstinError("GSTIN already exists");
+            } else {
+              setGstinError("");
+            }
+          })
+          .catch(() => {
+            setGstinError("");
+          });
+      } else {
+        setGstinError("");
+      }
+    }}
+    onBlur={(e) => {
+      const value = tempGstinValue || "";
+      
+      if (value !== (customer?.gstin_no || "")) {
+        if (value && value.length !== 15) {
+          toast.error("GSTIN must be exactly 15 characters");
+          setTempGstinValue("");
+          setGstinError("");
+          // Reset to original value
+          e.target.value = customer?.gstin_no ? formatGstinWithDashes(customer.gstin_no) : "";
+        } else if (value.length === 15) {
+          axios.get(`/api/customers/?gstin_no=${value}`)
+            .then((res) => {
+              const existingCustomers = res.data;
+              const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
+              if (isDuplicate) {
+                toast.error("GSTIN already exists");
+                setGstinError("GSTIN already exists");
+                setTempGstinValue("");
+              } else {
+                updateMutation.mutate({ gstin_no: value });
+                setGstinError("");
+                setTempGstinValue("");
+              }
+            })
+            .catch(() => {
+              updateMutation.mutate({ gstin_no: value });
+              setGstinError("");
+              setTempGstinValue("");
+            });
+        } else {
+          updateMutation.mutate({ gstin_no: null });
+          setGstinError("");
+          setTempGstinValue("");
+        }
+      } else {
+        setTempGstinValue("");
+      }
+    }}
+    onKeyDown={(e) => {
+      if (e.key === "Enter") {
+        e.target.blur();
+      } else if (e.key === "Escape") {
+        setTempGstinValue("");
+        setGstinError("");
+        e.target.blur();
+      }
+    }}
+    placeholder="XX-XXXXXXXXXX-XXX"
+    className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+  />
+</div>
               {gstinError && (
                 <span className="text-red-500 text-xs font-semibold mt-1 ml-7">
                   {gstinError}

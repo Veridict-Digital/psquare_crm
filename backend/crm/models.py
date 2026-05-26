@@ -86,6 +86,10 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
+        # Convert empty string/whitespace gstin_no to None before saving to avoid uniqueness constraint violation
+        if self.gstin_no == "" or (self.gstin_no and str(self.gstin_no).strip() == ""):
+            self.gstin_no = None
+
         # Always set contact_type to 'Lead' on creation
         if not self.pk:
             self.contact_type = 'Lead'
