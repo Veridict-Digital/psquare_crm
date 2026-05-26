@@ -66,7 +66,7 @@ const CustomerDetail = () => {
   });
   const [showOldOrderHistory, setShowOldOrderHistory] = useState(true); // Default to Old Order History
   const [oldOrdersPage, setOldOrdersPage] = useState(1);
-  const [tempGstinValue, setTempGstinValue] = useState("");
+  const [tempGstinValue, setTempGstinValue] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const itemsPerPage = 5;
 
@@ -1363,14 +1363,14 @@ const CustomerDetail = () => {
                 />
               </div>
             </div>
-            <div className="flex flex-col text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
+            <div className="flex flex-col justify-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
               <div className="flex items-center w-full">
   <span className="font-small mr-2 whitespace-nowrap">GST:</span>
   <input
     type="text"
     value={(() => {
       // Format the value for display while typing
-      if (tempGstinValue !== undefined && tempGstinValue !== null) {
+      if (tempGstinValue !== null) {
         return formatGstinWithDashes(tempGstinValue);
       }
       return customer?.gstin_no ? formatGstinWithDashes(customer?.gstin_no) : "";
@@ -1409,12 +1409,12 @@ const CustomerDetail = () => {
       }
     }}
     onBlur={(e) => {
-      const value = tempGstinValue || "";
+      const value = tempGstinValue !== null ? tempGstinValue : (customer?.gstin_no || "");
       
       if (value !== (customer?.gstin_no || "")) {
         if (value && value.length !== 15) {
           toast.error("GSTIN must be exactly 15 characters");
-          setTempGstinValue("");
+          setTempGstinValue(null);
           setGstinError("");
           // Reset to original value
           e.target.value = customer?.gstin_no ? formatGstinWithDashes(customer.gstin_no) : "";
@@ -1426,32 +1426,32 @@ const CustomerDetail = () => {
               if (isDuplicate) {
                 toast.error("GSTIN already exists");
                 setGstinError("GSTIN already exists");
-                setTempGstinValue("");
+                setTempGstinValue(null);
               } else {
                 updateMutation.mutate({ gstin_no: value });
                 setGstinError("");
-                setTempGstinValue("");
+                setTempGstinValue(null);
               }
             })
             .catch(() => {
               updateMutation.mutate({ gstin_no: value });
               setGstinError("");
-              setTempGstinValue("");
+              setTempGstinValue(null);
             });
         } else {
           updateMutation.mutate({ gstin_no: null });
           setGstinError("");
-          setTempGstinValue("");
+          setTempGstinValue(null);
         }
       } else {
-        setTempGstinValue("");
+        setTempGstinValue(null);
       }
     }}
     onKeyDown={(e) => {
       if (e.key === "Enter") {
         e.target.blur();
       } else if (e.key === "Escape") {
-        setTempGstinValue("");
+        setTempGstinValue(null);
         setGstinError("");
         e.target.blur();
       }
