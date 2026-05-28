@@ -378,7 +378,7 @@ const CustomerList = () => {
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className={`w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white ${className}`}
+          className={`w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm ${className}`}
           disabled={disabled}
           autoComplete="off"
         />
@@ -1457,7 +1457,7 @@ useEffect(() => {
     );
 
   return (
-    <div className="p-4">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden p-4">
       {/* Messages */}
       {successMessage && (
         <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center justify-between">
@@ -1484,273 +1484,340 @@ useEffect(() => {
       )}
 
       {/* Search and Filter Section */}
-      <div className="sticky top-0 z-20 bg-gray-50 pb-2">
+      <div className="flex-none bg-gray-50 pb-2">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          {/* Row 1: Quick Search - Phone, Name, Surname, Organization */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-            <div ref={phoneContainerRef} className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                ref={phoneSearchInputRef}
-                type="text"
-                placeholder="Phone number"
-                value={formatPhoneSearch(phoneSearchInput)}
-                onChange={handlePhoneSearchChange}
-                onKeyDown={handlePhoneSearchKeyDown}
-                onFocus={() => {
-                  if (phoneSearchInput && phoneSuggestions.length > 0) {
-                    setShowPhoneDropdown(true);
-                  }
-                }}
-                className="w-full pl-9 pr-3 py-2 text-lg text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
-                maxLength={16}
-                autoFocus={true}
-                autoComplete="off"
-              />
-              {phoneLoading && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                </div>
-              )}
-              {showPhoneDropdown && phoneSuggestions.length > 0 && (
-                <ul
-                  className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
-                  style={{ zIndex: 9999 }}
-                >
-                  {phoneSuggestions.map((phone, idx) => (
-                    <li
-                      key={idx}
-                      className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                        idx === phoneHighlighted ? "bg-blue-100" : ""
-                      }`}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handlePhoneSelect(phone);
-                      }}
-                      onMouseEnter={() => setPhoneHighlighted(idx)}
-                    >
-                      {formatPhoneSearch(phone)}
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {/* Row 1: Quick Search - Phone, Name, Surname, Organization, Org Type, Customer Type */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3.5">
+            {/* Phone search */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Phone Search</label>
+              <div ref={phoneContainerRef} className="relative w-full">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  ref={phoneSearchInputRef}
+                  type="text"
+                  placeholder="Phone number"
+                  value={formatPhoneSearch(phoneSearchInput)}
+                  onChange={handlePhoneSearchChange}
+                  onKeyDown={handlePhoneSearchKeyDown}
+                  onFocus={() => {
+                    if (phoneSearchInput && phoneSuggestions.length > 0) {
+                      setShowPhoneDropdown(true);
+                    }
+                  }}
+                  className="w-full pl-9 pr-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  maxLength={16}
+                  autoFocus={true}
+                  autoComplete="off"
+                />
+                {phoneLoading && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  </div>
+                )}
+                {showPhoneDropdown && phoneSuggestions.length > 0 && (
+                  <ul
+                    className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+                    style={{ zIndex: 9999 }}
+                  >
+                    {phoneSuggestions.map((phone, idx) => (
+                      <li
+                        key={idx}
+                        className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
+                          idx === phoneHighlighted ? "bg-blue-100" : ""
+                        }`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handlePhoneSelect(phone);
+                        }}
+                        onMouseEnter={() => setPhoneHighlighted(idx)}
+                      >
+                        {formatPhoneSearch(phone)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
-            <div className="relative">
-              <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <SearchableDropdown
-                value={pendingNameSearch}
-                onChange={setPendingNameSearch}
-                fetchUrl="/api/customers/unique_names/"
-                placeholder="First name"
-                className="pl-9"
-              />
+            {/* First Name */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">First Name</label>
+              <div className="relative w-full">
+                <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
+                <SearchableDropdown
+                  value={pendingNameSearch}
+                  onChange={setPendingNameSearch}
+                  fetchUrl="/api/customers/unique_names/"
+                  placeholder="First name"
+                  className="pl-9"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <SearchableDropdown
-                value={pendingSurnameSearch}
-                onChange={setPendingSurnameSearch}
-                fetchUrl="/api/customers/unique_surnames/"
-                placeholder="Surname"
-                className="pl-9"
-              />
+
+            {/* Surname */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Surname</label>
+              <div className="relative w-full">
+                <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
+                <SearchableDropdown
+                  value={pendingSurnameSearch}
+                  onChange={setPendingSurnameSearch}
+                  fetchUrl="/api/customers/unique_surnames/"
+                  placeholder="Surname"
+                  className="pl-9"
+                />
+              </div>
             </div>
-            <div className="relative">
+
+            {/* Organization */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Organization</label>
               <input
                 type="text"
                 placeholder="Organization"
                 value={pendingFilterOrgName}
                 onChange={(e) => setPendingFilterOrgName(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 hover:bg-white"
+                className="w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
               />
             </div>
-            <select
-              value={pendingFilterOrgType}
-              onChange={(e) => setPendingFilterOrgType(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white"
-            >
-              <option value="">Org Type</option>
-              {organizationTypes?.map((org) => (
-                <option key={org.id} value={org.name}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
-          {/* Row 2: Address Filters - Compact grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-2 mb-4">
-            <input
-              type="text"
-              placeholder="Pincode"
-              value={pendingFilterPincode}
-              onChange={(e) => setPendingFilterPincode(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-              maxLength="6"
-            />
-            <input
-              type="text"
-              placeholder="State"
-              value={pendingFilterState}
-              onChange={(e) => setPendingFilterState(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="District"
-              value={pendingFilterDistrict}
-              onChange={(e) => setPendingFilterDistrict(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Tahsil"
-              value={pendingFilterTahsil}
-              onChange={(e) => setPendingFilterTahsil(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="City"
-              value={pendingFilterCity}
-              onChange={(e) => setPendingFilterCity(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Area"
-              value={pendingFilterArea}
-              onChange={(e) => setPendingFilterArea(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Landmark"
-              value={pendingFilterLandmark}
-              onChange={(e) => setPendingFilterLandmark(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Society/Colony"
-              value={pendingFilterSocietyColony}
-              onChange={(e) => setPendingFilterSocietyColony(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Wing/Lane"
-              value={pendingFilterWingLane}
-              onChange={(e) => setPendingFilterWingLane(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-            <input
-              type="text"
-              placeholder="House/Flat"
-              value={pendingFilterHouseFlatNo}
-              onChange={(e) => setPendingFilterHouseFlatNo(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white"
-            />
-          </div>
+            {/* Org Type */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Org Type</label>
+              <select
+                value={pendingFilterOrgType}
+                onChange={(e) => setPendingFilterOrgType(e.target.value)}
+                className="px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white hover:bg-white h-10 shadow-sm w-full"
+              >
+                <option value="">All Org Types</option>
+                {organizationTypes?.map((org) => (
+                  <option key={org.id} value={org.name}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Row 3: Additional Filters and Actions */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+            {/* Customer Type */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Customer Type</label>
               <select
                 value={pendingFilterCustomerType}
                 onChange={(e) => setPendingFilterCustomerType(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white"
+                className="px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white hover:bg-white h-10 shadow-sm w-full"
               >
-                <option value="">Customer Type</option>
+                <option value="">All Customer Types</option>
                 {customerTypes?.map((type) => (
                   <option key={type.id} value={type.name}>
                     {type.name}
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
 
-              <select
-                value={pendingFilterTelecaller}
-                onChange={(e) => setPendingFilterTelecaller(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white"
-              >
-                <option value="">Telecaller</option>
-                {employees
-                  ?.filter((emp) => emp.role === "Telecaller")
-                  .map((emp) => (
-                    <option key={emp.id} value={emp.username}>
-                      {emp.username}
-                    </option>
-                  ))}
-              </select>
+          {/* Row 2: Address Filters - Horizontal Scrolling */}
+          <div className="flex flex-col justify-end mb-4">
+            <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Customer Address (Pincode → House No)</label>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+              {/* Pincode */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="Pincode"
+                  value={pendingFilterPincode}
+                  onChange={(e) => setPendingFilterPincode(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  maxLength="6"
+                />
+              </div>
 
+              {/* State */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="State"
+                  value={pendingFilterState}
+                  onChange={(e) => setPendingFilterState(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
 
-              <input
-                type="date"
-                value={pendingDateFrom}
-                onChange={(e) => setPendingDateFrom(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white"
-                placeholder="From"
-              />
+              {/* Tahsil */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="Tahsil"
+                  value={pendingFilterTahsil}
+                  onChange={(e) => setPendingFilterTahsil(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
 
-              <input
-                type="date"
-                value={pendingDateTo}
-                onChange={(e) => setPendingDateTo(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 hover:bg-white"
-                placeholder="To"
-              />
+              {/* District */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="District"
+                  value={pendingFilterDistrict}
+                  onChange={(e) => setPendingFilterDistrict(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
 
-              {/* KPI: Total Customers */}
-              <div className="flex items-center bg-blue-50 border border-blue-200 rounded-lg px-2 py-2 shadow-sm">
-                <Users className="w-5 h-5 text-blue-500 mr-2" />
-                <div className="flex flex-col items-start">
-                  <span className="text-xs text-gray-500">Total Customers</span>
-                  <span className="text-sm font-semibold text-blue-600">{data?.count ?? 0}</span>
-                </div>
+              {/* City */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="City"
+                  value={pendingFilterCity}
+                  onChange={(e) => setPendingFilterCity(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
+
+              {/* Area */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="Area"
+                  value={pendingFilterArea}
+                  onChange={(e) => setPendingFilterArea(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
+
+              {/* Landmark */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="Landmark"
+                  value={pendingFilterLandmark}
+                  onChange={(e) => setPendingFilterLandmark(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
+
+              {/* Society/Colony */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="Society/Colony"
+                  value={pendingFilterSocietyColony}
+                  onChange={(e) => setPendingFilterSocietyColony(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
+
+              {/* Wing/Lane */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="Wing/Lane"
+                  value={pendingFilterWingLane}
+                  onChange={(e) => setPendingFilterWingLane(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
+
+              {/* House/Flat */}
+              <div className="min-w-[110px] flex-1">
+                <input
+                  type="text"
+                  placeholder="Flat/House No"
+                  value={pendingFilterHouseFlatNo}
+                  onChange={(e) => setPendingFilterHouseFlatNo(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Additional Filters and Actions */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+            {/* Left Side: Additional Filters */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Telecaller */}
+              <div className="flex flex-col min-w-[140px]">
+                <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Telecaller</label>
+                <select
+                  value={pendingFilterTelecaller}
+                  onChange={(e) => setPendingFilterTelecaller(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm h-10 w-full"
+                >
+                  <option value="">All Telecallers</option>
+                  {employees
+                    ?.filter((emp) => emp.role === "Telecaller")
+                    .map((emp) => (
+                      <option key={emp.id} value={emp.username}>
+                        {emp.username}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* From Date */}
+              <div className="flex flex-col min-w-[130px]">
+                <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">From Date</label>
+                <input
+                  type="date"
+                  value={pendingDateFrom}
+                  onChange={(e) => setPendingDateFrom(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 w-full"
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="flex flex-col min-w-[130px]">
+                <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">To Date</label>
+                <input
+                  type="date"
+                  value={pendingDateTo}
+                  onChange={(e) => setPendingDateTo(e.target.value)}
+                  className="px-3 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 w-full"
+                />
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Right Side: Action Controls & KPI */}
+            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+              {/* Apply Button */}
               <button
                 onClick={handleApplyFilters}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-1.5"
               >
                 Apply
               </button>
 
+              {/* Clear Button */}
               <button
                 onClick={handleClearFilters}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+                className="h-10 px-5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-all duration-150 flex items-center justify-center"
               >
                 Clear
               </button>
 
-              <div className="h-8 w-px bg-gray-200 mx-1"></div>
+              {/* Vertical Divider */}
+              <div className="hidden sm:block h-8 w-px bg-gray-200 mx-0.5"></div>
 
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-gray-500">Show:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="px-2 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 hover:bg-white"
-                >
-                  <option value={15}>15</option>
-                  <option value={30}>30</option>
-                  <option value={50}>50</option>
-                </select>
+              {/* Total Customers KPI Badge */}
+              <div className="flex items-center h-10 bg-blue-50 border border-blue-200 rounded-lg px-3 shadow-sm">
+                <Users className="w-4 h-4 text-blue-500 mr-2" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">Total Customers</span>
+                  <span className="text-sm font-semibold text-blue-600 leading-tight">{data?.count ?? 0}</span>
+                </div>
               </div>
 
-              <div className="h-8 w-px bg-gray-200 mx-1"></div>
-
-              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              {/* View Type Toggle (Appointments / Leads) */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1 h-10">
                 <button
                   onClick={() => {
                     setViewType("customers");
                     setCurrentPage(1);
                   }}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                     viewType === "customers"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
@@ -1763,7 +1830,7 @@ useEffect(() => {
                     setViewType("leads");
                     setCurrentPage(1);
                   }}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                     viewType === "leads"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
@@ -1773,10 +1840,11 @@ useEffect(() => {
                 </button>
               </div>
 
-              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              {/* View Mode Toggle (Table / Card) */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1 h-10">
                 <button
                   onClick={() => setViewMode("table")}
-                  className={`p-1.5 rounded-md transition-colors ${
+                  className={`p-1.5 rounded-md transition-all ${
                     viewMode === "table"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
@@ -1786,7 +1854,7 @@ useEffect(() => {
                 </button>
                 <button
                   onClick={() => setViewMode("card")}
-                  className={`p-1.5 rounded-md transition-colors ${
+                  className={`p-1.5 rounded-md transition-all ${
                     viewMode === "card"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
@@ -1796,17 +1864,36 @@ useEffect(() => {
                 </button>
               </div>
 
+              {/* Page Size Selector */}
+              <div className="flex items-center gap-1.5 h-10">
+                <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Show:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="h-10 px-2 text-sm border border-gray-200 rounded-lg bg-gray-50 hover:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all shadow-sm"
+                >
+                  <option value={15}>15</option>
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              {/* Vertical Divider */}
+              <div className="hidden sm:block h-8 w-px bg-gray-200 mx-0.5"></div>
+
+              {/* Excel Export Button */}
               <button
                 onClick={handleExportExcel}
-                className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                className="h-10 w-10 flex items-center justify-center text-gray-600 hover:text-green-600 hover:bg-green-50 border border-gray-200 rounded-lg transition-all shadow-sm"
                 title="Export Excel"
               >
                 <Download className="h-4 w-4" />
               </button>
 
+              {/* Quick Add Button */}
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
               >
                 <Plus className="h-4 w-4" />
                 Add
@@ -1818,7 +1905,7 @@ useEffect(() => {
 
       {/* Quick Add Form */}
       {showAddForm && (
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-2">
+        <div className="flex-none bg-white rounded-xl shadow-lg p-6 mb-2 overflow-y-auto max-h-[40vh]">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2341,10 +2428,9 @@ useEffect(() => {
 
       {/* Table View */}
       {viewMode === "table" ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div
-            className="overflow-x-auto overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            style={{ maxHeight: "calc(100vh - 280px)" }}
+            className="flex-1 overflow-auto"
           >
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-[#1a2332] sticky top-0 z-10">
@@ -2793,7 +2879,8 @@ useEffect(() => {
         </div>
       ) : (
         /* Card View */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="flex-1 min-h-0 overflow-auto pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {customers.map((customer) => (
             <div
               key={customer.id}
@@ -2916,6 +3003,7 @@ useEffect(() => {
             </div>
           )}
         </div>
+      </div>
       )}
 
       {/* Assignment Modal */}

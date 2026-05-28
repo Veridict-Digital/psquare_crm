@@ -294,6 +294,171 @@ const OrderDetail = () => {
     </div>
   );
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const getInvoiceItems = () => {
+    const invoiceItems = [];
+    let sNo = 1;
+
+    // Helper: Get original price (MRP) from products list (supporting ProductPricing)
+    const getOriginalPrice = (productId) => {
+      const productObj = products && products.find(p => p.id === productId);
+      if (productObj) {
+        if (productObj.pricing?.mrp !== undefined && productObj.pricing?.mrp !== null) {
+          return parseFloat(productObj.pricing.mrp);
+        }
+        return parseFloat(productObj.mrp || productObj.price || 0);
+      }
+      return 0;
+    };
+
+    // Helper: Get GST rate from products list
+    const getProductGstRate = (productId) => {
+      const productObj = products && products.find(p => p.id === productId);
+      if (productObj) {
+        if (productObj.gst_rate_display) {
+          return parseFloat(productObj.gst_rate_display) || 0;
+        }
+        if (productObj.gst_rate) {
+          if (typeof productObj.gst_rate === 'object') {
+            return parseFloat(productObj.gst_rate.rate) || 0;
+          }
+          return parseFloat(productObj.gst_rate) || 0;
+        }
+      }
+      return 0;
+    };
+
+    if (order.applied_combos && order.applied_combos.length > 0 && comboDetails.length > 0) {
+      comboDetails.forEach((combo) => {
+        const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
+        const appliedQuantity = appliedCombo?.quantity || 1;
+        
+        (combo.items || []).forEach((item) => {
+          const itemQty = item.quantity_required * appliedQuantity;
+          const unitMrp = getOriginalPrice(item.product);
+          const totalMrp = unitMrp * itemQty;
+          
+          const orderItemObj = order.items?.find(oi => oi.product === item.product && !oi.is_free && !oi.is_gift);
+          const unitOffer = orderItemObj ? parseFloat(orderItemObj.unit_price) : (parseFloat(item.offer_price) || 0);
+          const totalOffer = orderItemObj ? parseFloat(orderItemObj.total_price) : (unitOffer * itemQty);
+          const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(item.product);
+          
+          const taxableOffer = totalOffer / (1 + gstRate / 100);
+          const gstOfferAmount = totalOffer - taxableOffer;
+
+          invoiceItems.push({
+            sNo: sNo++,
+            productName: `${item.product_title} (Billed under ${combo.name})`,
+            qty: itemQty,
+            unitMrp: unitMrp,
+            totalMrp: totalMrp,
+            unitOffer: unitOffer,
+            totalOffer: totalOffer,
+            gstRate: gstRate,
+            taxableOffer: taxableOffer,
+            gstAmount: gstOfferAmount,
+            type: 'Paid'
+          });
+        });
+
+        (combo.rewards || []).forEach((reward) => {
+          const itemQty = reward.quantity_free * appliedQuantity;
+          const unitMrp = getOriginalPrice(reward.product);
+          const totalMrp = unitMrp * itemQty;
+          
+          const orderItemObj = order.items?.find(oi => oi.product === reward.product && oi.is_free);
+          const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(reward.product);
+          
+          const taxableMrp = totalMrp / (1 + gstRate / 100);
+          const gstMrpAmount = totalMrp - taxableMrp;
+
+          invoiceItems.push({
+            sNo: sNo++,
+            productName: `${reward.product_title} (Free under ${combo.name})`,
+            qty: itemQty,
+            unitMrp: unitMrp,
+            totalMrp: totalMrp,
+            unitOffer: 0,
+            totalOffer: 0,
+            gstRate: gstRate,
+            taxableOffer: taxableMrp,
+            gstAmount: gstMrpAmount,
+            type: 'Free'
+          });
+        });
+
+        (combo.gifts || []).forEach((gift) => {
+          const giftQtyVal = gift.quantity_free || gift.quantity || 1;
+          const itemQty = giftQtyVal * appliedQuantity;
+          const unitMrp = getOriginalPrice(gift.product);
+          const totalMrp = unitMrp * itemQty;
+          
+          const orderItemObj = order.items?.find(oi => oi.product === gift.product && oi.is_gift);
+          const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(gift.product);
+          
+          const taxableMrp = totalMrp / (1 + gstRate / 100);
+          const gstMrpAmount = totalMrp - taxableMrp;
+
+          invoiceItems.push({
+            sNo: sNo++,
+            productName: `${gift.product_title} (Gift under ${combo.name})`,
+            qty: itemQty,
+            unitMrp: unitMrp,
+            totalMrp: totalMrp,
+            unitOffer: 0,
+            totalOffer: 0,
+            gstRate: gstRate,
+            taxableOffer: taxableMrp,
+            gstAmount: gstMrpAmount,
+            type: 'Gift'
+          });
+        });
+      });
+    } else if (order.items && order.items.length > 0) {
+      order.items.forEach((item) => {
+        let type = 'Paid';
+        if (item.is_free) type = 'Free';
+        if (item.is_gift) type = 'Gift';
+
+        const originalPrice = getOriginalPrice(item.product);
+        const gstRate = parseFloat(item.gst_rate_display) || getProductGstRate(item.product);
+        const totalMrp = originalPrice * item.quantity;
+        const totalOffer = type === 'Paid' ? (parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0) : 0;
+        const unitOffer = type === 'Paid' ? (parseFloat(item.unit_price) || 0) : 0;
+
+        let taxableAmount = 0;
+        let gstAmount = 0;
+
+        if (type === 'Paid') {
+          taxableAmount = totalOffer / (1 + gstRate / 100);
+          gstAmount = totalOffer - taxableAmount;
+        } else {
+          taxableAmount = totalMrp / (1 + gstRate / 100);
+          gstAmount = totalMrp - taxableAmount;
+        }
+
+        invoiceItems.push({
+          sNo: sNo++,
+          productName: item.product_title + (type !== 'Paid' ? ` (${type})` : ''),
+          qty: item.quantity,
+          unitMrp: originalPrice,
+          totalMrp: totalMrp,
+          unitOffer: unitOffer,
+          totalOffer: totalOffer,
+          gstRate: gstRate,
+          taxableOffer: taxableAmount,
+          gstAmount: gstAmount,
+          type: type
+        });
+      });
+    }
+    
+    return invoiceItems;
+  };
+
   const { isMaharashtra, taxableValue, totalGst, cgstSgstValue, igstValue } = getGstBreakdown();
 
   return (
@@ -314,9 +479,12 @@ const OrderDetail = () => {
             </span>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center">
-              <Printer className="h-4 w-4 mr-2" />
-              Print
+            <button 
+              onClick={handlePrint}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center"
+            >
+              <Printer className="h-4 w-4 mr-2 text-blue-600" />
+              Print Invoice
             </button>
             <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center">
               <Download className="h-4 w-4 mr-2" />
@@ -1261,6 +1429,214 @@ const OrderDetail = () => {
             </table>
           </div>
         )}
+        
+        {/* Printable Invoice Styling */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          #print-invoice-area {
+            display: none;
+          }
+          @media print {
+            body {
+              background: white !important;
+              color: black !important;
+            }
+            /* Hide all visual layout elements inside body */
+            body * {
+              visibility: hidden !important;
+            }
+            /* Show only the print invoice and its descendants */
+            #print-invoice-area, #print-invoice-area * {
+              visibility: visible !important;
+            }
+            /* Mount the invoice container at the very top-left */
+            #print-invoice-area {
+              display: block !important;
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              padding: 10px !important;
+              margin: 0 !important;
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+              color: black !important;
+              background: white !important;
+            }
+            .invoice-table th, .invoice-table td {
+              border: 1px solid #000 !important;
+              padding: 6px 8px !important;
+            }
+          }
+        `}} />
+
+        {/* Printable Invoice Layout (Hidden on Screen, Active on Print) */}
+        <div id="print-invoice-area" className="hidden print:block text-black bg-white p-6 max-w-4xl mx-auto border-2 border-black">
+          {/* Header block */}
+          <div className="text-center border-b-2 border-black pb-4 mb-4">
+            <h1 className="text-2xl font-bold uppercase tracking-widest">TAX INVOICE</h1>
+            <p className="text-lg font-bold mt-1">PSQUARE ENTERPRISES</p>
+            <p className="text-xs text-gray-600">Maharashtra, State Code: 27</p>
+          </div>
+          
+          {/* Master Invoice Details Grid */}
+          <div className="grid grid-cols-2 gap-6 border-b border-black pb-4 mb-4 text-xs">
+            <div>
+              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Seller / From:</h3>
+              <p className="font-bold text-sm">PSQUARE ENTERPRISES</p>
+              <p className="text-gray-700 mt-0.5">Maharashtra, India</p>
+              <p className="mt-1"><span className="font-semibold text-gray-600">GSTIN:</span> 27XXXXXXXXXXXXX</p>
+            </div>
+            <div className="text-right">
+              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Invoice Details:</h3>
+              <p className="mt-0.5"><span className="font-semibold text-gray-600">Invoice No:</span> <span className="font-bold">{order.order_id || `ORD-${order.id}`}</span></p>
+              <p className="mt-0.5"><span className="font-semibold text-gray-600">Date:</span> {formatDate(order.order_date)}</p>
+              <p className="mt-0.5"><span className="font-semibold text-gray-600">Payment Status:</span> <span className="font-bold uppercase">{order.payment_status}</span></p>
+            </div>
+          </div>
+
+          {/* Customer Details & Shipping */}
+          <div className="grid grid-cols-2 gap-6 border-b border-black pb-4 mb-4 text-xs">
+            <div>
+              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Billing To / Buyer:</h3>
+              <p className="font-bold text-sm">{order.customer_name}</p>
+              {order.customer_details?.phone && (
+                <p className="mt-1 text-gray-700"><span className="font-semibold text-gray-600">Phone:</span> {order.customer_details.phone}</p>
+              )}
+              {order.customer_details?.email && (
+                <p className="text-gray-700"><span className="font-semibold text-gray-600">Email:</span> {order.customer_details.email}</p>
+              )}
+              <p className="mt-1 font-semibold text-gray-800"><span className="font-bold text-gray-600">GSTIN:</span> {order.customer_details?.gstin_no ? formatGstin(order.customer_details.gstin_no) : '—'}</p>
+            </div>
+            <div>
+              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Shipping To / Delivery Address:</h3>
+              {getDeliveryAddress() ? (
+                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{getDeliveryAddress()}</p>
+              ) : (
+                <p className="text-gray-400 italic">No delivery address provided</p>
+              )}
+            </div>
+          </div>
+
+          {/* Item Details Table */}
+          <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-2">Itemised Product Details</h3>
+          <table className="w-full invoice-table border border-black border-collapse text-xs mb-4">
+            <thead>
+              <tr className="bg-gray-100 font-bold">
+                <th className="border border-black text-center w-10">S.No</th>
+                <th className="border border-black text-left">Description of Goods</th>
+                <th className="border border-black text-center w-14">Type</th>
+                <th className="border border-black text-center w-12">Qty</th>
+                <th className="border border-black text-right w-20">Unit MRP</th>
+                <th className="border border-black text-right w-20">Offer Price</th>
+                <th className="border border-black text-right w-20">Taxable Val</th>
+                <th className="border border-black text-center w-12">GST %</th>
+                <th className="border border-black text-right w-20">Tax Amount</th>
+                <th className="border border-black text-right w-24">Net Billed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {getInvoiceItems().map((item) => (
+                <tr key={item.sNo} className="hover:bg-gray-50">
+                  <td className="border border-black text-center">{item.sNo}</td>
+                  <td className="border border-black font-medium">{item.productName}</td>
+                  <td className="border border-black text-center font-semibold text-[10px]">
+                    <span className={item.type === 'Paid' ? 'text-blue-700' : item.type === 'Free' ? 'text-green-700' : 'text-purple-700'}>
+                      {item.type}
+                    </span>
+                  </td>
+                  <td className="border border-black text-center font-bold">{item.qty}</td>
+                  <td className="border border-black text-right">{formatCurrency(item.unitMrp)}</td>
+                  <td className="border border-black text-right font-medium">{item.type === 'Paid' ? formatCurrency(item.unitOffer) : '—'}</td>
+                  <td className="border border-black text-right font-medium">{formatCurrency(item.taxableOffer)}</td>
+                  <td className="border border-black text-center">{item.gstRate}%</td>
+                  <td className="border border-black text-right">{formatCurrency(item.gstAmount)}</td>
+                  <td className="border border-black text-right font-bold text-gray-900">{item.type === 'Paid' ? formatCurrency(item.totalOffer) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Invoice Summary and Tax Details */}
+          <div className="flex justify-between items-start gap-8 mt-6 text-xs">
+            {/* Left Column: Notes & State Taxation Code */}
+            <div className="flex-1">
+              {order.notes && (
+                <div className="border border-black p-3 mb-4 rounded bg-gray-50/50">
+                  <h4 className="font-bold uppercase text-[9px] text-gray-500 mb-1">Additional Order Notes:</h4>
+                   <p className="text-gray-700 leading-relaxed">{order.notes}</p>
+                </div>
+              )}
+              <div className="text-[10px] text-gray-500 leading-relaxed">
+                <p className="font-bold text-gray-700">GST Jurisdiction State Details:</p>
+                <p className="mt-0.5">Billed to State: <span className="font-bold text-gray-700 uppercase">{order.customer_details?.state || 'MH (27)'}</span></p>
+                <p>Tax Type Applied: <span className="font-bold text-gray-700">{isMaharashtra ? 'CGST + SGST (Intra-state)' : 'IGST (Inter-state)'}</span></p>
+              </div>
+            </div>
+            
+            {/* Right Column: Tax Breakdown Box */}
+            <div className="w-80 border-2 border-black p-4 bg-gray-50/20">
+              <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                <span className="font-semibold text-gray-600">Total Items Count:</span>
+                <span className="font-bold text-gray-900">{order.items?.length || 0}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                <span className="font-semibold text-gray-600">Total Taxable Value:</span>
+                <span className="font-bold text-gray-900">{formatCurrency(taxableValue)}</span>
+              </div>
+              {isMaharashtra ? (
+                <>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                    <span className="font-semibold text-gray-600">CGST (Inclusive):</span>
+                    <span className="font-bold text-gray-900">{formatCurrency(cgstSgstValue)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                    <span className="font-semibold text-gray-600">SGST (Inclusive):</span>
+                    <span className="font-bold text-gray-900">{formatCurrency(cgstSgstValue)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                  <span className="font-semibold text-gray-600">IGST (Inclusive):</span>
+                  <span className="font-bold text-gray-900">{formatCurrency(igstValue)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-1.5 border-b border-gray-200">
+                <span className="font-semibold text-gray-600">Total GST Tax:</span>
+                <span className="font-bold text-gray-900">{formatCurrency(totalGst)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 text-sm font-bold mt-2 bg-gray-100 p-1.5 border border-black">
+                <span className="text-gray-800">Grand Total Billed:</span>
+                <span className="text-blue-700 text-base">{formatCurrency(order.total_amount)}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 mt-1 text-[10px]">
+                <span className="font-semibold text-gray-600">Paid Amount:</span>
+                <span className="font-bold text-green-700">{formatCurrency(order.paid_amount)}</span>
+              </div>
+              {order.total_amount - order.paid_amount > 0 && (
+                <div className="flex justify-between items-center py-1 text-[10px] text-red-600 font-bold border-t border-dotted border-gray-300 mt-1">
+                  <span>Balance Due:</span>
+                  <span>{formatCurrency(order.total_amount - order.paid_amount)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Invoice Terms and Signature Footer */}
+          <div className="grid grid-cols-2 gap-6 mt-12 pt-6 border-t-2 border-black text-xs">
+            <div>
+              <h4 className="font-bold mb-1">Terms & Conditions:</h4>
+              <ul className="list-decimal pl-4 text-[10px] text-gray-600 space-y-0.5 leading-relaxed">
+                <li>Goods once sold will not be taken back or exchanged.</li>
+                <li>All disputes are subject to local jurisdiction only.</li>
+                <li>Interest at 18% per annum will be charged if payment is not made within the due date.</li>
+              </ul>
+            </div>
+            <div className="text-right flex flex-col justify-between h-20">
+              <p className="font-bold">For PSQUARE ENTERPRISES</p>
+              <p className="text-[10px] text-gray-500 italic mt-auto">Authorized Signatory</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

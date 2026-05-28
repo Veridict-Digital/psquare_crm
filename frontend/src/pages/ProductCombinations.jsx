@@ -858,7 +858,34 @@ const SearchableProductDropdown = ({
   );
 };
 
+// State recovery helpers
+const getStoredFilters = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = sessionStorage.getItem("product_combinations_filters");
+    return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+    console.error("Error reading stored filters:", e);
+    return null;
+  }
+};
+
+const getStoredPopupState = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = sessionStorage.getItem("product_combinations_popup");
+    return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+    console.error("Error reading stored popup state:", e);
+    return null;
+  }
+};
+
 const ProductCombinations = () => {
+  // Load initial stored states
+  const storedFilters = useMemo(() => getStoredFilters() || {}, []);
+  const storedPopup = useMemo(() => getStoredPopupState() || {}, []);
+
   // State variables
   const [combinations, setCombinations] = useState([]);
   const [products, setProducts] = useState([]);
@@ -866,8 +893,8 @@ const ProductCombinations = () => {
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingCombination, setEditingCombination] = useState(null);
+  const [showForm, setShowForm] = useState(() => storedPopup.showForm ?? false);
+  const [editingCombination, setEditingCombination] = useState(() => storedPopup.editingCombination ?? null);
   const [unitConversionMap, setUnitConversionMap] = useState({});
 
   // Table editing states
@@ -881,36 +908,36 @@ const ProductCombinations = () => {
   const tableContainerRef = useRef(null);
 
   // Filter states
-  const [filterName, setFilterName] = useState("");
-  const [filterSKU, setFilterSKU] = useState("");
-  const [filterTitle, setFilterTitle] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterCategory1, setFilterCategory1] = useState("");
-  const [filterCategory2, setFilterCategory2] = useState("");
-  const [filterCategory3, setFilterCategory3] = useState("");
-  const [filterCategory4, setFilterCategory4] = useState("");
-  const [filterBrand, setFilterBrand] = useState("");
-  const [filterBrandCategory, setFilterBrandCategory] = useState("");
-  const [filterHSN, setFilterHSN] = useState("");
+  const [filterName, setFilterName] = useState(() => storedFilters.filterName ?? "");
+  const [filterSKU, setFilterSKU] = useState(() => storedFilters.filterSKU ?? "");
+  const [filterTitle, setFilterTitle] = useState(() => storedFilters.filterTitle ?? "");
+  const [filterCategory, setFilterCategory] = useState(() => storedFilters.filterCategory ?? "");
+  const [filterCategory1, setFilterCategory1] = useState(() => storedFilters.filterCategory1 ?? "");
+  const [filterCategory2, setFilterCategory2] = useState(() => storedFilters.filterCategory2 ?? "");
+  const [filterCategory3, setFilterCategory3] = useState(() => storedFilters.filterCategory3 ?? "");
+  const [filterCategory4, setFilterCategory4] = useState(() => storedFilters.filterCategory4 ?? "");
+  const [filterBrand, setFilterBrand] = useState(() => storedFilters.filterBrand ?? "");
+  const [filterBrandCategory, setFilterBrandCategory] = useState(() => storedFilters.filterBrandCategory ?? "");
+  const [filterHSN, setFilterHSN] = useState(() => storedFilters.filterHSN ?? "");
 
   // Category filter selected IDs for dependent dropdowns
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [selectedCategory1Id, setSelectedCategory1Id] = useState("");
-  const [selectedCategory2Id, setSelectedCategory2Id] = useState("");
-  const [selectedCategory3Id, setSelectedCategory3Id] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState(() => storedFilters.selectedCategoryId ?? "");
+  const [selectedCategory1Id, setSelectedCategory1Id] = useState(() => storedFilters.selectedCategory1Id ?? "");
+  const [selectedCategory2Id, setSelectedCategory2Id] = useState(() => storedFilters.selectedCategory2Id ?? "");
+  const [selectedCategory3Id, setSelectedCategory3Id] = useState(() => storedFilters.selectedCategory3Id ?? "");
 
-  const [filterFlavour, setFilterFlavour] = useState("");
-  const [filterResidual, setFilterResidual] = useState("");
-  const [filterBrandCategory1, setFilterBrandCategory1] = useState("");
-  const [filterGST, setFilterGST] = useState("");
-  const [filterUnit, setFilterUnit] = useState("");
-  const [filterMinWeight, setFilterMinWeight] = useState("");
-  const [filterMaxWeight, setFilterMaxWeight] = useState("");
-  const [filterMinPackingWeight, setFilterMinPackingWeight] = useState("");
-  const [filterMaxPackingWeight, setFilterMaxPackingWeight] = useState("");
-  const [filterPriceType, setFilterPriceType] = useState("");
-  const [filterMinPrice, setFilterMinPrice] = useState("");
-  const [filterMaxPrice, setFilterMaxPrice] = useState("");
+  const [filterFlavour, setFilterFlavour] = useState(() => storedFilters.filterFlavour ?? "");
+  const [filterResidual, setFilterResidual] = useState(() => storedFilters.filterResidual ?? "");
+  const [filterBrandCategory1, setFilterBrandCategory1] = useState(() => storedFilters.filterBrandCategory1 ?? "");
+  const [filterGST, setFilterGST] = useState(() => storedFilters.filterGST ?? "");
+  const [filterUnit, setFilterUnit] = useState(() => storedFilters.filterUnit ?? "");
+  const [filterMinWeight, setFilterMinWeight] = useState(() => storedFilters.filterMinWeight ?? "");
+  const [filterMaxWeight, setFilterMaxWeight] = useState(() => storedFilters.filterMaxWeight ?? "");
+  const [filterMinPackingWeight, setFilterMinPackingWeight] = useState(() => storedFilters.filterMinPackingWeight ?? "");
+  const [filterMaxPackingWeight, setFilterMaxPackingWeight] = useState(() => storedFilters.filterMaxPackingWeight ?? "");
+  const [filterPriceType, setFilterPriceType] = useState(() => storedFilters.filterPriceType ?? "");
+  const [filterMinPrice, setFilterMinPrice] = useState(() => storedFilters.filterMinPrice ?? "");
+  const [filterMaxPrice, setFilterMaxPrice] = useState(() => storedFilters.filterMaxPrice ?? "");
   const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
   const [titleSuggestionIndex, setTitleSuggestionIndex] = useState(-1);
   const [showComboSuggestions, setShowComboSuggestions] = useState(false);
@@ -919,7 +946,7 @@ const ProductCombinations = () => {
   const [skuSuggestionIndex, setSkuSuggestionIndex] = useState(-1);
 
   // Active filters state - only applied when user clicks Apply button
-  const [activeFilters, setActiveFilters] = useState({
+  const [activeFilters, setActiveFilters] = useState(() => storedFilters.activeFilters ?? {
     filterName: "",
     filterSKU: "",
     filterTitle: "",
@@ -1061,7 +1088,7 @@ const ProductCombinations = () => {
   }, []);
 
   // Form state for create/edit modal
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => storedPopup.formData ?? {
     name: "",
     combo_weight: "",
     curriar_purchase_point: "",
@@ -1085,6 +1112,88 @@ const ProductCombinations = () => {
   });
 
   const { isOpen } = useSidebar();
+
+  // Save filter states to sessionStorage
+  useEffect(() => {
+    try {
+      const filtersToSave = {
+        filterName,
+        filterSKU,
+        filterTitle,
+        filterCategory,
+        filterCategory1,
+        filterCategory2,
+        filterCategory3,
+        filterCategory4,
+        filterBrand,
+        filterBrandCategory,
+        filterHSN,
+        filterFlavour,
+        filterResidual,
+        filterBrandCategory1,
+        filterGST,
+        filterUnit,
+        filterMinWeight,
+        filterMaxWeight,
+        filterMinPackingWeight,
+        filterMaxPackingWeight,
+        filterPriceType,
+        filterMinPrice,
+        filterMaxPrice,
+        selectedCategoryId,
+        selectedCategory1Id,
+        selectedCategory2Id,
+        selectedCategory3Id,
+        activeFilters,
+      };
+      sessionStorage.setItem("product_combinations_filters", JSON.stringify(filtersToSave));
+    } catch (e) {
+      console.error("Error saving filters to sessionStorage:", e);
+    }
+  }, [
+    filterName,
+    filterSKU,
+    filterTitle,
+    filterCategory,
+    filterCategory1,
+    filterCategory2,
+    filterCategory3,
+    filterCategory4,
+    filterBrand,
+    filterBrandCategory,
+    filterHSN,
+    filterFlavour,
+    filterResidual,
+    filterBrandCategory1,
+    filterGST,
+    filterUnit,
+    filterMinWeight,
+    filterMaxWeight,
+    filterMinPackingWeight,
+    filterMaxPackingWeight,
+    filterPriceType,
+    filterMinPrice,
+    filterMaxPrice,
+    selectedCategoryId,
+    selectedCategory1Id,
+    selectedCategory2Id,
+    selectedCategory3Id,
+    activeFilters,
+  ]);
+
+  // Save popup states to sessionStorage
+  useEffect(() => {
+    try {
+      const popupToSave = {
+        showForm,
+        editingCombination,
+        formData,
+      };
+      sessionStorage.setItem("product_combinations_popup", JSON.stringify(popupToSave));
+    } catch (e) {
+      console.error("Error saving popup state to sessionStorage:", e);
+    }
+  }, [showForm, editingCombination, formData]);
 
   // Fetch data on mount
   useEffect(() => {

@@ -216,14 +216,14 @@ const CustomerDetail = () => {
   }, []);
 
   const formatGstinWithDashes = (gstin) => {
-  if (!gstin) return "";
-  const cleaned = gstin.toString().replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  
-  if (cleaned.length === 0) return "";
-  if (cleaned.length <= 2) return cleaned;
-  if (cleaned.length <= 12) return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
-  return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 12)}-${cleaned.slice(12, 15)}`;
-};
+    if (!gstin) return "";
+    const cleaned = gstin.toString().replace(/[^A-Z0-9]/gi, "").toUpperCase();
+
+    if (cleaned.length === 0) return "";
+    if (cleaned.length <= 2) return cleaned;
+    if (cleaned.length <= 12) return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+    return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 12)}-${cleaned.slice(12, 15)}`;
+  };
 
   // Copy phone number to clipboard
   const copyToClipboard = async (phoneNumber, phoneId) => {
@@ -272,23 +272,23 @@ const CustomerDetail = () => {
 
   // Add phone mutation
   const addPhoneMutation = useMutation({
-  mutationFn: (phoneData) =>
-    axios.post(`/api/customers/${id}/add_phone/`, phoneData),
-  onSuccess: () => {
-    queryClient.invalidateQueries(["customer-details", id]);
-    setShowAddPhone(false);
-    setNewPhoneNumber("");
-    setPhoneError("");
-  },
-  onError: (error) => {
-    // Only show error if it's not a duplicate (though frontend should catch it)
-    if (error.response?.data?.error?.includes("already exists")) {
-      setPhoneError("Phone number already exists");
-    } else {
-      setPhoneError(error.response?.data?.error || "Failed to add phone number");
-    }
-  },
-});
+    mutationFn: (phoneData) =>
+      axios.post(`/api/customers/${id}/add_phone/`, phoneData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["customer-details", id]);
+      setShowAddPhone(false);
+      setNewPhoneNumber("");
+      setPhoneError("");
+    },
+    onError: (error) => {
+      // Only show error if it's not a duplicate (though frontend should catch it)
+      if (error.response?.data?.error?.includes("already exists")) {
+        setPhoneError("Phone number already exists");
+      } else {
+        setPhoneError(error.response?.data?.error || "Failed to add phone number");
+      }
+    },
+  });
 
   // Add or update contact person for a phone
   const updatePhoneContactPerson = useMutation({
@@ -387,8 +387,28 @@ const CustomerDetail = () => {
       queryClient.invalidateQueries(["customer-details", id]);
     },
   });
+  const capitalizeWords = (str) => {
+    if (!str) return "";
+    return str
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const handleCapitalizeInput = (e) => {
+    const start = e.target.selectionStart;
+    const end = e.target.selectionEnd;
+    const originalValue = e.target.value;
+    const capitalized = capitalizeWords(originalValue);
+    if (originalValue !== capitalized) {
+      e.target.value = capitalized;
+      e.target.setSelectionRange(start, end);
+    }
+  };
 
   const customer = customerDetails?.customer;
+  const primaryPhoneObj = customer?.all_phones?.find((p) => p.is_primary) || customer?.all_phones?.[0];
+  const secondaryPhones = customer?.all_phones?.filter((p) => p.id !== primaryPhoneObj?.id) || [];
   const summary = customerDetails?.summary;
   const callLogs = customerDetails?.call_logs || [];
   const orders = customerDetails?.orders || [];
@@ -556,22 +576,29 @@ const CustomerDetail = () => {
               </div>
 
               {/* Name Section - Fixed width container */}
-              <div className="flex-shrink-0 min-w-[200px]">
+              <div className="flex-shrink-0 min-w-[230px]">
                 <div className="flex flex-col">
-                  <span className="text-sm text-gray-600">Name</span>
                   <div className="flex items-center space-x-2">
                     {/* First Name Field */}
                     <div className="relative">
                       <input
                         type="text"
                         defaultValue={customer?.name || ""}
+                        onChange={handleCapitalizeInput}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.target.blur();
+                          }
+                        }}
                         onBlur={(e) => {
-                          if (e.target.value !== customer?.name) {
-                            updateMutation.mutate({ name: e.target.value });
+                          const capitalizedValue = capitalizeWords(e.target.value);
+                          e.target.value = capitalizedValue;
+                          if (capitalizedValue !== (customer?.name || "")) {
+                            updateMutation.mutate({ name: capitalizedValue });
                           }
                         }}
                         placeholder="First name"
-                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-28 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-28 transition-all duration-200 focus:outline-none"
                       />
                     </div>
 
@@ -580,43 +607,234 @@ const CustomerDetail = () => {
                       <input
                         type="text"
                         defaultValue={customer?.surname || ""}
+                        onChange={handleCapitalizeInput}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.target.blur();
+                          }
+                        }}
                         onBlur={(e) => {
-                          if (e.target.value !== customer?.surname) {
-                            updateMutation.mutate({ surname: e.target.value });
+                          const capitalizedValue = capitalizeWords(e.target.value);
+                          e.target.value = capitalizedValue;
+                          if (capitalizedValue !== (customer?.surname || "")) {
+                            updateMutation.mutate({ surname: capitalizedValue });
                           }
                         }}
                         placeholder="Last name"
-                        className="px-2 py-1 border border-gray-300 rounded text-base font-semibold w-28 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-28 transition-all duration-200 focus:outline-none"
                       />
                     </div>
                   </div>
+
+                  {/* Primary Phone number under Name inputs */}
+                  {primaryPhoneObj && (
+                    <div className="mt-2.5 space-y-1.5">
+                      <div key={primaryPhoneObj.id} className="relative">
+                        <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-2 py-1 shadow-sm transition-all duration-150 gap-2">
+                          <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+
+                          {/* Phone Number */}
+                          {primaryPhoneObj.phone === customer.phone &&
+                            editingField === "phone" ? (
+                            <div className="flex items-center space-x-1.5">
+                              <input
+                                type="text"
+                                value={tempValue}
+                                onChange={(e) =>
+                                  setTempValue(e.target.value)
+                                }
+                                className="px-2 py-0.5 border border-slate-200 focus:border-blue-500 rounded text-xs w-28 focus:outline-none"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => {
+                                  updateMutation.mutate({
+                                    phone: tempValue,
+                                  });
+                                  setEditingField(null);
+                                }}
+                                className="text-green-600 hover:text-green-800 transition-colors"
+                              >
+                                <Save className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingField(null);
+                                  setTempValue("");
+                                }}
+                                className="text-red-600 hover:text-red-800 transition-colors"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span
+                              className="font-bold text-blue-600 text-xs whitespace-nowrap"
+                            >
+                              {formatPhoneNumber(primaryPhoneObj.phone)}
+                              {" (P)"}
+                            </span>
+                          )}
+
+                          {/* Copy Button */}
+                          <button
+                            onClick={() =>
+                              copyToClipboard(primaryPhoneObj.phone, primaryPhoneObj.id)
+                            }
+                            className="text-slate-400 hover:text-blue-600 transition-colors ml-auto"
+                            title="Copy phone number"
+                          >
+                            {copiedPhone === primaryPhoneObj.id ? (
+                              <Check className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+
+                          {/* Contact Person - Direct Input Field */}
+                          {editingContactPerson === primaryPhoneObj.id ? (
+                            <input
+                              type="text"
+                              value={tempContactPerson}
+                              onChange={(e) =>
+                                setTempContactPerson(e.target.value)
+                              }
+                              onBlur={() => {
+                                if (
+                                  tempContactPerson !==
+                                  (primaryPhoneObj.contact_person || "")
+                                ) {
+                                  updatePhoneContactPerson.mutate({
+                                    id: primaryPhoneObj.id,
+                                    contact_person: tempContactPerson,
+                                  });
+                                }
+                                setEditingContactPerson(null);
+                                setTempContactPerson("");
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  if (
+                                    tempContactPerson !==
+                                    (primaryPhoneObj.contact_person || "")
+                                  ) {
+                                    updatePhoneContactPerson.mutate({
+                                      id: primaryPhoneObj.id,
+                                      contact_person: tempContactPerson,
+                                    });
+                                  }
+                                  setEditingContactPerson(null);
+                                  setTempContactPerson("");
+                                } else if (e.key === "Escape") {
+                                  setEditingContactPerson(null);
+                                  setTempContactPerson("");
+                                }
+                              }}
+                              placeholder="Name"
+                              className="px-2 py-0.5 bg-white border border-blue-400 rounded-md text-xs w-28 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              onClick={() => {
+                                setEditingContactPerson(primaryPhoneObj.id);
+                                setTempContactPerson(
+                                  primaryPhoneObj.contact_person || "",
+                                );
+                              }}
+                              className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md whitespace-nowrap transition-all duration-150"
+                            >
+                              {primaryPhoneObj.contact_person || "+ Contact"}
+                            </span>
+                          )}
+
+                          {/* Primary Phone Dropdown Button */}
+                          <button
+                            onClick={() =>
+                              setShowPrimaryDropdown(!showPrimaryDropdown)
+                            }
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            <ChevronDown
+                              className={`h-3.5 w-3.5 transform transition-transform ${showPrimaryDropdown ? "rotate-180" : ""
+                                }`}
+                            />
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Are you sure you want to delete phone number "${formatPhoneNumber(primaryPhoneObj.phone)}"?`,
+                                )
+                              ) {
+                                deletePhoneMutation.mutate(primaryPhoneObj.id);
+                              }
+                            }}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                            title="Delete phone number"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Primary phone dropdown */}
+                        {showPrimaryDropdown && (
+                          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                            <div className="p-2 max-h-40 overflow-y-auto">
+                              <div className="text-xs text-gray-500 mb-1 px-1">
+                                Set as primary:
+                              </div>
+                              {customer.all_phones
+                                .filter((p) => !p.is_primary)
+                                .map((p) => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => {
+                                      setPrimaryPhoneMutation.mutate(p.id);
+                                      setShowPrimaryDropdown(false);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded disabled:opacity-50"
+                                    disabled={
+                                      setPrimaryPhoneMutation.isPending
+                                    }
+                                  >
+                                    {formatPhoneNumber(p.phone)}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Phones Section - Fixed width with copy buttons */}
-
-              <div className="flex-shrink-0 min-w-[200px]">
-                {customer?.all_phones && customer.all_phones.length > 0 && (
-                  <div className="relative">
-                    <div className="space-y-1">
-                      {customer.all_phones
+              <div className="flex-shrink-0 min-w-[230px]">
+                {secondaryPhones && secondaryPhones.length > 0 && (
+                  <div className="flex flex-col">
+                    <div className="space-y-1.5">
+                      {secondaryPhones
                         .slice(0, 2)
                         .map((phoneObj, index) => (
                           <div key={phoneObj.id || index} className="relative">
-                            <div className="flex items-center space-x-2">
-                              <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-2 py-1 shadow-sm transition-all duration-150 gap-2">
+                              <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
 
                               {/* Phone Number */}
                               {phoneObj.phone === customer.phone &&
                                 editingField === "phone" ? (
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1.5">
                                   <input
                                     type="text"
                                     value={tempValue}
                                     onChange={(e) =>
                                       setTempValue(e.target.value)
                                     }
-                                    className="px-2 py-1 border border-gray-300 rounded text-sm w-32"
+                                    className="px-2 py-0.5 border border-slate-200 focus:border-blue-500 rounded text-xs w-28 focus:outline-none"
                                     autoFocus
                                   />
                                   <button
@@ -626,29 +844,25 @@ const CustomerDetail = () => {
                                       });
                                       setEditingField(null);
                                     }}
-                                    className="text-green-600 hover:text-green-800"
+                                    className="text-green-600 hover:text-green-800 transition-colors"
                                   >
-                                    <Save className="h-4 w-4" />
+                                    <Save className="h-3.5 w-3.5" />
                                   </button>
                                   <button
                                     onClick={() => {
                                       setEditingField(null);
                                       setTempValue("");
                                     }}
-                                    className="text-red-600 hover:text-red-800"
+                                    className="text-red-600 hover:text-red-800 transition-colors"
                                   >
-                                    <X className="h-4 w-4" />
+                                    <X className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               ) : (
                                 <span
-                                  className={`${phoneObj.is_primary
-                                    ? "font-semibold text-blue-600"
-                                    : "text-gray-600"
-                                    } text-base md:text-lg whitespace-nowrap`}
+                                  className="font-semibold text-slate-700 text-xs whitespace-nowrap"
                                 >
                                   {formatPhoneNumber(phoneObj.phone)}
-                                  {phoneObj.is_primary && " (P)"}
                                 </span>
                               )}
 
@@ -657,13 +871,13 @@ const CustomerDetail = () => {
                                 onClick={() =>
                                   copyToClipboard(phoneObj.phone, phoneObj.id)
                                 }
-                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                                className="text-slate-400 hover:text-blue-600 transition-colors ml-auto"
                                 title="Copy phone number"
                               >
                                 {copiedPhone === phoneObj.id ? (
-                                  <Check className="h-4 w-4 text-green-500" />
+                                  <Check className="h-3.5 w-3.5 text-green-500" />
                                 ) : (
-                                  <Copy className="h-4 w-4" />
+                                  <Copy className="h-3.5 w-3.5" />
                                 )}
                               </button>
 
@@ -706,8 +920,8 @@ const CustomerDetail = () => {
                                       setTempContactPerson("");
                                     }
                                   }}
-                                  placeholder="Contact person"
-                                  className="px-2 py-1 border border-gray-300 rounded text-sm w-32"
+                                  placeholder="Name"
+                                  className="px-2 py-0.5 bg-white border border-blue-400 rounded-md text-xs w-28 focus:outline-none focus:ring-2 focus:ring-blue-100"
                                   autoFocus
                                 />
                               ) : (
@@ -718,25 +932,10 @@ const CustomerDetail = () => {
                                       phoneObj.contact_person || "",
                                     );
                                   }}
-                                  className="text-sm text-gray-600 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded whitespace-nowrap"
+                                  className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md whitespace-nowrap transition-all duration-150"
                                 >
-                                  {phoneObj.contact_person || "Add contact"}
+                                  {phoneObj.contact_person || "+ Contact"}
                                 </span>
-                              )}
-
-                              {/* Primary Phone Dropdown Button */}
-                              {phoneObj.is_primary && (
-                                <button
-                                  onClick={() =>
-                                    setShowPrimaryDropdown(!showPrimaryDropdown)
-                                  }
-                                  className="text-gray-400 hover:text-gray-600"
-                                >
-                                  <ChevronDown
-                                    className={`h-4 w-4 transform transition-transform ${showPrimaryDropdown ? "rotate-180" : ""
-                                      }`}
-                                  />
-                                </button>
                               )}
 
                               {/* Delete Button */}
@@ -750,78 +949,47 @@ const CustomerDetail = () => {
                                     deletePhoneMutation.mutate(phoneObj.id);
                                   }
                                 }}
-                                className="text-red-400 hover:text-red-600"
+                                className="text-red-400 hover:text-red-600 transition-colors"
                                 title="Delete phone number"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             </div>
-
-                            {/* Primary phone dropdown */}
-                            {phoneObj.is_primary && showPrimaryDropdown && (
-                              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                                <div className="p-2 max-h-40 overflow-y-auto">
-                                  <div className="text-xs text-gray-500 mb-1 px-1">
-                                    Set as primary:
-                                  </div>
-                                  {customer.all_phones
-                                    .filter((p) => !p.is_primary)
-                                    .map((p) => (
-                                      <button
-                                        key={p.id}
-                                        onClick={() => {
-                                          setPrimaryPhoneMutation.mutate(p.id);
-                                          setShowPrimaryDropdown(false);
-                                        }}
-                                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded disabled:opacity-50"
-                                        disabled={
-                                          setPrimaryPhoneMutation.isPending
-                                        }
-                                      >
-                                        {formatPhoneNumber(p.phone)}
-                                      </button>
-                                    ))}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         ))}
                     </div>
 
                     {/* Show "+X more" dropdown */}
-                    {customer.all_phones.length > 2 && (
+                    {secondaryPhones.length > 2 && (
                       <div className="mt-1 relative">
                         <button
                           onClick={() => setShowAllPhones(!showAllPhones)}
                           className="flex items-center text-sm text-blue-600 hover:text-blue-800"
                         >
                           <Plus className="h-3 w-3 mr-1" />+
-                          {customer.all_phones.length - 2} more numbers
+                          {secondaryPhones.length - 2} more numbers
                           <ChevronDown
                             className={`h-3 w-3 ml-1 transform ${showAllPhones ? "rotate-180" : ""}`}
                           />
                         </button>
 
                         {showAllPhones && (
-                          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[400px]">
+                          <div className="absolute top-full left-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[400px]">
                             <div className="p-2 max-h-48 overflow-y-auto">
                               <div className="text-xs text-gray-500 mb-2 px-2">
                                 All phone numbers:
                               </div>
-                              {customer.all_phones
+                              {secondaryPhones
                                 .slice(2)
                                 .map((phone, idx) => (
                                   <div
                                     key={phone.id || idx}
-                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded gap-2"
+                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-55 rounded gap-2"
                                   >
                                     <div className="flex items-center gap-2 flex-1">
                                       <Phone className="h-3.5 w-3.5 text-gray-400" />
                                       <span
-                                        className={`${phone.is_primary
-                                          ? "font-semibold text-blue-600"
-                                          : "text-gray-700"
-                                          } text-base whitespace-nowrap`}
+                                        className="text-gray-700 text-base whitespace-nowrap"
                                       >
                                         {formatPhoneNumber(phone.phone)}
                                       </span>
@@ -902,12 +1070,6 @@ const CustomerDetail = () => {
                                             "Add contact"}
                                         </span>
                                       )}
-
-                                      {phone.is_primary && (
-                                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded whitespace-nowrap">
-                                          Primary
-                                        </span>
-                                      )}
                                     </div>
 
                                     {/* Delete Button */}
@@ -954,37 +1116,37 @@ const CustomerDetail = () => {
               ].map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-[80px] flex-1"
+                  className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl flex flex-col justify-between shadow-sm transition-all duration-200 hover:shadow-md"
                 >
-                  <p className="text-xs text-gray-500 truncate">{item.label}</p>
-                  <p className="text-sm font-bold text-gray-900 truncate">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{item.label}</p>
+                  <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
                     {item.value}
                   </p>
                 </div>
               ))}
 
-              <div className="bg-white rounded-lg border border-gray-200 p-1.5 min-w-[120px] relative">
+              <div className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl min-w-[120px] relative transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md">
                 <div
-                  className="flex items-center justify-between cursor-pointer"
+                  className="flex items-center justify-between h-full"
                   onClick={() => setShowAgentDropdown(!showAgentDropdown)}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs text-gray-500 truncate">Telecaller</p>
-                    <p className="text-sm font-bold text-gray-900 truncate">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Telecaller</p>
+                    <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
                       {customer?.agent_name || "Not assigned"}
                     </p>
                   </div>
                   <ChevronDown
-                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transform ${showAgentDropdown ? "rotate-180" : ""
+                    className={`w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1 transform transition-transform duration-200 ${showAgentDropdown ? "rotate-180" : ""
                       }`}
                   />
                 </div>
                 {showAgentDropdown && (
-                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-[200px] min-w-max">
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-slate-100 rounded-lg shadow-lg z-20 w-[200px] min-w-max">
                     <div className="py-1 overflow-y-auto max-h-48">
                       <button
                         onClick={() => handleAgentSelect(null)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 hover:text-slate-900 text-slate-600 transition-colors"
                       >
                         Not assigned
                       </button>
@@ -992,7 +1154,7 @@ const CustomerDetail = () => {
                         <button
                           key={employee.id}
                           onClick={() => handleAgentSelect(employee.id)}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 text-gray-700 truncate"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 hover:text-slate-900 text-slate-600 transition-colors truncate"
                           title={employee.username}
                         >
                           {employee.username}
@@ -1007,148 +1169,148 @@ const CustomerDetail = () => {
             {/* Right side: Buttons - Fixed width, wrap on mobile */}
             <div className="flex flex-wrap gap-2 items-center justify-end flex-shrink-0">
               {!showAddPhone ? (
-  <button
-    onClick={() => {
-      setShowAddPhone(true);
-      setTimeout(() => {
-        const phoneInput = document.getElementById("new-phone-input");
-        if (phoneInput) phoneInput.focus();
-      }, 100);
-    }}
-    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
-  >
-    <Plus className="h-4 w-4 mr-1" />
-    Phone
-  </button>
-) : (
-  <div className="flex flex-col space-y-1">
-    <div className="flex items-center space-x-2">
-      <Phone className="h-4 w-4 text-gray-400" />
-      <input
-        id="new-phone-input"
-        type="text"
-        value={newPhoneNumber}
-        onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, "");
-          if (value.length <= 10) {
-            setNewPhoneNumber(value);
-            
-            // Clear previous errors
-            if (phoneError === "Phone number must be 10 digits.") {
-              setPhoneError("");
-            }
-            
-            // Validation for length
-            if (value.length > 0 && value.length < 10) {
-              setPhoneError("Phone number must be 10 digits.");
-            } else if (value.length === 10) {
-              // Check if phone number already exists
-              setPhoneError(""); // Clear length error first
-              
-              // 1. Check against current customer's existing phone numbers
-              const phoneExistsLocally = customer?.all_phones?.some(
-                (phoneObj) => phoneObj.phone === value
-              );
-              
-              if (phoneExistsLocally) {
-                setPhoneError("Phone number already exists");
-              } else {
-                // 2. Perform global duplicate check in entire database
-                setIsCheckingPhone(true);
-                axios.get(`/api/customers/?phone=${value}`)
-                  .then((res) => {
-                    const results = res.data?.results || res.data || [];
-                    if (results.length > 0) {
-                      setPhoneError("Phone number already exists");
-                    } else {
-                      setPhoneError(""); // Clear error if not duplicate
-                    }
-                  })
-                  .catch((err) => {
-                    console.error("Duplicate check failed:", err);
-                  })
-                  .finally(() => {
-                    setIsCheckingPhone(false);
-                  });
-              }
-            } else {
-              setPhoneError("");
-            }
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
-              addPhoneMutation.mutate({ phone: newPhoneNumber });
-            } else if (newPhoneNumber.length !== 10) {
-              setPhoneError("Phone number must be 10 digits.");
-            }
-          } else if (e.key === "Escape") {
-            setShowAddPhone(false);
-            setNewPhoneNumber("");
-            setPhoneError("");
-          }
-        }}
-        placeholder="Enter 10-digit number"
-        className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
-        maxLength={10}
-        autoFocus
-        disabled={addPhoneMutation.isPending || isCheckingPhone}
-      />
-      
-      {/* Save and Cancel Buttons */}
-      <div className="flex items-center space-x-1">
-        <button
-          onClick={() => {
-            if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
-              addPhoneMutation.mutate({ phone: newPhoneNumber });
-            } else if (newPhoneNumber.length !== 10) {
-              setPhoneError("Phone number must be 10 digits.");
-            }
-          }}
-          disabled={
-            !newPhoneNumber || 
-            newPhoneNumber.length !== 10 || 
-            !!phoneError || 
-            isCheckingPhone ||
-            addPhoneMutation.isPending
-          }
-          className="inline-flex items-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-        >
-          <Save className="h-3 w-3 mr-1" />
-          Save
-        </button>
-        <button
-          onClick={() => {
-            setShowAddPhone(false);
-            setNewPhoneNumber("");
-            setPhoneError("");
-          }}
-          disabled={addPhoneMutation.isPending}
-          className="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-        >
-          X
-        </button>
-      </div>
-    </div>
-    
-    {isCheckingPhone && (
-      <div className="text-xs text-blue-500 ml-7">Verifying duplicate phone number...</div>
-    )}
-    
-    {addPhoneMutation.isPending && (
-      <div className="text-xs text-blue-500 ml-7">Adding phone number...</div>
-    )}
-    
-    {/* Show error message */}
-    {phoneError && (
-      <div className="text-xs text-red-500 mt-1 ml-7">
-        {phoneError}
-      </div>
-    )}
-  </div>
-)}
+                <button
+                  onClick={() => {
+                    setShowAddPhone(true);
+                    setTimeout(() => {
+                      const phoneInput = document.getElementById("new-phone-input");
+                      if (phoneInput) phoneInput.focus();
+                    }, 100);
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Phone
+                </button>
+              ) : (
+                <div className="flex flex-col space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <input
+                      id="new-phone-input"
+                      type="text"
+                      value={newPhoneNumber}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        if (value.length <= 10) {
+                          setNewPhoneNumber(value);
+
+                          // Clear previous errors
+                          if (phoneError === "Phone number must be 10 digits.") {
+                            setPhoneError("");
+                          }
+
+                          // Validation for length
+                          if (value.length > 0 && value.length < 10) {
+                            setPhoneError("Phone number must be 10 digits.");
+                          } else if (value.length === 10) {
+                            // Check if phone number already exists
+                            setPhoneError(""); // Clear length error first
+
+                            // 1. Check against current customer's existing phone numbers
+                            const phoneExistsLocally = customer?.all_phones?.some(
+                              (phoneObj) => phoneObj.phone === value
+                            );
+
+                            if (phoneExistsLocally) {
+                              setPhoneError("Phone number already exists");
+                            } else {
+                              // 2. Perform global duplicate check in entire database
+                              setIsCheckingPhone(true);
+                              axios.get(`/api/customers/?phone=${value}`)
+                                .then((res) => {
+                                  const results = res.data?.results || res.data || [];
+                                  if (results.length > 0) {
+                                    setPhoneError("Phone number already exists");
+                                  } else {
+                                    setPhoneError(""); // Clear error if not duplicate
+                                  }
+                                })
+                                .catch((err) => {
+                                  console.error("Duplicate check failed:", err);
+                                })
+                                .finally(() => {
+                                  setIsCheckingPhone(false);
+                                });
+                            }
+                          } else {
+                            setPhoneError("");
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
+                            addPhoneMutation.mutate({ phone: newPhoneNumber });
+                          } else if (newPhoneNumber.length !== 10) {
+                            setPhoneError("Phone number must be 10 digits.");
+                          }
+                        } else if (e.key === "Escape") {
+                          setShowAddPhone(false);
+                          setNewPhoneNumber("");
+                          setPhoneError("");
+                        }
+                      }}
+                      placeholder="Enter 10-digit number"
+                      className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                      maxLength={10}
+                      autoFocus
+                      disabled={addPhoneMutation.isPending || isCheckingPhone}
+                    />
+
+                    {/* Save and Cancel Buttons */}
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={() => {
+                          if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
+                            addPhoneMutation.mutate({ phone: newPhoneNumber });
+                          } else if (newPhoneNumber.length !== 10) {
+                            setPhoneError("Phone number must be 10 digits.");
+                          }
+                        }}
+                        disabled={
+                          !newPhoneNumber ||
+                          newPhoneNumber.length !== 10 ||
+                          !!phoneError ||
+                          isCheckingPhone ||
+                          addPhoneMutation.isPending
+                        }
+                        className="inline-flex items-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        <Save className="h-3 w-3 mr-1" />
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAddPhone(false);
+                          setNewPhoneNumber("");
+                          setPhoneError("");
+                        }}
+                        disabled={addPhoneMutation.isPending}
+                        className="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        X
+                      </button>
+                    </div>
+                  </div>
+
+                  {isCheckingPhone && (
+                    <div className="text-xs text-blue-500 ml-7">Verifying duplicate phone number...</div>
+                  )}
+
+                  {addPhoneMutation.isPending && (
+                    <div className="text-xs text-blue-500 ml-7">Adding phone number...</div>
+                  )}
+
+                  {/* Show error message */}
+                  {phoneError && (
+                    <div className="text-xs text-red-500 mt-1 ml-7">
+                      {phoneError}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <button
                 onClick={() => {
@@ -1193,80 +1355,57 @@ const CustomerDetail = () => {
               </button>
             </div>
           </div>
-
           {/* Secondary info below */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 mt-2">
-            <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-              <User className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Org:</span>
-              {editingField === "company_name" ? (
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={tempValue}
-                    onChange={(e) => setTempValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        updateMutation.mutate({ company_name: tempValue });
-                        setEditingField(null);
-                        setTempValue("");
-                      }
-                    }}
-                    onBlur={() => {
-                      if (tempValue !== customer?.company_name) {
-                        updateMutation.mutate({ company_name: tempValue });
-                      }
-                      setEditingField(null);
-                      setTempValue("");
-                    }}
-                    className="px-2 py-1 border border-gray-300 rounded text-sm w-48"
-                    autoFocus
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span
-                    className="font-semibold text-gray-900 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
-                    onClick={() => {
-                      setEditingField("company_name");
-                      setTempValue(customer?.company_name || "");
-                    }}
-                  >
-                    {customer?.company_name || "Not set"}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setEditingField("company_name");
-                      setTempValue(customer?.company_name || "");
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
+            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <User className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                Org
+              </div>
+              <input
+                type="text"
+                key={customer?.company_name}
+                defaultValue={customer?.company_name || ""}
+                onChange={handleCapitalizeInput}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.target.blur();
+                  }
+                }}
+                onBlur={(e) => {
+                  const capitalizedValue = capitalizeWords(e.target.value);
+                  e.target.value = capitalizedValue;
+                  if (capitalizedValue !== (customer?.company_name || "")) {
+                    updateMutation.mutate({ company_name: capitalizedValue || null });
+                  }
+                }}
+                placeholder="Not set"
+                className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none"
+              />
             </div>
-            <div className="flex items-center text-lg text-gray-600 relative bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-              <User className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Org Type:</span>
+
+            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <User className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                Org Type
+              </div>
               <div
-                className="flex items-center space-x-2 cursor-pointer"
+                className="flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
                 onClick={() => setShowOrgTypeDropdown(!showOrgTypeDropdown)}
               >
-                <span className="font-semibold text-gray-900">
+                <span className="truncate">
                   {customer?.company_type_display || "Not set"}
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-gray-400 transform transition-transform ${showOrgTypeDropdown ? "rotate-180" : ""
-                    }`}
+                  className={`w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0 transform transition-transform ${showOrgTypeDropdown ? "rotate-180" : ""}`}
                 />
               </div>
               {showOrgTypeDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto w-auto min-w-32">
-                  <div className="p-2">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto w-auto min-w-full">
+                  <div className="p-1">
                     <button
                       onClick={() => handleOrgTypeSelect(null)}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
+                      className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors"
                     >
                       Not set
                     </button>
@@ -1274,7 +1413,7 @@ const CustomerDetail = () => {
                       <button
                         key={orgType.id}
                         onClick={() => handleOrgTypeSelect(orgType.id)}
-                        className="w-full text-left px-3 py-1.5 text-md hover:bg-gray-100 rounded"
+                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
                       >
                         {orgType.name}
                       </button>
@@ -1283,30 +1422,31 @@ const CustomerDetail = () => {
                 </div>
               )}
             </div>
-            <div className="flex items-center text-lg text-gray-600 relative bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-              <User className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Customer Type:</span>
+
+            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <User className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                Customer Type
+              </div>
               <div
-                className="flex items-center space-x-2 cursor-pointer"
+                className="flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
                 onClick={() =>
                   setShowCustomerTypeDropdown(!showCustomerTypeDropdown)
                 }
               >
-                <span className="font-semibold text-gray-900">
-                  {customerTypes.find((t) => t.id === customer?.customer_type)
-                    ?.name || "Not set"}
+                <span className="truncate">
+                  {customerTypes.find((t) => t.id === customer?.customer_type)?.name || "Not set"}
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-gray-400 transform transition-transform ${showCustomerTypeDropdown ? "rotate-180" : ""
-                    }`}
+                  className={`w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0 transform transition-transform ${showCustomerTypeDropdown ? "rotate-180" : ""}`}
                 />
               </div>
               {showCustomerTypeDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto w-auto min-w-32">
-                  <div className="p-2">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-100 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto w-auto min-w-full">
+                  <div className="p-1">
                     <button
                       onClick={() => handleCustomerTypeSelect("")}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 rounded"
+                      className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors"
                     >
                       Not set
                     </button>
@@ -1314,7 +1454,7 @@ const CustomerDetail = () => {
                       <button
                         key={type.id}
                         onClick={() => handleCustomerTypeSelect(type.id)}
-                        className="w-full text-left px-3 py-1.5 text-md hover:bg-gray-100 rounded"
+                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
                       >
                         {type.name}
                       </button>
@@ -1323,392 +1463,458 @@ const CustomerDetail = () => {
                 </div>
               )}
             </div>
-            <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-              <Calendar className="h-5 w-5 mr-2 text-gray-400" />
-              <span className="font-medium mr-2">Appointment:</span>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="date"
-                  value={customer?.appointment_date || ""}
-                  onChange={(e) => {
-                    updateMutation.mutate({ appointment_date: e.target.value });
-                  }}
-                  className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 cursor-pointer"
-                />
+
+            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                Appointment
               </div>
+              <input
+                type="date"
+                value={customer?.appointment_date || ""}
+                onChange={(e) => {
+                  updateMutation.mutate({ appointment_date: e.target.value });
+                }}
+                className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+              />
             </div>
-            <div className="flex items-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-              <svg
-                className="h-5 w-5 mr-2 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span className="font-medium mr-2">Time:</span>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="time"
-                  value={customer?.appointment_time || ""}
-                  onChange={(e) => {
-                    updateMutation.mutate({ appointment_time: e.target.value });
-                  }}
-                  className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 cursor-pointer"
-                />
+
+            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <svg
+                  className="h-3.5 w-3.5 mr-1 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Time
               </div>
+              <input
+                type="time"
+                value={customer?.appointment_time || ""}
+                onChange={(e) => {
+                  updateMutation.mutate({ appointment_time: e.target.value });
+                }}
+                className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+              />
             </div>
-            <div className="flex flex-col justify-center text-lg text-gray-600 bg-white rounded-lg border border-gray-200 p-1.5 min-w-20">
-              <div className="flex items-center w-full">
-  <span className="font-small mr-2 whitespace-nowrap">GST:</span>
-  <input
-    type="text"
-    value={(() => {
-      // Format the value for display while typing
-      if (tempGstinValue !== null) {
-        return formatGstinWithDashes(tempGstinValue);
-      }
-      return customer?.gstin_no ? formatGstinWithDashes(customer?.gstin_no) : "";
-    })()}
-    onChange={(e) => {
-      // Get the raw input value and remove any dashes
-      let rawValue = e.target.value.replace(/-/g, "").toUpperCase();
-      
-      // Limit to 15 characters
-      if (rawValue.length > 15) {
-        rawValue = rawValue.slice(0, 15);
-      }
-      
-      setTempGstinValue(rawValue);
-      
-      // Validate length
-      if (rawValue.length > 0 && rawValue.length < 15) {
-        setGstinError("GSTIN must be exactly 15 characters");
-      } else if (rawValue.length === 15) {
-        // Check for duplicates
-        axios.get(`/api/customers/?gstin_no=${rawValue}`)
-          .then((res) => {
-            const existingCustomers = res.data;
-            const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
-            if (isDuplicate) {
-              setGstinError("GSTIN already exists");
-            } else {
-              setGstinError("");
-            }
-          })
-          .catch(() => {
-            setGstinError("");
-          });
-      } else {
-        setGstinError("");
-      }
-    }}
-    onBlur={(e) => {
-      const value = tempGstinValue !== null ? tempGstinValue : (customer?.gstin_no || "");
-      
-      if (value !== (customer?.gstin_no || "")) {
-        if (value && value.length !== 15) {
-          toast.error("GSTIN must be exactly 15 characters");
-          setTempGstinValue(null);
-          setGstinError("");
-          // Reset to original value
-          e.target.value = customer?.gstin_no ? formatGstinWithDashes(customer.gstin_no) : "";
-        } else if (value.length === 15) {
-          axios.get(`/api/customers/?gstin_no=${value}`)
-            .then((res) => {
-              const existingCustomers = res.data;
-              const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
-              if (isDuplicate) {
-                toast.error("GSTIN already exists");
-                setGstinError("GSTIN already exists");
-                setTempGstinValue(null);
-              } else {
-                updateMutation.mutate({ gstin_no: value });
-                setGstinError("");
-                setTempGstinValue(null);
-              }
-            })
-            .catch(() => {
-              updateMutation.mutate({ gstin_no: value });
-              setGstinError("");
-              setTempGstinValue(null);
-            });
-        } else {
-          updateMutation.mutate({ gstin_no: null });
-          setGstinError("");
-          setTempGstinValue(null);
-        }
-      } else {
-        setTempGstinValue(null);
-      }
-    }}
-    onKeyDown={(e) => {
-      if (e.key === "Enter") {
-        e.target.blur();
-      } else if (e.key === "Escape") {
-        setTempGstinValue(null);
-        setGstinError("");
-        e.target.blur();
-      }
-    }}
-    placeholder="XX-XXXXXXXXXX-XXX"
-    className="px-2 py-1 border border-gray-300 rounded text-sm font-semibold text-gray-900 w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-  />
-</div>
-              {gstinError && (
-                <span className="text-red-500 text-xs font-semibold mt-1 ml-7">
-                  {gstinError}
-                </span>
-              )}
+
+            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 w-full">
+                <span className="truncate">GST</span>
+              </div>
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  value={(() => {
+                    if (tempGstinValue !== null) {
+                      return formatGstinWithDashes(tempGstinValue);
+                    }
+                    return customer?.gstin_no ? formatGstinWithDashes(customer?.gstin_no) : "";
+                  })()}
+                  onChange={(e) => {
+                    let rawValue = e.target.value.replace(/-/g, "").toUpperCase();
+                    if (rawValue.length > 15) {
+                      rawValue = rawValue.slice(0, 15);
+                    }
+                    setTempGstinValue(rawValue);
+                    if (rawValue.length > 0 && rawValue.length < 15) {
+                      setGstinError("GSTIN must be 15 characters");
+                    } else if (rawValue.length === 15) {
+                      axios.get(`/api/customers/?gstin_no=${rawValue}`)
+                        .then((res) => {
+                          const existingCustomers = res.data;
+                          const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
+                          if (isDuplicate) {
+                            setGstinError("GSTIN already exists");
+                          } else {
+                            setGstinError("");
+                          }
+                        })
+                        .catch(() => {
+                          setGstinError("");
+                        });
+                    } else {
+                      setGstinError("");
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = tempGstinValue !== null ? tempGstinValue : (customer?.gstin_no || "");
+                    if (value !== (customer?.gstin_no || "")) {
+                      if (value && value.length !== 15) {
+                        toast.error("GSTIN must be exactly 15 characters");
+                        setTempGstinValue(null);
+                        setGstinError("");
+                        e.target.value = customer?.gstin_no ? formatGstinWithDashes(customer.gstin_no) : "";
+                      } else if (value.length === 15) {
+                        axios.get(`/api/customers/?gstin_no=${value}`)
+                          .then((res) => {
+                            const existingCustomers = res.data;
+                            const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
+                            if (isDuplicate) {
+                              toast.error("GSTIN already exists");
+                              setGstinError("GSTIN already exists");
+                              setTempGstinValue(null);
+                            } else {
+                              updateMutation.mutate({ gstin_no: value });
+                              setGstinError("");
+                              setTempGstinValue(null);
+                            }
+                          })
+                          .catch(() => {
+                            updateMutation.mutate({ gstin_no: value });
+                            setGstinError("");
+                            setTempGstinValue(null);
+                          });
+                      } else {
+                        updateMutation.mutate({ gstin_no: null });
+                        setGstinError("");
+                        setTempGstinValue(null);
+                      }
+                    } else {
+                      setTempGstinValue(null);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    } else if (e.key === "Escape") {
+                      setTempGstinValue(null);
+                      setGstinError("");
+                      e.target.blur();
+                    }
+                  }}
+                  placeholder="XX-XXXXXXXXXX-XXX"
+                  className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none"
+                />
+                {gstinError && (
+                  <span className="absolute top-full left-0 text-red-500 text-[10px] font-bold mt-0.5 whitespace-nowrap z-10">
+                    {gstinError}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Address Section */}
-          <div className="flex items-start font-semibold text-gray-700 mt-2 bg-white rounded-lg border border-gray-200 p-2">
-            <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="grid grid-cols-10 gap-1">
-                    {/* House No */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        House No
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.house_flat_no || ""}
-                        title={customer?.house_flat_no || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.house_flat_no) {
-                            updateMutation.mutate({
-                              house_flat_no: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+          <div className="bg-white rounded-xl border border-slate-100 hover:border-slate-200/80 shadow-sm p-4 transition-all duration-200 mt-2">
+            <div className="grid grid-cols-10 gap-2">
+              {/* House No */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  House No
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.house_flat_no || ""}
+                  title={customer?.house_flat_no || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.house_flat_no || "")) {
+                      updateMutation.mutate({
+                        house_flat_no: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* Wing/Lane */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Wing/Lane
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.wing_lane || ""}
-                        title={customer?.wing_lane || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.wing_lane) {
-                            updateMutation.mutate({
-                              wing_lane: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* Wing/Lane */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Wing/Lane
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.wing_lane || ""}
+                  title={customer?.wing_lane || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.wing_lane || "")) {
+                      updateMutation.mutate({
+                        wing_lane: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* Society/Colony */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Society/Colony
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.society_colony || ""}
-                        title={customer?.society_colony || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.society_colony) {
-                            updateMutation.mutate({
-                              society_colony: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* Society/Colony */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Society/Colony
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.society_colony || ""}
+                  title={customer?.society_colony || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.society_colony || "")) {
+                      updateMutation.mutate({
+                        society_colony: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* Landmark */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Landmark
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.landmark || ""}
-                        title={customer?.landmark || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.landmark) {
-                            updateMutation.mutate({
-                              landmark: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* Landmark */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Landmark
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.landmark || ""}
+                  title={customer?.landmark || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.landmark || "")) {
+                      updateMutation.mutate({
+                        landmark: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* Area */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Area
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.area || ""}
-                        title={customer?.area || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.area) {
-                            updateMutation.mutate({
-                              area: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* Area */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Area
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.area || ""}
+                  title={customer?.area || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.area || "")) {
+                      updateMutation.mutate({
+                        area: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* Pincode */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Pincode
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.pincode || ""}
-                        title={customer?.pincode || ""}
-                        onBlur={(e) => {
-                          const value = e.target.value
-                            .replace(/\D/g, "")
-                            .slice(0, 6);
-                          if (value !== customer?.pincode) {
-                            if (value && value.length !== 6) {
-                              alert("Pincode must be exactly 6 digits");
-                              return;
-                            }
-                            updateMutation.mutate({ pincode: value || null });
-                          }
-                        }}
-                        onChange={(e) => {
-                          // Allow only digits and limit to 6 characters while typing
-                          const value = e.target.value
-                            .replace(/\D/g, "")
-                            .slice(0, 6);
-                          e.target.value = value;
-                        }}
-                        placeholder="-"
-                        maxLength={6}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* Pincode */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Pincode
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.pincode || ""}
+                  title={customer?.pincode || ""}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 6);
+                    if (value !== customer?.pincode) {
+                      if (value && value.length !== 6) {
+                        alert("Pincode must be exactly 6 digits");
+                        return;
+                      }
+                      updateMutation.mutate({ pincode: value || null });
+                    }
+                  }}
+                  onChange={(e) => {
+                    // Allow only digits and limit to 6 characters while typing
+                    const value = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 6);
+                    e.target.value = value;
+                  }}
+                  placeholder="-"
+                  maxLength={6}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* City */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        City
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.city || ""}
-                        title={customer?.city || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.city) {
-                            updateMutation.mutate({
-                              city: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* City */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  City
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.city || ""}
+                  title={customer?.city || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.city || "")) {
+                      updateMutation.mutate({
+                        city: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* District */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        District
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.district || ""}
-                        title={customer?.district || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.district) {
-                            updateMutation.mutate({
-                              district: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* District */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  District
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.district || ""}
+                  title={customer?.district || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.district || "")) {
+                      updateMutation.mutate({
+                        district: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* Tahsil */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Tahsil
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.tahsil || ""}
-                        title={customer?.tahsil || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.tahsil) {
-                            updateMutation.mutate({
-                              tahsil: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+              {/* Tahsil */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Tahsil
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.tahsil || ""}
+                  title={customer?.tahsil || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.tahsil || "")) {
+                      updateMutation.mutate({
+                        tahsil: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
 
-                    {/* State */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        State
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={customer?.state || ""}
-                        title={customer?.state || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== customer?.state) {
-                            updateMutation.mutate({
-                              state: e.target.value || null,
-                            });
-                          }
-                        }}
-                        placeholder="-"
-                        className="px-2 py-1 border border-gray-300 rounded text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
+              {/* State */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  State
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.state || ""}
+                  title={customer?.state || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.state || "")) {
+                      updateMutation.mutate({
+                        state: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
               </div>
             </div>
           </div>
         </div>
 
         {/* Conversation history - EXACTLY as you had it, just fixed the logic */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-2">
           {/* Left container - Conversation History (60%) */}
-          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-2 h-96 lg:h-[600px] xl:h-[700px] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
+            {/* Frozen Header */}
+            <div className="flex-none flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center">
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
                   <svg
@@ -1731,7 +1937,6 @@ const CustomerDetail = () => {
                   </h2>
                 </div>
               </div>
-              {/* FIXED: Edit Last Call button - Now properly works */}
               {callLogs.length > 0 &&
                 callLogs[0]?.date &&
                 new Date() - new Date(callLogs[0].date) <
@@ -1746,255 +1951,131 @@ const CustomerDetail = () => {
                 )}
             </div>
 
-            {callLogs.length === 0 ? (
-              <div className="text-center py-12">
-                <svg
-                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <p className="text-gray-500 text-lg">
-                  No call logs found for this customer.
-                </p>
-              </div>
-            ) : (
-              <div className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                {callLogs
-                  .sort((a, b) => new Date(b.date) - new Date(a.date))
-                  .map((call, index) => {
-                    const callDate = new Date(call.date);
-                    const formattedDate = callDate.toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    });
-                    const formattedTime = callDate.toLocaleTimeString("en-GB", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: false,
-                    });
+            {/* Scrollable Body Container */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent pr-1">
+              {callLogs.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg
+                    className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <p className="text-gray-500 text-lg">
+                    No call logs found for this customer.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                  {callLogs
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map((call, index) => {
+                      const callDate = new Date(call.date);
+                      const formattedDate = callDate.toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      });
+                      const formattedTime = callDate.toLocaleTimeString("en-GB", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      });
 
-                    const elements = [];
-                    elements.push(
-                      <span
-                        key="date"
-                        className="text-gray-900 font-semibold text-lg"
-                      >
-                        {formattedDate}
-                      </span>,
-                    );
-                    elements.push(
-                      <span key="sep1" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    elements.push(
-                      <span
-                        key="time"
-                        className="text-gray-900 font-semibold text-lg"
-                      >
-                        {formattedTime}
-                      </span>,
-                    );
-                    elements.push(
-                      <span key="sep2" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    elements.push(
-                      <span
-                        key="duration"
-                        className="text-blue-600 font-medium text-lg"
-                      >
-                        {formatDuration(call.duration_minutes)}
-                      </span>,
-                    );
-                    if (call.employee_name) {
-                      elements.push(
-                        <span key="sep4" className="text-gray-400 text-lg">
-                          {" "}
-                          |{" "}
-                        </span>,
-                      );
-                      elements.push(
-                        <span
-                          key="employee"
-                          className="text-indigo-600 font-medium text-lg"
-                        >
-                          {call.employee_name}
-                        </span>,
-                      );
-                    }
-                    if (call.order_placed === "Yes") {
-                      elements.push(
-                        <span key="sep5" className="text-gray-400 text-lg">
-                          {" "}
-                          |{" "}
-                        </span>,
-                      );
-                      elements.push(
-                        <span
-                          key="order"
-                          className="text-emerald-600 font-medium text-lg"
-                        >
-                          Order Placed
-                        </span>,
-                      );
-                    }
-                    if (call.order_id) {
-                      elements.push(
-                        <span key="sep3" className="text-gray-400 text-lg">
-                          {" "}
-                          |{" "}
-                        </span>,
-                      );
-                      elements.push(
-                        <span
-                          key="order-text"
-                          className="text-blue-600 font-medium text-lg underline"
-                        >
-                          {call.order_id}
-                        </span>,
-                      );
-                    }
-                    if (
-                      call.assumption_names &&
-                      call.assumption_names.length > 0
-                    ) {
-                      elements.push(
-                        <span key="sep6" className="text-gray-400 text-lg">
-                          {" "}
-                          |{" "}
-                        </span>,
-                      );
-                      call.assumption_names.forEach((name, index) => {
-                        if (index > 0) {
-                          elements.push(
-                            <span
-                              key={`assumption-sep-${index}`}
-                              className="text-gray-400 text-lg"
-                            >
-                              ,{" "}
-                            </span>,
-                          );
-                        }
-                        elements.push(
-                          <span
-                            key={`assumption-${index}`}
-                            className="text-red-600 font-medium text-lg"
-                          >
-                            {name}
-                          </span>,
-                        );
-                      });
-                    }
-                    if (
-                      call.assumption2_names &&
-                      call.assumption2_names.length > 0
-                    ) {
-                      elements.push(
-                        <span key="sep7" className="text-gray-400 text-lg">
-                          {" "}
-                          |{" "}
-                        </span>,
-                      );
-                      call.assumption2_names.forEach((name, index) => {
-                        if (index > 0) {
-                          elements.push(
-                            <span
-                              key={`assumption2-sep-${index}`}
-                              className="text-gray-400 text-lg"
-                            >
-                              ,{" "}
-                            </span>,
-                          );
-                        }
-                        elements.push(
-                          <span
-                            key={`assumption2-${index}`}
-                            className="text-purple-600 font-medium text-lg"
-                          >
-                            {name}
-                          </span>,
-                        );
-                      });
-                    }
-                    if (
-                      call.assumption3_names &&
-                      call.assumption3_names.length > 0
-                    ) {
-                      elements.push(
-                        <span key="sep8" className="text-gray-400 text-lg">
-                          {" "}
-                          |{" "}
-                        </span>,
-                      );
-                      call.assumption3_names.forEach((name, index) => {
-                        if (index > 0) {
-                          elements.push(
-                            <span
-                              key={`assumption3-sep-${index}`}
-                              className="text-gray-400 text-lg"
-                            >
-                              ,{" "}
-                            </span>,
-                          );
-                        }
-                        elements.push(
-                          <span
-                            key={`assumption3-${index}`}
-                            className="text-green-600 font-medium text-lg"
-                          >
-                            {name}
-                          </span>,
-                        );
-                      });
-                    }
-                    elements.push(
-                      <span key="sep9" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
-                    elements.push(
-                      <span key="notes" className="text-gray-700 text-lg">
-                        {call.note || "No notes provided"}
-                      </span>,
-                    );
-                    elements.push(
-                      <span key="sep10" className="text-gray-400 text-lg">
-                        {" "}
-                        |{" "}
-                      </span>,
-                    );
+                      return (
+                        <div key={index} className="flex items-start mb-1 leading-relaxed text-lg">
+                          {/* Left Column: Date */}
+                          <div className="w-[110px] flex-shrink-0 whitespace-nowrap">
+                            <span className="text-gray-900 font-bold">{formattedDate}</span>
+                            <span className="text-gray-400"> | </span>
+                          </div>
 
-                    return elements;
-                  })
-                  .reduce((acc, curr, index) => {
-                    if (index === 0) return [curr];
-                    return [
-                      ...acc,
-                      <span
-                        key={`space-${index}`}
-                        className="text-gray-300 text-lg"
-                      >
-                        {" "}
-                      </span>,
-                      curr,
-                    ];
-                  }, [])}
-              </div>
-            )}
+                          {/* Right Column: Details & Notes (all wrap beautifully here) */}
+                          <div className="flex-1 min-w-0 break-words">
+                            <span className="text-gray-900 font-semibold">{formattedTime}</span>
+                            <span className="text-gray-400"> | </span>
+                            <span className="text-blue-600 font-medium">
+                              {formatDuration(call.duration_minutes)}
+                            </span>
+
+                            {call.employee_name && (
+                              <>
+                                <span className="text-gray-400"> | </span>
+                                <span className="text-indigo-600 font-medium">
+                                  {call.employee_name}
+                                </span>
+                              </>
+                            )}
+
+                            {call.order_placed === "Yes" && (
+                              <>
+                                <span className="text-gray-400"> | </span>
+                                <span className="text-emerald-600 font-medium">
+                                  Order Placed
+                                </span>
+                              </>
+                            )}
+
+                            {call.order_id && (
+                              <>
+                                <span className="text-gray-400"> | </span>
+                                <span className="text-blue-600 font-medium underline">
+                                  {call.order_id}
+                                </span>
+                              </>
+                            )}
+
+                            {call.assumption_names && call.assumption_names.length > 0 && (
+                              <>
+                                <span className="text-gray-400"> | </span>
+                                {call.assumption_names.map((name, idx) => (
+                                  <span key={`assumption-${idx}`} className="text-red-600 font-medium">
+                                    {idx > 0 ? `, ${name}` : name}
+                                  </span>
+                                ))}
+                              </>
+                            )}
+
+                            {call.assumption2_names && call.assumption2_names.length > 0 && (
+                              <>
+                                <span className="text-gray-400"> | </span>
+                                {call.assumption2_names.map((name, idx) => (
+                                  <span key={`assumption2-${idx}`} className="text-purple-600 font-medium">
+                                    {idx > 0 ? `, ${name}` : name}
+                                  </span>
+                                ))}
+                              </>
+                            )}
+
+                            {call.assumption3_names && call.assumption3_names.length > 0 && (
+                              <>
+                                <span className="text-gray-400"> | </span>
+                                {call.assumption3_names.map((name, idx) => (
+                                  <span key={`assumption3-${idx}`} className="text-green-600 font-medium">
+                                    {idx > 0 ? `, ${name}` : name}
+                                  </span>
+                                ))}
+                              </>
+                            )}
+
+                            <span className="text-gray-400"> | </span>
+                            <span className="text-gray-700">
+                              {call.note || "No notes provided"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right container - Order History (40%) - Keep exactly as you had */}

@@ -1371,6 +1371,26 @@ class OrderViewSet(viewsets.ModelViewSet):
         product_name = self.request.query_params.get('product_name')
         brand_name = self.request.query_params.get('brand_name')
 
+        # Customer-specific filter params from CustomerList
+        customer_phone = self.request.query_params.get('customer_phone')
+        customer_name = self.request.query_params.get('customer_name')
+        customer_surname = self.request.query_params.get('customer_surname')
+        customer_org_name = self.request.query_params.get('customer_org_name')
+        customer_org_type = self.request.query_params.get('customer_org_type')
+        customer_customer_type = self.request.query_params.get('customer_customer_type')
+        customer_telecaller = self.request.query_params.get('customer_telecaller')
+        
+        customer_house_flat_no = self.request.query_params.get('customer_house_flat_no')
+        customer_wing_lane = self.request.query_params.get('customer_wing_lane')
+        customer_society_colony = self.request.query_params.get('customer_society_colony')
+        customer_landmark = self.request.query_params.get('customer_landmark')
+        customer_area = self.request.query_params.get('customer_area')
+        customer_city = self.request.query_params.get('customer_city')
+        customer_district = self.request.query_params.get('customer_district')
+        customer_tahsil = self.request.query_params.get('customer_tahsil')
+        customer_state = self.request.query_params.get('customer_state')
+        customer_pincode = self.request.query_params.get('customer_pincode')
+
         if agent:
             queryset = queryset.filter(agent__username=agent)
         if status:
@@ -1402,6 +1422,44 @@ class OrderViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(items__product__title__icontains=product_name).distinct()
         if brand_name:
             queryset = queryset.filter(items__product__brand__name__icontains=brand_name).distinct()
+
+        # Apply customer-specific filters
+        if customer_phone:
+            queryset = queryset.filter(customer__phone__icontains=customer_phone)
+        if customer_name:
+            queryset = queryset.filter(customer__name__icontains=customer_name)
+        if customer_surname:
+            queryset = queryset.filter(customer__surname__icontains=customer_surname)
+        if customer_org_name:
+            queryset = queryset.filter(customer__company_name__icontains=customer_org_name)
+        if customer_org_type:
+            queryset = queryset.filter(customer__company_type__name__icontains=customer_org_type)
+        if customer_customer_type:
+            queryset = queryset.filter(customer__customer_type__name__icontains=customer_customer_type)
+        if customer_telecaller:
+            queryset = queryset.filter(customer__agent__username=customer_telecaller)
+            
+        if customer_house_flat_no:
+            queryset = queryset.filter(customer__house_flat_no__icontains=customer_house_flat_no)
+        if customer_wing_lane:
+            queryset = queryset.filter(customer__wing_lane__icontains=customer_wing_lane)
+        if customer_society_colony:
+            queryset = queryset.filter(customer__society_colony__icontains=customer_society_colony)
+        if customer_landmark:
+            queryset = queryset.filter(customer__landmark__icontains=customer_landmark)
+        if customer_area:
+            queryset = queryset.filter(customer__area__icontains=customer_area)
+        if customer_city:
+            queryset = queryset.filter(customer__city__icontains=customer_city)
+        if customer_district:
+            queryset = queryset.filter(customer__district__icontains=customer_district)
+        if customer_tahsil:
+            queryset = queryset.filter(customer__tahsil__icontains=customer_tahsil)
+        if customer_state:
+            queryset = queryset.filter(customer__state__icontains=customer_state)
+        if customer_pincode:
+            queryset = queryset.filter(customer__pincode__icontains=customer_pincode)
+
         return queryset
 
 
