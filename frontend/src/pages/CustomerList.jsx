@@ -180,6 +180,7 @@ const CustomerList = () => {
   const nameSearchTimeoutRef = useRef(null);
   const surnameSearchTimeoutRef = useRef(null);
   const addFormPhoneInputRef = useRef(null);
+  const isFirstFiltersRender = useRef(true);
 
   const { user } = useAuth();
   const { openPopup } = useCallPopup();
@@ -563,36 +564,20 @@ const CustomerList = () => {
     return phone;
   };
 
-  // Reset to first page when search or applied filters change
+  // Sync state with URL search params (handles back/forward buttons and initial mount)
   useEffect(() => {
-    setCurrentPage(1);
-    if (phoneSearchInputRef.current) {
-      phoneSearchInputRef.current.focus();
+    const page = searchParams.get("page");
+    const parsedPage = page ? parseInt(page) : 1;
+    if (parsedPage !== currentPage) {
+      setCurrentPage(parsedPage);
     }
-  }, [
-    phoneSearch,
-    nameSearch,
-    surnameSearch,
-    filterHouseFlatNo,
-    filterWingLane,
-    filterSocietyColony,
-    filterLandmark,
-    filterArea,
-    filterCity,
-    filterDistrict,
-    filterTahsil,
-    filterState,
-    filterPincode,
-    filterOrgName,
-    filterOrgType,
-    filterCustomerType,
-    filterTelecaller,
-    filterTime,
-    dateFrom,
-    dateTo,
-    viewType,
-    pageSize,
-  ]);
+
+    const size = searchParams.get("page_size");
+    const parsedSize = size ? parseInt(size) : 15;
+    if (parsedSize !== pageSize) {
+      setPageSize(parsedSize);
+    }
+  }, [searchParams]);
 
   // Apply filters when apply button is clicked
   const handleApplyFilters = useCallback(() => {
@@ -1869,7 +1854,10 @@ useEffect(() => {
                 <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Show:</span>
                 <select
                   value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
                   className="h-10 px-2 text-sm border border-gray-200 rounded-lg bg-gray-50 hover:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all shadow-sm"
                 >
                   <option value={15}>15</option>
@@ -2740,7 +2728,7 @@ useEffect(() => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="bg-white px-6 py-3 flex items-center justify-between border-t border-gray-100">
-              <div className="flex-1 flex justify-between sm:hidden">
+              <div className="flex-1 flex items-center justify-between sm:hidden">
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
@@ -2748,6 +2736,30 @@ useEffect(() => {
                 >
                   Previous
                 </button>
+                
+                <div className="flex items-center gap-1.5 h-8">
+                  <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Page:</span>
+                  <input
+                    type="text"
+                    placeholder={`${currentPage}/${totalPages}`}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                          setCurrentPage(val);
+                          e.target.value = "";
+                        } else {
+                          alert(`Please enter a valid page number between 1 and ${totalPages}`);
+                        }
+                      }
+                    }}
+                    className="h-8 w-14 text-center text-sm border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+                  />
+                </div>
+
                 <button
                   onClick={() =>
                     setCurrentPage(Math.min(totalPages, currentPage + 1))
@@ -2776,7 +2788,7 @@ useEffect(() => {
                     results
                   </p>
                 </div>
-                <div>
+                <div className="flex items-center gap-4">
                   <nav
                     className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
                     aria-label="Pagination"
@@ -2850,6 +2862,30 @@ useEffect(() => {
                       </svg>
                     </button>
                   </nav>
+
+                  {/* Jump to specific page input */}
+                  <div className="flex items-center gap-1.5 h-8">
+                    <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Go to page:</span>
+                    <input
+                      type="text"
+                      placeholder={`1-${totalPages}`}
+                      onChange={(e) => {
+                        e.target.value = e.target.value.replace(/\D/g, "");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                            setCurrentPage(val);
+                            e.target.value = ""; // Clear on submit
+                          } else {
+                            alert(`Please enter a valid page number between 1 and ${totalPages}`);
+                          }
+                        }
+                      }}
+                      className="h-8 w-16 text-center text-sm border border-gray-200 rounded-lg bg-gray-50 hover:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

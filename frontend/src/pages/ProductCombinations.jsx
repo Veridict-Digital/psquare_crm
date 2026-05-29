@@ -838,8 +838,8 @@ const SearchableProductDropdown = ({
                       type="button"
                       onClick={() => handleSelect(String(p.id))}
                       className={`w-full text-left px-3 py-1.5 hover:bg-blue-50 focus:outline-none focus:bg-blue-50 flex flex-col transition-colors ${isSelected
-                          ? "bg-blue-50 font-semibold text-blue-600"
-                          : "text-gray-700"
+                        ? "bg-blue-50 font-semibold text-blue-600"
+                        : "text-gray-700"
                         }`}
                     >
                       <span className="font-medium truncate">{p.title}</span>
@@ -1592,11 +1592,29 @@ const ProductCombinations = () => {
       };
       const manualPrice = formatNumber(getManualPrice());
       
-      const sellingPrice = manualPrice > 0 ? manualPrice : calculatedPriceWithCharges;
-      const profitAmount = sellingPrice - baseCost;
+      // Calculate Purchase Total (sum of subtotals of purchase items)
+      let purchaseTotal = 0;
+      (combination.items || []).forEach((item) => {
+        const product = products.find((p) => p.id === parseInt(item.product));
+        if (product) {
+          const pricing = productPricings[product.id];
+          const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+          const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
+          const effectiveRate =
+            item.offer_price !== null &&
+            item.offer_price !== "" &&
+            item.offer_price !== undefined
+              ? parseFloat(item.offer_price)
+              : (saleRate && saleRate !== 0 ? saleRate : calculatedRate);
+          purchaseTotal += effectiveRate * formatNumber(item.quantity_required);
+        }
+      });
+
+      const sellingPrice = manualPrice > 0 ? manualPrice : purchaseTotal;
+      const profitAmount = sellingPrice - calculatedPriceWithCharges;
       const profitMargin =
-        baseCost > 0
-          ? (profitAmount / baseCost) * 100
+        calculatedPriceWithCharges > 0
+          ? (profitAmount / calculatedPriceWithCharges) * 100
           : 0;
 
       return {
@@ -1605,6 +1623,7 @@ const ProductCombinations = () => {
         manualPrice,
         profitMargin,
         profitAmount,
+        purchaseTotal,
         totalMRP: comboTotal.totalMRP,
         totalSaleRate: comboTotal.totalSaleRate,
         totalLandingRate: comboTotal.totalLandingRate,
@@ -1735,22 +1754,42 @@ const ProductCombinations = () => {
     const calculatedPriceWithCharges = totalLandingRateAll + totalCharges;
     const manualPrice = parseFloat(formData.manual_combo_price) || 0;
 
-    // Determine which price to use for profit calculation
-    const sellingPrice =
-      manualPrice > 0 ? manualPrice : calculatedPriceWithCharges;
+    // Calculate Purchase Total (sum of subtotals of purchase items)
+    let purchaseTotal = 0;
+    formData.items.forEach((item) => {
+      const product = products.find((p) => p.id === parseInt(item.product));
+      if (product) {
+        const pricing = productPricings[product.id];
+        const saleRate = formatNumber(pricing?.sale_rate ?? product?.price ?? 0);
+        const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
+        const effectiveRate =
+          item.offer_price !== null &&
+          item.offer_price !== "" &&
+          item.offer_price !== undefined
+            ? parseFloat(item.offer_price)
+            : (saleRate && saleRate !== 0 ? saleRate : calculatedRate);
+        purchaseTotal += effectiveRate * formatNumber(item.quantity_required);
+      }
+    });
 
-    // Calculate profit based on Grand Total Landing Rate vs Selling Price
-    const profitAmount = sellingPrice - totalLandingRateAll;
+    // Selling price is Manual Price if entered, else Purchase Total
+    const sellingPrice = manualPrice > 0 ? manualPrice : purchaseTotal;
+
+    // Profit calculation is Selling Price vs Calculated Price (Landing + Charges)
+    const profitAmount = sellingPrice - calculatedPriceWithCharges;
     const profitMargin =
-      totalLandingRateAll > 0 ? (profitAmount / totalLandingRateAll) * 100 : 0;
+      calculatedPriceWithCharges > 0
+        ? (profitAmount / calculatedPriceWithCharges) * 100
+        : 0;
 
     return {
       netCost: totalLandingRateAll,
       calculatedPriceWithCharges,
       manualPrice,
-      sellingPrice, // The price used for profit calculation
+      sellingPrice,
       profitMargin,
       profitAmount,
+      purchaseTotal,
       totalMRP: totalMRP,
       totalSaleRate: totalSaleRate,
       totalLandingRate: totalLandingRateAll,
@@ -1968,7 +2007,7 @@ const ProductCombinations = () => {
 
   const productTitleSuggestions = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
-    
+
     const seen = new Set();
     const allTitles = products
       .map((item) => item.title)
@@ -2592,9 +2631,16 @@ const ProductCombinations = () => {
 
               {/* Profit Margin */}
               <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                <span className="text-xs font-semibold text-gray-700">
-                  Profit Margin:
-                </span>
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-gray-700">
+                    Profit Margin:
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-normal">
+                    {calculations.manualPrice > 0
+                      ? "(Manual Price vs Calculated Price)"
+                      : "(Purchase Total vs Calculated)"}
+                  </span>
+                </div>
                 <div className="flex items-center gap-3">
                   <span
                     className={`text-sm font-bold ${calculations.profitMargin >= 0 ? "text-green-600" : "text-red-600"}`}
@@ -2939,8 +2985,8 @@ const ProductCombinations = () => {
                         setComboSuggestionIndex(-1);
                       }}
                       className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${index === comboSuggestionIndex
-                          ? "bg-blue-500 text-white"
-                          : "hover:bg-blue-50 focus:bg-blue-50"
+                        ? "bg-blue-500 text-white"
+                        : "hover:bg-blue-50 focus:bg-blue-50"
                         }`}
                     >
                       {name}
@@ -3020,11 +3066,10 @@ const ProductCombinations = () => {
                         setShowSkuSuggestions(false);
                         setSkuSuggestionIndex(-1);
                       }}
-                      className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${
-                        index === skuSuggestionIndex
+                      className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${index === skuSuggestionIndex
                           ? "bg-blue-500 text-white"
                           : "hover:bg-blue-50 focus:bg-blue-50"
-                      }`}
+                        }`}
                     >
                       {sku}
                     </button>
@@ -3104,8 +3149,8 @@ const ProductCombinations = () => {
                         setTitleSuggestionIndex(-1);
                       }}
                       className={`w-full text-left px-3 py-2 text-sm focus:outline-none ${index === titleSuggestionIndex
-                          ? "bg-blue-500 text-white"
-                          : "hover:bg-blue-50 focus:bg-blue-50"
+                        ? "bg-blue-500 text-white"
+                        : "hover:bg-blue-50 focus:bg-blue-50"
                         }`}
                     >
                       {title}
@@ -4173,8 +4218,8 @@ const ProductCombinations = () => {
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
                         className={`px-3 py-1.5 rounded-lg text-sm transition-all ${currentPage === pageNum
-                            ? "bg-blue-600 text-white"
-                            : "hover:bg-gray-200"
+                          ? "bg-blue-600 text-white"
+                          : "hover:bg-gray-200"
                           }`}
                       >
                         {pageNum}
@@ -4451,7 +4496,7 @@ const ProductCombinations = () => {
                                   item.offer_price !== "" &&
                                   item.offer_price !== undefined
                                   ? parseFloat(item.offer_price)
-                                  : saleRate;
+                                  : (saleRate && saleRate !== 0 ? saleRate : calculatedRate);
                               const subtotal = effectiveRate * quantity;
 
                               return (
@@ -4966,8 +5011,17 @@ const ProductCombinations = () => {
                                         product?.price ??
                                         0,
                                       );
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                      );
                                       const effectiveRate =
-                                        item.offer_price || saleRate;
+                                        item.offer_price !== null &&
+                                          item.offer_price !== "" &&
+                                          item.offer_price !== undefined
+                                          ? parseFloat(item.offer_price)
+                                          : (saleRate && saleRate !== 0 ? saleRate : calculatedRate);
                                       const quantity = formatNumber(
                                         item.quantity_required,
                                       );
@@ -5146,7 +5200,8 @@ const ProductCombinations = () => {
 
                               // For free rewards, offer price is typically 0 since it's free
                               const offerPrice = 0;
-                              const subtotal = saleRate * quantity;
+                              const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
+                              const subtotal = effectiveRate * quantity;
 
                               return (
                                 <tr key={index} className="border-t">
@@ -5625,10 +5680,16 @@ const ProductCombinations = () => {
                                         product?.price ??
                                         0,
                                       );
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                      );
+                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                                       const quantity = formatNumber(
                                         reward.quantity_free,
                                       );
-                                      return total + saleRate * quantity;
+                                      return total + effectiveRate * quantity;
                                     }, 0)
                                     .toFixed(2)}
                                   className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800"
@@ -5796,7 +5857,7 @@ const ProductCombinations = () => {
                                   : "-";
 
                               // FIXED: Use saleRate for subtotal, offer_price is just for display
-                              const effectiveRate = saleRate;
+                              const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                               const subtotal = effectiveRate * quantity;
 
                               return (
@@ -6269,7 +6330,9 @@ const ProductCombinations = () => {
                                       const quantity = formatNumber(
                                         gift.quantity,
                                       );
-                                      return total + saleRate * quantity;
+                                      const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
+                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
+                                      return total + effectiveRate * quantity;
                                     }, 0)
                                     .toFixed(2)}
                                   className="w-20 px-1.5 py-1 border rounded text-xs bg-blue-100 font-bold text-blue-800"
@@ -6323,6 +6386,9 @@ const ProductCombinations = () => {
                             </th>
                             <th className="px-2 py-1.5 text-center" colSpan="2">
                               Total Volume
+                            </th>
+                            <th className="px-2 py-1.5 text-right" colSpan="1">
+                              Purchase Total
                             </th>
                             <th className="px-2 py-1.5 text-right" colSpan="1">
                               Total Price
@@ -6808,6 +6874,47 @@ const ProductCombinations = () => {
                             {/* Offer */}
                             <td className="px-2 py-2"></td>
 
+                            {/* Purchase Total */}
+                            <td className="px-2 py-2">
+                              <div className="flex justify-end">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.items.reduce((total, item) => {
+                                    const pricing =
+                                      productPricings[item.product];
+                                    const product = products.find(
+                                      (p) => p.id === parseInt(item.product),
+                                    );
+                                    const saleRate = formatNumber(
+                                      pricing?.sale_rate ??
+                                      product?.price ??
+                                      0,
+                                    );
+                                    const calculatedRate = formatNumber(
+                                      pricing?.calculated_rate ??
+                                      product?.price ??
+                                      0,
+                                    );
+                                    const effectiveRate =
+                                      item.offer_price !== null &&
+                                        item.offer_price !== "" &&
+                                        item.offer_price !== undefined
+                                        ? parseFloat(item.offer_price)
+                                        : (saleRate && saleRate !== 0 ? saleRate : calculatedRate);
+                                    return (
+                                      total +
+                                      effectiveRate *
+                                      formatNumber(item.quantity_required)
+                                    );
+                                  }, 0).toFixed(2)}
+                                  className="w-20 px-1.5 py-1 border rounded text-xs bg-green-50 font-bold text-green-700 text-right"
+                                  readOnly
+                                  disabled
+                                />
+                              </div>
+                            </td>
+
                             {/* Total Price */}
                             <td className="px-2 py-2">
                               <div className="flex justify-end">
@@ -6826,8 +6933,17 @@ const ProductCombinations = () => {
                                         product?.price ??
                                         0,
                                       );
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                      );
                                       const effectiveRate =
-                                        item.offer_price || saleRate;
+                                        item.offer_price !== null &&
+                                          item.offer_price !== "" &&
+                                          item.offer_price !== undefined
+                                          ? parseFloat(item.offer_price)
+                                          : (saleRate && saleRate !== 0 ? saleRate : calculatedRate);
                                       return (
                                         total +
                                         effectiveRate *
@@ -6846,8 +6962,12 @@ const ProductCombinations = () => {
                                         product?.price ??
                                         0,
                                       );
-                                      const effectiveRate =
-                                        reward.offer_price || saleRate;
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                      );
+                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                                       return (
                                         total +
                                         effectiveRate *
@@ -6865,8 +6985,12 @@ const ProductCombinations = () => {
                                         product?.price ??
                                         0,
                                       );
-                                      const effectiveRate =
-                                        gift.offer_price || saleRate;
+                                      const calculatedRate = formatNumber(
+                                        pricing?.calculated_rate ??
+                                        product?.price ??
+                                        0,
+                                      );
+                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                                       return (
                                         total +
                                         effectiveRate *
@@ -6937,8 +7061,12 @@ const ProductCombinations = () => {
                                   const saleRate = formatNumber(
                                     pricing?.sale_rate ?? product?.price ?? 0,
                                   );
+                                  const calculatedRate = formatNumber(
+                                    pricing?.calculated_rate ?? product?.price ?? 0,
+                                  );
+                                  const effectiveSaleRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                                   totalComboPrice +=
-                                    saleRate *
+                                    effectiveSaleRate *
                                     formatNumber(item.quantity_required);
                                 });
                                 formData.rewards.forEach((reward) => {
@@ -6950,8 +7078,12 @@ const ProductCombinations = () => {
                                   const saleRate = formatNumber(
                                     pricing?.sale_rate ?? product?.price ?? 0,
                                   );
+                                  const calculatedRate = formatNumber(
+                                    pricing?.calculated_rate ?? product?.price ?? 0,
+                                  );
+                                  const effectiveSaleRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                                   totalComboPrice +=
-                                    saleRate *
+                                    effectiveSaleRate *
                                     formatNumber(reward.quantity_free);
                                 });
                                 formData.gifts.forEach((gift) => {
@@ -6962,8 +7094,12 @@ const ProductCombinations = () => {
                                   const saleRate = formatNumber(
                                     pricing?.sale_rate ?? product?.price ?? 0,
                                   );
+                                  const calculatedRate = formatNumber(
+                                    pricing?.calculated_rate ?? product?.price ?? 0,
+                                  );
+                                  const effectiveSaleRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                                   totalComboPrice +=
-                                    saleRate * formatNumber(gift.quantity);
+                                    effectiveSaleRate * formatNumber(gift.quantity);
                                 });
 
                                 const profitMarginPercent =
@@ -6979,16 +7115,16 @@ const ProductCombinations = () => {
                                   <div className="flex flex-col items-end justify-center text-right font-bold gap-1 min-w-[70px]">
                                     <span
                                       className={`text-xs px-1.5 py-0.5 rounded font-bold ${profitMarginPercent >= 0
-                                          ? "text-purple-700 bg-purple-50"
-                                          : "text-red-700 bg-red-50"
+                                        ? "text-purple-700 bg-purple-50"
+                                        : "text-red-700 bg-red-50"
                                         }`}
                                     >
                                       {profitMarginPercent.toFixed(2)}%
                                     </span>
                                     <span
                                       className={`text-[10px] font-semibold ${profitMarginAmount >= 0
-                                          ? "text-purple-600"
-                                          : "text-red-500"
+                                        ? "text-purple-600"
+                                        : "text-red-500"
                                         }`}
                                     >
                                       ₹{profitMarginAmount.toFixed(2)}
@@ -7336,7 +7472,7 @@ const ProductCombinations = () => {
                               </div>
                             </td>
 
-                            {/* Profit % - Based on Grand Total Landing Rate */}
+                            {/* Profit % */}
                             <td className="px-2 py-1.5">
                               <span
                                 className={`font-semibold ${formCalculations.profitMargin >= 0 ? "text-green-600" : "text-red-600"}`}
@@ -7344,7 +7480,9 @@ const ProductCombinations = () => {
                                 {formCalculations.profitMargin.toFixed(1)}%
                               </span>
                               <div className="text-xs text-gray-500 mt-0.5">
-                                vs Landing Rate
+                                {formCalculations.manualPrice > 0
+                                  ? "Manual Price vs Calculated"
+                                  : "Purchase Total vs Calculated"}
                               </div>
                             </td>
 
@@ -7354,10 +7492,7 @@ const ProductCombinations = () => {
                                 ₹{formCalculations.profitAmount.toFixed(2)}
                               </span>
                               <div className="text-xs text-gray-500 mt-0.5">
-                                {formCalculations.sellingPrice >
-                                  formCalculations.totalLandingRate
-                                  ? "Profit"
-                                  : "Loss"}
+                                {formCalculations.profitAmount >= 0 ? "Profit" : "Loss"}
                               </div>
                             </td>
                           </tr>
