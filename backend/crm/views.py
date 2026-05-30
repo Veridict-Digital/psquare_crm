@@ -988,15 +988,33 @@ class CustomerViewSet(viewsets.ModelViewSet):
         customers_data = []
         for customer in queryset:
             try:
+                # Retrieve all unique phone numbers for this customer (prefetched)
+                all_phones = []
+                for p in customer.phones.all().order_by('-is_primary', 'id'):
+                    if p.phone and p.phone not in all_phones:
+                        all_phones.append(p.phone)
+                if customer.phone and customer.phone not in all_phones:
+                    all_phones.insert(0, customer.phone)
+                
+                phone_value = ", ".join(all_phones)
+
+                # Calculate outstanding amount
+                from django.db.models import Sum, F, Q
+                outstanding_amount = customer.order_set.filter(
+                    Q(payment_status='Partial') | Q(payment_status='Credit')
+                ).aggregate(
+                    val=Sum(F('total_amount') - F('paid_amount'))
+                )['val'] or 0
+
                 customer_dict = {
                     'ID': customer.id,
                     'Name': customer.name or '',
                     'Surname': customer.surname or '',
-                    'Phone': customer.phone or '',
+                    'Phone': phone_value,
                     'Email': customer.email or '',
                     'Company Name': customer.company_name or '',
-                    'Company Type': getattr(customer, 'company_type_display', '') or '',
-                    'Customer Type': getattr(customer, 'customer_type_display', '') or '',
+                    'Company Type': customer.company_type.name if customer.company_type else '',
+                    'Customer Type': customer.customer_type.name if customer.customer_type else '',
                     'GSTIN No': customer.gstin_no or '',
                     'Contact Type': customer.contact_type or '',
                     'Pincode': customer.pincode or '',
@@ -1009,9 +1027,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     'District': customer.district or '',
                     'State': customer.state or '',
                     'Tahsil': customer.tahsil or '',
-                    'Agent': getattr(customer, 'agent_name', '') or '',
+                    'Telecaller': customer.agent.username if customer.agent else '',
                     'Total Order Value': float(getattr(customer, 'total_order_value', 0) or 0),
-                    'Outstanding Amount': float(getattr(customer, 'outstanding_amount', 0) or 0),
+                    'Outstanding Amount': float(outstanding_amount),
                     'Created At': customer.created_at.strftime('%Y-%m-%d %H:%M:%S') if customer.created_at else '',
                     'Appointment Date': customer.appointment_date.strftime('%Y-%m-%d') if customer.appointment_date else '',
                     'Appointment Time': str(customer.appointment_time) if customer.appointment_time else '',

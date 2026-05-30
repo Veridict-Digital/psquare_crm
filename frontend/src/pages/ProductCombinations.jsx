@@ -4524,13 +4524,14 @@ const ProductCombinations = () => {
                                       type="number"
                                       min="0"
                                       value={item.quantity_required}
-                                      onChange={(e) =>
+                                      onChange={(e) => {
+                                        const val = e.target.value;
                                         updateItem(
                                           index,
                                           "quantity_required",
-                                          parseInt(e.target.value) || 0,
-                                        )
-                                      }
+                                          val === "" ? "" : (parseInt(val) || 0),
+                                        );
+                                      }}
                                       className="w-16 px-1.5 py-1 border rounded text-xs"
                                       required
                                     />
@@ -5225,13 +5226,14 @@ const ProductCombinations = () => {
                                       type="number"
                                       min="0"
                                       value={reward.quantity_free}
-                                      onChange={(e) =>
+                                      onChange={(e) => {
+                                        const val = e.target.value;
                                         updateReward(
                                           index,
                                           "quantity_free",
-                                          parseInt(e.target.value) || 0,
-                                        )
-                                      }
+                                          val === "" ? "" : (parseInt(val) || 0),
+                                        );
+                                      }}
                                       className="w-16 px-1.5 py-1 border rounded text-xs"
                                       required
                                     />
@@ -5882,13 +5884,14 @@ const ProductCombinations = () => {
                                       type="number"
                                       min="0"
                                       value={gift.quantity}
-                                      onChange={(e) =>
+                                      onChange={(e) => {
+                                        const val = e.target.value;
                                         updateGift(
                                           index,
                                           "quantity",
-                                          parseInt(e.target.value) || 0,
-                                        )
-                                      }
+                                          val === "" ? "" : (parseInt(val) || 0),
+                                        );
+                                      }}
                                       className="w-16 px-1.5 py-1 border rounded text-xs"
                                       required
                                     />

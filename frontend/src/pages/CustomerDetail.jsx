@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../api/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,7 +68,8 @@ const CustomerDetail = () => {
   const [oldOrdersPage, setOldOrdersPage] = useState(1);
   const [tempGstinValue, setTempGstinValue] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const itemsPerPage = 5;
+  const itemsPerPage = 6;
+  const dateInputRef = useRef(null);
 
   // Fetch customer details
   const {
@@ -563,8 +564,8 @@ const CustomerDetail = () => {
       `}</style>
       <div className="container mx-auto px-4 max-w-full min-h-screen overflow-y-auto">
         {/* Header */}
-        <div className="mb-4">
-          <div className="flex flex-wrap lg:flex-nowrap justify-between items-start lg:items-center gap-4 py-2">
+        <div className="mb-1">
+          <div className="flex flex-wrap lg:flex-nowrap justify-between items-start lg:items-center gap-4">
             {/* Left side: Avatar + Name + Phones - Fixed width */}
             <div className="flex items-start lg:items-center space-x-4 flex-shrink-0 w-full lg:w-auto">
               {/* Avatar */}
@@ -576,7 +577,7 @@ const CustomerDetail = () => {
               </div>
 
               {/* Name Section - Fixed width container */}
-              <div className="flex-shrink-0 min-w-[230px]">
+              <div className="flex-shrink-0 min-w-[340px]">
                 <div className="flex flex-col">
                   <div className="flex items-center space-x-2">
                     {/* First Name Field */}
@@ -598,7 +599,7 @@ const CustomerDetail = () => {
                           }
                         }}
                         placeholder="First name"
-                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-28 transition-all duration-200 focus:outline-none"
+                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-40 transition-all duration-200 focus:outline-none"
                       />
                     </div>
 
@@ -621,7 +622,7 @@ const CustomerDetail = () => {
                           }
                         }}
                         placeholder="Last name"
-                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-28 transition-all duration-200 focus:outline-none"
+                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-48 transition-all duration-200 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -669,7 +670,7 @@ const CustomerDetail = () => {
                             </div>
                           ) : (
                             <span
-                              className="font-bold text-blue-600 text-xs whitespace-nowrap"
+                              className="font-bold text-blue-600 text-md whitespace-nowrap"
                             >
                               {formatPhoneNumber(primaryPhoneObj.phone)}
                               {" (P)"}
@@ -860,7 +861,7 @@ const CustomerDetail = () => {
                                 </div>
                               ) : (
                                 <span
-                                  className="font-semibold text-slate-700 text-xs whitespace-nowrap"
+                                  className="font-semibold text-slate-700 text-md whitespace-nowrap"
                                 >
                                   {formatPhoneNumber(phoneObj.phone)}
                                 </span>
@@ -1357,10 +1358,10 @@ const CustomerDetail = () => {
           </div>
           {/* Secondary info below */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
-            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                <User className="h-3.5 w-3.5 mr-1 text-slate-400" />
-                Org
+            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
+                Org:
               </div>
               <input
                 type="text"
@@ -1380,17 +1381,17 @@ const CustomerDetail = () => {
                   }
                 }}
                 placeholder="Not set"
-                className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none"
+                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none"
               />
             </div>
 
-            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                <User className="h-3.5 w-3.5 mr-1 text-slate-400" />
-                Org Type
+            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
+                Org Type:
               </div>
               <div
-                className="flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
+                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
                 onClick={() => setShowOrgTypeDropdown(!showOrgTypeDropdown)}
               >
                 <span className="truncate">
@@ -1423,13 +1424,13 @@ const CustomerDetail = () => {
               )}
             </div>
 
-            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                <User className="h-3.5 w-3.5 mr-1 text-slate-400" />
-                Customer Type
+            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
+                Cust Type:
               </div>
               <div
-                className="flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
+                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
                 onClick={() =>
                   setShowCustomerTypeDropdown(!showCustomerTypeDropdown)
                 }
@@ -1464,25 +1465,43 @@ const CustomerDetail = () => {
               )}
             </div>
 
-            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400" />
-                Appointment
+            <div 
+              onClick={() => {
+                try {
+                  dateInputRef.current?.showPicker();
+                } catch (err) {
+                  console.error("showPicker not supported or failed", err);
+                }
+              }}
+              className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 cursor-pointer"
+            >
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
+                Date:
               </div>
               <input
+                ref={dateInputRef}
                 type="date"
                 value={customer?.appointment_date || ""}
                 onChange={(e) => {
                   updateMutation.mutate({ appointment_date: e.target.value });
                 }}
-                className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try {
+                    e.target.showPicker();
+                  } catch (err) {
+                    console.error("showPicker failed", err);
+                  }
+                }}
+                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
               />
             </div>
 
-            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <svg
-                  className="h-3.5 w-3.5 mr-1 text-slate-400"
+                  className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1494,7 +1513,7 @@ const CustomerDetail = () => {
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Time
+                Time:
               </div>
               <input
                 type="time"
@@ -1502,15 +1521,15 @@ const CustomerDetail = () => {
                 onChange={(e) => {
                   updateMutation.mutate({ appointment_time: e.target.value });
                 }}
-                className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
               />
             </div>
 
-            <div className="flex flex-col bg-white border border-slate-200 hover:border-slate-300 p-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 w-full">
-                <span className="truncate">GST</span>
+            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2">
+              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                <span className="truncate">GST:</span>
               </div>
-              <div className="relative w-full">
+              <div className="relative flex-1 w-full">
                 <input
                   type="text"
                   value={(() => {
@@ -1604,7 +1623,7 @@ const CustomerDetail = () => {
           </div>
 
           {/* Address Section */}
-          <div className="bg-white rounded-xl border border-slate-100 hover:border-slate-200/80 shadow-sm p-4 transition-all duration-200 mt-2">
+          <div className="bg-white rounded-xl border border-slate-100 hover:border-slate-200/80 shadow-sm p-1.5 transition-all duration-200 mt-1">
             <div className="grid grid-cols-10 gap-2">
               {/* House No */}
               <div>
@@ -1912,13 +1931,13 @@ const CustomerDetail = () => {
         {/* Conversation history - EXACTLY as you had it, just fixed the logic */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-2">
           {/* Left container - Conversation History (60%) */}
-          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
+          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-2 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
             {/* Frozen Header */}
-            <div className="flex-none flex items-center justify-between border-b border-gray-100 pb-3">
+            <div className="flex-none flex items-center justify-between border-b border-gray-100 pb-1">
               <div className="flex items-center">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4">
+                <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg mr-2.5">
                   <svg
-                    className="w-6 h-6 text-white"
+                    className="w-5 h-5 text-white"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1932,7 +1951,7 @@ const CustomerDetail = () => {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
+                  <h2 className="text-lg font-bold text-gray-900">
                     Conversation History
                   </h2>
                 </div>
@@ -1943,7 +1962,7 @@ const CustomerDetail = () => {
                 24 * 60 * 60 * 1000 && (
                   <button
                     onClick={handleEditLastCall}
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25 text-sm"
+                    className="inline-flex items-center px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md shadow-blue-500/20 text-xs"
                   >
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Last Call
@@ -2079,14 +2098,14 @@ const CustomerDetail = () => {
           </div>
 
           {/* Right container - Order History (40%) - Keep exactly as you had */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-2 h-96 lg:h-[600px] xl:h-[700px] flex flex-col">
             {/* Order History Section - Fixed at top */}
             <div className="flex-none">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center">
-                  <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl mr-4">
+                  <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg mr-2.5">
                     <svg
-                      className="w-6 h-6 text-white"
+                      className="w-5 h-5 text-white"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -2099,11 +2118,11 @@ const CustomerDetail = () => {
                       />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
+                  <h2 className="text-lg font-bold text-gray-900">
                     Order History
                   </h2>
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-xs text-gray-500 font-medium">
                   {orders.length} order{orders.length !== 1 ? "s" : ""}
                 </div>
               </div>

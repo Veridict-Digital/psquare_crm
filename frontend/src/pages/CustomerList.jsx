@@ -23,6 +23,7 @@ import {
   Download,
   Pencil,
   Check,
+  Copy,
   X,
   AlertTriangle,
   Users,
@@ -30,6 +31,7 @@ import {
   Filter,
   UserCircle,
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 const CustomerList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -168,6 +170,7 @@ const CustomerList = () => {
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [phoneHighlighted, setPhoneHighlighted] = useState(-1);
   const [phoneIsTyping, setPhoneIsTyping] = useState(false);
+  const [copiedPhoneSearch, setCopiedPhoneSearch] = useState(false);
   const phoneContainerRef = useRef(null);
   const phoneFetchTimeoutRef = useRef(null);
 
@@ -1370,13 +1373,13 @@ useEffect(() => {
       const params = new URLSearchParams();
       if (dateFrom) params.append("date_from", dateFrom);
       if (dateTo) params.append("date_to", dateTo);
-      if (phoneSearch) params.append("phone", phoneSearch);
-      if (nameSearch) params.append("name", nameSearch);
-      if (surnameSearch) params.append("surname", surnameSearch);
-      if (filterOrgName) params.append("company_name", filterOrgName);
-      if (filterOrgType) params.append("company_type", filterOrgType);
+      if (phoneSearch) params.append("search_phone", phoneSearch);
+      if (nameSearch) params.append("search_name", nameSearch);
+      if (surnameSearch) params.append("search_surname", surnameSearch);
+      if (filterOrgName) params.append("organization_name", filterOrgName);
+      if (filterOrgType) params.append("organization_type", filterOrgType);
       if (filterCustomerType) params.append("customer_type", filterCustomerType);
-      if (filterTelecaller) params.append("agent", filterTelecaller);
+      if (filterTelecaller) params.append("telecaller", filterTelecaller);
       if (filterTime) params.append("time", filterTime);
       if (filterHouseFlatNo) params.append("house_flat_no", filterHouseFlatNo);
       if (filterWingLane) params.append("wing_lane", filterWingLane);
@@ -1388,8 +1391,14 @@ useEffect(() => {
       if (filterTahsil) params.append("tahsil", filterTahsil);
       if (filterState) params.append("state", filterState);
       if (filterPincode) params.append("pincode", filterPincode);
-      if (viewType === "customers") params.append("contact_type", "Customer");
-      if (viewType === "leads") params.append("contact_type", "Lead");
+
+      if (!phoneSearch && !nameSearch && !surnameSearch) {
+        if (viewType === "customers") {
+          params.append("has_appointment", "true");
+        } else if (viewType === "leads") {
+          params.append("has_appointment", "false");
+        }
+      }
 
       const response = await axios.get(
         `/api/customers/export_excel/?${params.toString()}`,
@@ -1490,7 +1499,7 @@ useEffect(() => {
                       setShowPhoneDropdown(true);
                     }
                   }}
-                  className="w-full pl-9 pr-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  className="w-full pl-9 pr-9 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
                   maxLength={16}
                   autoFocus={true}
                   autoComplete="off"
@@ -1499,6 +1508,31 @@ useEffect(() => {
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                     <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                   </div>
+                )}
+                {phoneSearchInput && !phoneLoading && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleanNumber = phoneSearchInput.replace(/\D/g, "");
+                      navigator.clipboard.writeText(cleanNumber)
+                        .then(() => {
+                          toast.success("Phone number copied!");
+                          setCopiedPhoneSearch(true);
+                          setTimeout(() => setCopiedPhoneSearch(false), 2000);
+                        })
+                        .catch(() => {
+                          toast.error("Failed to copy phone number");
+                        });
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors"
+                    title="Copy phone number without dashes"
+                  >
+                    {copiedPhoneSearch ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
                 )}
                 {showPhoneDropdown && phoneSuggestions.length > 0 && (
                   <ul
