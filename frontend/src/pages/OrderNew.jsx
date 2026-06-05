@@ -141,7 +141,7 @@ const OrderNew = () => {
     }
     return [];
   });
-  
+
   const [customerKPIs, setCustomerKPIs] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [generatedOrderId, setGeneratedOrderId] = useState("");
@@ -158,7 +158,7 @@ const OrderNew = () => {
     stockStatus: "",
     search: "",
   });
-  
+
   const [showComboModal, setShowComboModal] = useState(false);
   const [showPurchaseComboModal, setShowPurchaseComboModal] = useState(false);
   const [filterPaid, setFilterPaid] = useState(false);
@@ -271,9 +271,9 @@ const OrderNew = () => {
       const selectedCustomer = (urlCustomer && urlCustomer.id.toString() === formData.customer.toString())
         ? urlCustomer
         : (customers ? (customers?.results || customers || []).find(
-            (c) => c.id.toString() === formData.customer.toString()
-          ) : null);
-      
+          (c) => c.id.toString() === formData.customer.toString()
+        ) : null);
+
       if (selectedCustomer) {
         setFormData((prev) => {
           // Avoid setting state if nothing changed (prevents potential loops)
@@ -399,10 +399,10 @@ const OrderNew = () => {
     combo.items?.forEach((item) => {
       const product = products?.find(p => p.id === item.product);
       if (product) {
-        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
-          ? parseFloat(product.pricing.mrp) 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null
+          ? parseFloat(product.pricing.mrp)
           : parseFloat(product.mrp || product.price || 0);
-          
+
         regularTotal += mrpVal * item.quantity_required * quantity;
       }
     });
@@ -413,8 +413,8 @@ const OrderNew = () => {
       combo.items?.forEach((item) => {
         const product = products?.find(p => p.id === item.product);
         if (product) {
-          const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null 
-            ? parseFloat(product.pricing.sale_rate) 
+          const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null
+            ? parseFloat(product.pricing.sale_rate)
             : parseFloat(product.price || 0);
 
           if (item.offer_price && item.offer_price > 0) {
@@ -429,10 +429,10 @@ const OrderNew = () => {
     combo.rewards?.forEach((reward) => {
       const product = products?.find(p => p.id === reward.product);
       if (product) {
-        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
-          ? parseFloat(product.pricing.mrp) 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null
+          ? parseFloat(product.pricing.mrp)
           : parseFloat(product.mrp || product.price || 0);
-          
+
         regularTotal += mrpVal * reward.quantity_free * quantity;
       }
     });
@@ -440,10 +440,10 @@ const OrderNew = () => {
     combo.gifts?.forEach((gift) => {
       const product = products?.find(p => p.id === gift.product);
       if (product) {
-        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
-          ? parseFloat(product.pricing.mrp) 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null
+          ? parseFloat(product.pricing.mrp)
           : parseFloat(product.mrp || product.price || 0);
-          
+
         regularTotal += mrpVal * (gift.quantity || 1) * quantity;
       }
     });
@@ -469,12 +469,12 @@ const OrderNew = () => {
         const product = products?.find((p) => p.id === reqItem.product);
         if (!product) return;
 
-        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
-          ? parseFloat(product.pricing.mrp) 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null
+          ? parseFloat(product.pricing.mrp)
           : parseFloat(product.mrp || product.price || 0);
-          
-        const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null 
-          ? parseFloat(product.pricing.sale_rate) 
+
+        const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null
+          ? parseFloat(product.pricing.sale_rate)
           : parseFloat(product.price || 0);
 
         const existingItemIndex = newItems.findIndex(
@@ -485,8 +485,8 @@ const OrderNew = () => {
           newItems[existingItemIndex] = {
             ...newItems[existingItemIndex],
             quantity: newItems[existingItemIndex].quantity + reqItem.quantity_required,
-            unit_price: reqItem.offer_price && reqItem.offer_price > 0 
-              ? parseFloat(reqItem.offer_price) 
+            unit_price: reqItem.offer_price && reqItem.offer_price > 0
+              ? parseFloat(reqItem.offer_price)
               : newItems[existingItemIndex].unit_price,
             original_price: newItems[existingItemIndex].original_price || mrpVal,
           };
@@ -496,8 +496,8 @@ const OrderNew = () => {
             product_title: product.title,
             product_sku: product.sku,
             quantity: reqItem.quantity_required,
-            unit_price: reqItem.offer_price && reqItem.offer_price > 0 
-              ? parseFloat(reqItem.offer_price) 
+            unit_price: reqItem.offer_price && reqItem.offer_price > 0
+              ? parseFloat(reqItem.offer_price)
               : saleVal,
             original_price: mrpVal,
             gst_rate: product.gst_rate,
@@ -511,8 +511,8 @@ const OrderNew = () => {
         const product = products?.find((p) => p.id === reward.product);
         if (!product) return;
 
-        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
-          ? parseFloat(product.pricing.mrp) 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null
+          ? parseFloat(product.pricing.mrp)
           : parseFloat(product.mrp || product.price || 0);
 
         const existingFreeIndex = newItems.findIndex(
@@ -545,8 +545,8 @@ const OrderNew = () => {
         const product = products?.find((p) => p.id === gift.product);
         if (!product) return;
 
-        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
-          ? parseFloat(product.pricing.mrp) 
+        const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null
+          ? parseFloat(product.pricing.mrp)
           : parseFloat(product.mrp || product.price || 0);
 
         const giftQty = gift.quantity || 1;
@@ -582,7 +582,7 @@ const OrderNew = () => {
 
     setAppliedCombos((prev) => {
       const existingComboIndex = prev.findIndex(c => (c.comboId === combo.id) || (c.combo_id === combo.id));
-      
+
       if (existingComboIndex !== -1) {
         const newCombos = [...prev];
         newCombos[existingComboIndex] = {
@@ -591,11 +591,11 @@ const OrderNew = () => {
         };
         return newCombos;
       } else {
-        return [...prev, { 
-          comboId: combo.id, 
+        return [...prev, {
+          comboId: combo.id,
           combo_id: combo.id,
           quantity: 1,
-          name: combo.name 
+          name: combo.name
         }];
       }
     });
@@ -626,7 +626,7 @@ const OrderNew = () => {
             if (existingItemIndex !== -1) {
               const newItems = [...prev];
               const newQuantity = newItems[existingItemIndex].quantity + reqItem.quantity_required;
-              
+
               if (newQuantity <= 0) {
                 newItems.splice(existingItemIndex, 1);
               } else {
@@ -650,7 +650,7 @@ const OrderNew = () => {
             if (existingFreeIndex !== -1) {
               const newItems = [...prev];
               const newQuantity = newItems[existingFreeIndex].quantity + reward.quantity_free;
-              
+
               if (newQuantity <= 0) {
                 newItems.splice(existingFreeIndex, 1);
               } else {
@@ -674,7 +674,7 @@ const OrderNew = () => {
             if (existingGiftIndex !== -1) {
               const newItems = [...prev];
               const newQuantity = newItems[existingGiftIndex].quantity + 1;
-              
+
               if (newQuantity <= 0) {
                 newItems.splice(existingGiftIndex, 1);
               } else {
@@ -691,7 +691,7 @@ const OrderNew = () => {
       }
     } else if (quantityDiff < 0) {
       const instancesToRemove = Math.abs(quantityDiff);
-      
+
       for (let i = 0; i < instancesToRemove; i++) {
         combo.items?.forEach((reqItem) => {
           setOrderItems((prev) => {
@@ -702,7 +702,7 @@ const OrderNew = () => {
             if (existingItemIndex !== -1) {
               const newItems = [...prev];
               const newQuantity = newItems[existingItemIndex].quantity - reqItem.quantity_required;
-              
+
               if (newQuantity <= 0) {
                 newItems.splice(existingItemIndex, 1);
               } else {
@@ -726,7 +726,7 @@ const OrderNew = () => {
             if (existingFreeIndex !== -1) {
               const newItems = [...prev];
               const newQuantity = newItems[existingFreeIndex].quantity - reward.quantity_free;
-              
+
               if (newQuantity <= 0) {
                 newItems.splice(existingFreeIndex, 1);
               } else {
@@ -750,7 +750,7 @@ const OrderNew = () => {
             if (existingGiftIndex !== -1) {
               const newItems = [...prev];
               const newQuantity = newItems[existingGiftIndex].quantity - 1;
-              
+
               if (newQuantity <= 0) {
                 newItems.splice(existingGiftIndex, 1);
               } else {
@@ -767,10 +767,10 @@ const OrderNew = () => {
       }
     }
 
-    setAppliedCombos((prev) => 
-      prev.map(c => 
+    setAppliedCombos((prev) =>
+      prev.map(c =>
         (c.comboId === comboId || c.combo_id === comboId)
-          ? { ...c, quantity: newQuantity } 
+          ? { ...c, quantity: newQuantity }
           : c
       )
     );
@@ -793,7 +793,7 @@ const OrderNew = () => {
           if (existingItemIndex !== -1) {
             const newItems = [...prev];
             const newQuantity = newItems[existingItemIndex].quantity - reqItem.quantity_required;
-            
+
             if (newQuantity <= 0) {
               newItems.splice(existingItemIndex, 1);
             } else {
@@ -817,7 +817,7 @@ const OrderNew = () => {
           if (existingFreeIndex !== -1) {
             const newItems = [...prev];
             const newQuantity = newItems[existingFreeIndex].quantity - reward.quantity_free;
-            
+
             if (newQuantity <= 0) {
               newItems.splice(existingFreeIndex, 1);
             } else {
@@ -841,7 +841,7 @@ const OrderNew = () => {
           if (existingGiftIndex !== -1) {
             const newItems = [...prev];
             const newQuantity = newItems[existingGiftIndex].quantity - 1;
-            
+
             if (newQuantity <= 0) {
               newItems.splice(existingGiftIndex, 1);
             } else {
@@ -857,7 +857,7 @@ const OrderNew = () => {
       });
     }
 
-    setAppliedCombos((prev) => prev.filter(c => 
+    setAppliedCombos((prev) => prev.filter(c =>
       (c.comboId !== comboId) && (c.combo_id !== comboId)
     ));
   }, [combinations, appliedCombos]);
@@ -872,7 +872,7 @@ const OrderNew = () => {
 
     setOrderItems((prev) => {
       const existingItem = prev.find((item) => item.product === product.id && !item.is_free && !item.is_gift);
-      
+
       if (existingItem) {
         return prev.map((item) =>
           item.product === product.id && !item.is_free && !item.is_gift
@@ -881,12 +881,12 @@ const OrderNew = () => {
         );
       }
 
-      const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null 
-        ? parseFloat(product.pricing.mrp) 
+      const mrpVal = product.pricing?.mrp !== undefined && product.pricing?.mrp !== null
+        ? parseFloat(product.pricing.mrp)
         : parseFloat(product.mrp || product.price || 0);
-        
-      const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null 
-        ? parseFloat(product.pricing.sale_rate) 
+
+      const saleVal = product.pricing?.sale_rate !== undefined && product.pricing?.sale_rate !== null
+        ? parseFloat(product.pricing.sale_rate)
         : parseFloat(product.price || 0);
 
       return [...prev, {
@@ -915,7 +915,7 @@ const OrderNew = () => {
       removeProduct(productId);
       return;
     }
-    
+
     setOrderItems((prev) =>
       prev.map((item) =>
         item.product === productId ? { ...item, quantity: newQuantity } : item
@@ -943,16 +943,16 @@ const OrderNew = () => {
       // Loop over required items to find their regular values
       const comboItemsDetails = combo.items?.map((item) => {
         const product = products?.find((p) => p.id === item.product);
-        const mrpVal = product?.pricing?.mrp !== undefined && product?.pricing?.mrp !== null 
-          ? safeParseFloat(product.pricing.mrp) 
+        const mrpVal = product?.pricing?.mrp !== undefined && product?.pricing?.mrp !== null
+          ? safeParseFloat(product.pricing.mrp)
           : safeParseFloat(product?.mrp || product?.price || 0);
-          
-        const saleVal = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null 
-          ? safeParseFloat(product.pricing.sale_rate) 
+
+        const saleVal = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null
+          ? safeParseFloat(product.pricing.sale_rate)
           : safeParseFloat(product?.price || 0);
 
-        const regularPricePerUnit = item.offer_price && safeParseFloat(item.offer_price) > 0 
-          ? safeParseFloat(item.offer_price) 
+        const regularPricePerUnit = item.offer_price && safeParseFloat(item.offer_price) > 0
+          ? safeParseFloat(item.offer_price)
           : saleVal;
 
         const qtyReq = safeParseFloat(item.quantity_required, 1);
@@ -1013,8 +1013,8 @@ const OrderNew = () => {
 
       // Standalone unit price is the sale rate of the product
       const product = products?.find((p) => p.id === item.product);
-      const productSaleRate = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null 
-        ? safeParseFloat(product.pricing.sale_rate) 
+      const productSaleRate = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null
+        ? safeParseFloat(product.pricing.sale_rate)
         : safeParseFloat(product?.price || 0);
 
       // If the item already had a unit_price, use it as fallback for standalone
@@ -1124,7 +1124,7 @@ const OrderNew = () => {
         sessionStorage.removeItem("orderNewOrderItems");
         sessionStorage.removeItem("orderNewAppliedCombos");
       }
-      
+
       if (!editMode) {
         setFormData({
           customer: "",
@@ -1155,9 +1155,9 @@ const OrderNew = () => {
       }
     },
     onError: (error) => {
-      const errorMsg = error.response?.data?.detail || 
-                      error.response?.data?.[0] || 
-                      "An error occurred while processing the order. Please try again.";
+      const errorMsg = error.response?.data?.detail ||
+        error.response?.data?.[0] ||
+        "An error occurred while processing the order. Please try again.";
       alert(errorMsg);
     },
   });
@@ -1189,8 +1189,8 @@ const OrderNew = () => {
       ...(formData.followup_date && { followup_date: formData.followup_date }),
       delivery_address: formData.delivery_address,
       total_amount: totals.total,
-      paid_amount: formData.payment_status === "Paid" ? totals.total : 
-                   formData.payment_status === "Partial" ? parseFloat(formData.partial_amount) : 0,
+      paid_amount: formData.payment_status === "Paid" ? totals.total :
+        formData.payment_status === "Partial" ? parseFloat(formData.partial_amount) : 0,
       items: pricedOrderItems.map((item) => ({
         product: item.product,
         quantity: item.quantity,
@@ -1213,12 +1213,12 @@ const OrderNew = () => {
   // ========== HELPER FUNCTIONS ==========
   const getSelectedCustomerName = () => {
     if (!formData.customer) return "Select Customer";
-    
+
     // 1. Instant query-parameter name display
     if (urlCustomerName && formData.customer.toString() === urlCustomerId?.toString()) {
       return urlCustomerName;
     }
-    
+
     // 2. Direct single-customer fetch result display
     if (urlCustomer && urlCustomer.id.toString() === formData.customer.toString()) {
       return urlCustomer.name;
@@ -1251,7 +1251,7 @@ const OrderNew = () => {
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
-    
+
     let filtered = products;
 
     if (productFilters.search) {
@@ -1290,26 +1290,37 @@ const OrderNew = () => {
     ? customerSearchResults
     : allCustomers;
 
-  const productIdsForCombos = useMemo(() => {
-    const ids = orderItems
+  const relevantCombinations = useMemo(() => {
+    if (!combinations) return [];
+
+    const orderProductIds = orderItems
       .filter(item => !item.is_free && !item.is_gift)
       .map(item => item.product);
-    
-    if (selectedProduct) {
-      ids.push(parseInt(selectedProduct));
-    }
-    
-    return [...new Set(ids)];
-  }, [orderItems, selectedProduct]);
 
-  const relevantCombinations = useMemo(() => {
-    if (!combinations || productIdsForCombos.length === 0) return [];
-    
+    const selectedProductId = selectedProduct ? parseInt(selectedProduct) : null;
+
+    if (orderProductIds.length === 0 && !selectedProductId) {
+      return [];
+    }
+
     return combinations.filter(combo => {
       if (!combo.is_active) return false;
-      return combo.items?.some(item => productIdsForCombos.includes(item.product));
+
+      // 1. Check if any order item is a paid item in this combo
+      const matchesOrder = combo.items?.some(item => orderProductIds.includes(item.product));
+
+      // 2. Check if selected product is anywhere in this combo (paid, free, or gift)
+      let matchesSelected = false;
+      if (selectedProductId) {
+        const inPaid = combo.items?.some(item => item.product === selectedProductId);
+        const inFree = combo.rewards?.some(reward => reward.product === selectedProductId);
+        const inGift = combo.gifts?.some(gift => gift.product === selectedProductId);
+        matchesSelected = inPaid || inFree || inGift;
+      }
+
+      return matchesOrder || matchesSelected;
     }) || [];
-  }, [combinations, productIdsForCombos]);
+  }, [combinations, orderItems, selectedProduct]);
 
   const getFilteredCombinations = useCallback((combos) => {
     if (!selectedProduct) {
@@ -1377,21 +1388,21 @@ const OrderNew = () => {
         const firstRequiredItem = combo.items?.[0];
         const firstFreeItem = combo.rewards?.[0];
         const firstGiftItem = combo.gifts?.[0];
-        
+
         const requiredProduct = firstRequiredItem ? products?.find(p => p.id === firstRequiredItem.product) : null;
         const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
         const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
 
-        const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null 
-          ? parseFloat(requiredProduct.pricing.mrp) 
+        const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null
+          ? parseFloat(requiredProduct.pricing.mrp)
           : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
 
-        const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null 
-          ? parseFloat(freeProduct.pricing.mrp) 
+        const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null
+          ? parseFloat(freeProduct.pricing.mrp)
           : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
 
-        const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null 
-          ? parseFloat(giftProduct.pricing.mrp) 
+        const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null
+          ? parseFloat(giftProduct.pricing.mrp)
           : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
 
         // Purchase Products
@@ -1401,11 +1412,11 @@ const OrderNew = () => {
           if (combo.manual_combo_price !== undefined && combo.manual_combo_price !== null && parseFloat(combo.manual_combo_price) > 0) {
             totalPurchaseOffer += parseFloat(combo.manual_combo_price) * appliedQuantity;
           } else {
-            const offerPrice = firstRequiredItem.offer_price 
-              ? parseFloat(firstRequiredItem.offer_price) 
-              : (requiredProduct?.pricing?.sale_rate !== undefined && requiredProduct?.pricing?.sale_rate !== null 
-                 ? parseFloat(requiredProduct.pricing.sale_rate) 
-                 : parseFloat(requiredProduct?.price || 0));
+            const offerPrice = firstRequiredItem.offer_price
+              ? parseFloat(firstRequiredItem.offer_price)
+              : (requiredProduct?.pricing?.sale_rate !== undefined && requiredProduct?.pricing?.sale_rate !== null
+                ? parseFloat(requiredProduct.pricing.sale_rate)
+                : parseFloat(requiredProduct?.price || 0));
             totalPurchaseOffer += offerPrice * firstRequiredItem.quantity_required * appliedQuantity;
           }
         }
@@ -1444,7 +1455,7 @@ const OrderNew = () => {
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Gifts Product</th>
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Total</th>
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Action</th>
-            </tr>
+          </tr>
           <tr className="bg-[#1a2332]">
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
@@ -1462,7 +1473,7 @@ const OrderNew = () => {
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Combo Total</th>
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Savings</th>
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
-            </tr>
+          </tr>
         </thead>
         <tbody>
           {displayCombos.map((combo) => {
@@ -1474,25 +1485,25 @@ const OrderNew = () => {
               const comboId = c.comboId || c.combo_id;
               return comboId === combo.id;
             })?.quantity || 0;
-            
+
             const firstRequiredItem = combo.items?.[0];
             const firstFreeItem = combo.rewards?.[0];
             const firstGiftItem = combo.gifts?.[0];
-            
+
             const requiredProduct = firstRequiredItem ? products?.find(p => p.id === firstRequiredItem.product) : null;
             const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
             const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
 
-            const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null 
-              ? parseFloat(requiredProduct.pricing.mrp) 
+            const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null
+              ? parseFloat(requiredProduct.pricing.mrp)
               : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
 
-            const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null 
-              ? parseFloat(freeProduct.pricing.mrp) 
+            const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null
+              ? parseFloat(freeProduct.pricing.mrp)
               : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
 
-            const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null 
-              ? parseFloat(giftProduct.pricing.mrp) 
+            const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null
+              ? parseFloat(giftProduct.pricing.mrp)
               : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
 
             return (
@@ -1502,49 +1513,49 @@ const OrderNew = () => {
                   {isApplied && (
                     <div className="text-xs text-green-600 mt-1">Quantity: {appliedQuantity}</div>
                   )}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm">
                   {requiredProduct?.title || '-'}
                   {combo.items?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.items.length - 1} more</span>}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-center">
                   {firstRequiredItem?.quantity_required || '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
                   {requiredProduct ? `₹${requiredProductMrp.toFixed(2)}` : '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
                   {firstRequiredItem?.offer_price ? `₹${parseFloat(firstRequiredItem.offer_price).toFixed(2)}` : '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm">
                   {freeProduct?.title || '-'}
                   {combo.rewards?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.rewards.length - 1} more</span>}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-center">
                   {firstFreeItem?.quantity_free || '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
                   {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
                   {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm">
                   {giftProduct?.title || '-'}
                   {combo.gifts?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.gifts.length - 1} more</span>}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-center">
                   {giftProduct ? (firstGiftItem?.quantity || 1) : '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
                   {giftProduct ? `₹${giftProductMrp.toFixed(2)}` : '-'}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right">
                   ₹{calculateComboSavings(combo, 1).regularTotal.toFixed(2)}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-right font-medium text-green-600">
                   ₹{calculateComboSavings(combo, 1).offerTotal.toFixed(2)}
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3">
                   <div className="text-sm font-medium text-green-700 text-right">
                     ₹{calculateComboSavings(combo, 1).savings.toFixed(2)}
@@ -1552,7 +1563,7 @@ const OrderNew = () => {
                   <div className="text-xs text-gray-500 text-right">
                     ({calculateComboSavings(combo, 1).savingsPercentage}%)
                   </div>
-                  </td>
+                </td>
                 <td className="border border-gray-300 px-4 py-3">
                   {showActions && !isApplied && (
                     <button
@@ -1589,8 +1600,8 @@ const OrderNew = () => {
                       </button>
                     </div>
                   )}
-                  </td>
-                </tr>
+                </td>
+              </tr>
             );
           })}
           {showGrandTotals && totalRegular > 0 && (
@@ -1645,11 +1656,11 @@ const OrderNew = () => {
           {displayCombos.length === 0 && (
             <tr>
               <td colSpan="16" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                {selectedProduct 
-                  ? "No combo offers match the selected filters for this product" 
-                  : (excludeApplied 
-                      ? "All available combo offers applied or none match the selected filters" 
-                      : "No combo offers available")}
+                {selectedProduct
+                  ? "No combo offers match the selected filters for this product"
+                  : (excludeApplied
+                    ? "All available combo offers applied or none match the selected filters"
+                    : "No combo offers available")}
               </td>
             </tr>
           )}
@@ -1689,10 +1700,10 @@ const OrderNew = () => {
 
         {/* Main 60% / 40% Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          
+
           {/* Left Column (60% Width) - Customer Details, Delivery Address, Product Add, Combo Offers */}
           <div className="lg:col-span-3 space-y-6">
-            
+
             {/* Customer and Order Details Card */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-4 relative" style={{ zIndex: 30 }}>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
@@ -1713,7 +1724,7 @@ const OrderNew = () => {
                       </span>
                       {!editMode && <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${customerDropdownOpen ? "rotate-180" : ""}`} />}
                     </button>
-                    
+
                     {!editMode && customerDropdownOpen && (
                       <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-80 overflow-auto">
                         <div className="p-2 border-b border-gray-200">
@@ -1729,7 +1740,7 @@ const OrderNew = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div className="py-1">
                           {customerSearchLoading || customersLoading ? (
                             <div className="px-4 py-2 text-gray-500">Loading...</div>
@@ -1750,11 +1761,10 @@ const OrderNew = () => {
                                     <div className="font-medium text-gray-900">{customer.name}</div>
                                     <div className="text-sm text-gray-500">{customer.phone}</div>
                                   </div>
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                    customer.contact_type === 'Customer'
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${customer.contact_type === 'Customer'
                                       ? 'bg-green-100 text-green-800'
                                       : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
+                                    }`}>
                                     {customer.contact_type}
                                   </span>
                                 </div>
@@ -1954,14 +1964,14 @@ const OrderNew = () => {
                   <Package className="w-6 h-6 text-purple-600" />
                   <h2 className="text-xl font-bold text-gray-900">Add Products</h2>
                 </div>
-                <button
+                {/* <button
                   type="button"
                   onClick={() => setShowFilters(!showFilters)}
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
                 >
                   <Filter className="w-4 h-4" />
                   <span className="text-sm">Filters</span>
-                </button>
+                </button> */}
               </div>
 
               {showFilters && (
@@ -1995,8 +2005,8 @@ const OrderNew = () => {
                 </div>
               )}
 
-              <div className="mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="mb-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
                   <div className="relative" ref={productDropdownRef}>
                     <button
                       type="button"
@@ -2010,7 +2020,7 @@ const OrderNew = () => {
                       </span>
                       <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${productDropdownOpen ? "rotate-180" : ""}`} />
                     </button>
-                    
+
                     {productDropdownOpen && (
                       <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
                         <div className="p-2 border-b border-gray-200">
@@ -2053,29 +2063,8 @@ const OrderNew = () => {
                     )}
                   </div>
 
-                  <div className="flex space-x-2">
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                      min="1"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={addProduct}
-                      disabled={!selectedProduct}
-                      className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-
                   {/* Filter combos by selected product placement */}
                   <div className="flex flex-col justify-center bg-gray-50 border border-gray-200 rounded-xl p-2.5">
-                    <div className="text-xs font-semibold text-gray-500 mb-1.5 px-1">
-                      Filter Combos by Selected Product:
-                    </div>
                     <div className="flex items-center space-x-4 px-1">
                       <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <input
@@ -2085,7 +2074,7 @@ const OrderNew = () => {
                           onChange={(e) => setFilterPaid(e.target.checked)}
                           className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         />
-                        <span className="text-gray-700">Paid Items</span>
+                        <span className="text-gray-700">Purchase Product</span>
                       </label>
                       <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <input
@@ -2095,7 +2084,7 @@ const OrderNew = () => {
                           onChange={(e) => setFilterFree(e.target.checked)}
                           className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
                         />
-                        <span className="text-gray-700">Free Items</span>
+                        <span className="text-gray-700">Free Product</span>
                       </label>
                       <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <input
@@ -2105,7 +2094,7 @@ const OrderNew = () => {
                           onChange={(e) => setFilterGift(e.target.checked)}
                           className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
                         />
-                        <span className="text-gray-700">Gifts</span>
+                        <span className="text-gray-700">Gift Product</span>
                       </label>
                       {(filterPaid || filterFree || filterGift) && (
                         <button
@@ -2143,12 +2132,12 @@ const OrderNew = () => {
                     <Maximize2 className="w-4 h-4 text-gray-600" />
                   </button>
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <ComboOffersTable combinations={relevantCombinations} showActions={true} excludeApplied={true} />
                 </div>
               </div>
-            )}  
+            )}
           </div>
 
           {/* Right Column - Purchase Combos and Order Summary */}
@@ -2170,13 +2159,13 @@ const OrderNew = () => {
                     <Maximize2 className="w-4 h-4 text-gray-600" />
                   </button>
                 </div>
-                
+
                 <div className="overflow-x-auto">
-                  <ComboOffersTable 
-                    combinations={combinations?.filter(c => 
+                  <ComboOffersTable
+                    combinations={combinations?.filter(c =>
                       appliedCombos.some(ac => (ac.comboId === c.id) || (ac.combo_id === c.id))
-                    ) || []} 
-                    showActions={true} 
+                    ) || []}
+                    showActions={true}
                     showGrandTotals={true}
                   />
                 </div>
@@ -2262,7 +2251,7 @@ const OrderNew = () => {
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            
+
             {selectedProduct && (
               <div className="p-6 border-b border-gray-200 bg-gray-50">
                 <div className="flex items-center space-x-6">
@@ -2310,7 +2299,7 @@ const OrderNew = () => {
                 </div>
               </div>
             )}
-            
+
             <div className="p-6 overflow-auto max-h-[calc(90vh-180px)]">
               <ComboOffersTable combinations={relevantCombinations} showActions={true} excludeApplied={true} />
             </div>
@@ -2341,13 +2330,13 @@ const OrderNew = () => {
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-auto max-h-[calc(90vh-100px)]">
-              <ComboOffersTable 
-                combinations={combinations?.filter(c => 
+              <ComboOffersTable
+                combinations={combinations?.filter(c =>
                   appliedCombos.some(ac => (ac.comboId === c.id) || (ac.combo_id === c.id))
-                ) || []} 
-                showActions={true} 
+                ) || []}
+                showActions={true}
                 showGrandTotals={true}
               />
             </div>
@@ -2374,11 +2363,11 @@ const OrderNew = () => {
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-10 h-10 text-green-600" />
               </div>
-              
+
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {editMode ? 'Order Updated Successfully!' : 'Order Placed Successfully!'}
               </h2>
-              
+
               <div className="mb-2">
                 <label className="block text-sm font-medium text-gray-600 mb-2">Order ID</label>
                 <div className="flex items-center justify-center space-x-2">

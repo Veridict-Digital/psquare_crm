@@ -112,15 +112,15 @@ const OrderDetail = () => {
     const gstin = order?.customer_details?.gstin_no || "";
     const cleanGstin = gstin.replace(/[^A-Z0-9]/gi, "").toUpperCase();
     const stateCode = cleanGstin.slice(0, 2);
-    
+
     const customerState = (order?.customer_details?.state || "").toLowerCase().trim();
     const isLocalState = customerState.includes("maharashtra") || customerState === "mh" || customerState === "27";
     const isMaharashtra = stateCode === "27" || (!stateCode && isLocalState) || (!stateCode && !customerState);
-    
+
     let paidTotalOffer = 0;
     let paidTotalTaxable = 0;
     let paidTotalGst = 0;
-    
+
     const getProductGstRate = (productId) => {
       const productObj = products && products.find(p => p.id === productId);
       if (productObj) {
@@ -136,7 +136,7 @@ const OrderDetail = () => {
       }
       return 0;
     };
-    
+
     if (order?.items && order.items.length > 0) {
       order.items.forEach((item) => {
         const isFree = item.is_free;
@@ -146,7 +146,7 @@ const OrderDetail = () => {
           const totalOffer = parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0;
           const taxableOffer = totalOffer / (1 + gstRate / 100);
           const gstOfferAmount = totalOffer - taxableOffer;
-          
+
           paidTotalOffer += totalOffer;
           paidTotalTaxable += taxableOffer;
           paidTotalGst += gstOfferAmount;
@@ -157,10 +157,10 @@ const OrderDetail = () => {
       paidTotalTaxable = paidTotalOffer / 1.18;
       paidTotalGst = paidTotalOffer - paidTotalTaxable;
     }
-    
+
     const cgstSgstValue = paidTotalGst / 2;
     const igstValue = paidTotalGst;
-    
+
     return {
       isMaharashtra,
       taxableValue: paidTotalTaxable,
@@ -331,21 +331,27 @@ const OrderDetail = () => {
       return 0;
     };
 
+    // Helper: Get HSN code from products list
+    const getProductHsn = (productId) => {
+      const productObj = products && products.find(p => p.id === productId);
+      return productObj ? productObj.hsn : '';
+    };
+
     if (order.applied_combos && order.applied_combos.length > 0 && comboDetails.length > 0) {
       comboDetails.forEach((combo) => {
         const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
         const appliedQuantity = appliedCombo?.quantity || 1;
-        
+
         (combo.items || []).forEach((item) => {
           const itemQty = item.quantity_required * appliedQuantity;
           const unitMrp = getOriginalPrice(item.product);
           const totalMrp = unitMrp * itemQty;
-          
+
           const orderItemObj = order.items?.find(oi => oi.product === item.product && !oi.is_free && !oi.is_gift);
           const unitOffer = orderItemObj ? parseFloat(orderItemObj.unit_price) : (parseFloat(item.offer_price) || 0);
           const totalOffer = orderItemObj ? parseFloat(orderItemObj.total_price) : (unitOffer * itemQty);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(item.product);
-          
+
           const taxableOffer = totalOffer / (1 + gstRate / 100);
           const gstOfferAmount = totalOffer - taxableOffer;
 
@@ -360,7 +366,8 @@ const OrderDetail = () => {
             gstRate: gstRate,
             taxableOffer: taxableOffer,
             gstAmount: gstOfferAmount,
-            type: 'Paid'
+            type: 'Paid',
+            hsn: getProductHsn(item.product)
           });
         });
 
@@ -368,10 +375,10 @@ const OrderDetail = () => {
           const itemQty = reward.quantity_free * appliedQuantity;
           const unitMrp = getOriginalPrice(reward.product);
           const totalMrp = unitMrp * itemQty;
-          
+
           const orderItemObj = order.items?.find(oi => oi.product === reward.product && oi.is_free);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(reward.product);
-          
+
           const taxableMrp = totalMrp / (1 + gstRate / 100);
           const gstMrpAmount = totalMrp - taxableMrp;
 
@@ -386,7 +393,8 @@ const OrderDetail = () => {
             gstRate: gstRate,
             taxableOffer: taxableMrp,
             gstAmount: gstMrpAmount,
-            type: 'Free'
+            type: 'Free',
+            hsn: getProductHsn(reward.product)
           });
         });
 
@@ -395,10 +403,10 @@ const OrderDetail = () => {
           const itemQty = giftQtyVal * appliedQuantity;
           const unitMrp = getOriginalPrice(gift.product);
           const totalMrp = unitMrp * itemQty;
-          
+
           const orderItemObj = order.items?.find(oi => oi.product === gift.product && oi.is_gift);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(gift.product);
-          
+
           const taxableMrp = totalMrp / (1 + gstRate / 100);
           const gstMrpAmount = totalMrp - taxableMrp;
 
@@ -413,7 +421,8 @@ const OrderDetail = () => {
             gstRate: gstRate,
             taxableOffer: taxableMrp,
             gstAmount: gstMrpAmount,
-            type: 'Gift'
+            type: 'Gift',
+            hsn: getProductHsn(gift.product)
           });
         });
       });
@@ -451,11 +460,12 @@ const OrderDetail = () => {
           gstRate: gstRate,
           taxableOffer: taxableAmount,
           gstAmount: gstAmount,
-          type: type
+          type: type,
+          hsn: item.hsn || getProductHsn(item.product)
         });
       });
     }
-    
+
     return invoiceItems;
   };
 
@@ -479,7 +489,7 @@ const OrderDetail = () => {
             </span>
           </div>
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={handlePrint}
               className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center"
             >
@@ -759,7 +769,7 @@ const OrderDetail = () => {
                       {comboDetails.flatMap((combo, comboIdx) => {
                         const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
                         const appliedQuantity = appliedCombo?.quantity || 1;
-                        
+
                         const savingsObj = calculateComboSavings(combo, appliedQuantity);
                         grandTotalRegular += savingsObj.regularTotal;
                         grandTotalOffer += savingsObj.offerTotal;
@@ -788,13 +798,13 @@ const OrderDetail = () => {
                             const unitMrp = getOriginalPrice(paidItem.product);
                             const itemQty = paidItem.quantity_required * appliedQuantity;
                             const totalMrp = unitMrp * itemQty;
-                            
+
                             // Find actual OrderItem in dynamic database records to get exact billed prices and tax rates
                             const orderItemObj = order.items?.find(item => item.product === paidItem.product && !item.is_free && !item.is_gift);
                             const unitOffer = orderItemObj ? parseFloat(orderItemObj.unit_price) : (parseFloat(paidItem.offer_price) || 0);
                             const totalOffer = orderItemObj ? parseFloat(orderItemObj.total_price) : (unitOffer * itemQty);
                             const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(paidItem.product);
-                            
+
                             const taxableOffer = totalOffer / (1 + gstRate / 100);
                             const gstOfferAmount = totalOffer - taxableOffer;
 
@@ -839,11 +849,11 @@ const OrderDetail = () => {
                             const unitMrp = getOriginalPrice(freeItem.product);
                             const itemQty = freeItem.quantity_free * appliedQuantity;
                             const totalMrp = unitMrp * itemQty;
-                            
+
                             // Find actual OrderItem in dynamic database records to get exact tax rates
                             const orderItemObj = order.items?.find(item => item.product === freeItem.product && item.is_free);
                             const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(freeItem.product);
-                            
+
                             const taxableMrp = totalMrp / (1 + gstRate / 100);
                             const gstMrpAmount = totalMrp - taxableMrp;
 
@@ -884,11 +894,11 @@ const OrderDetail = () => {
                             const unitMrp = getOriginalPrice(giftItem.product);
                             const itemQty = giftQtyVal * appliedQuantity;
                             const totalMrp = unitMrp * itemQty;
-                            
+
                             // Find actual OrderItem in dynamic database records to get exact tax rates
                             const orderItemObj = order.items?.find(item => item.product === giftItem.product && item.is_gift);
                             const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(giftItem.product);
-                            
+
                             const taxableMrp = totalMrp / (1 + gstRate / 100);
                             const gstMrpAmount = totalMrp - taxableMrp;
 
@@ -1429,26 +1439,27 @@ const OrderDetail = () => {
             </table>
           </div>
         )}
-        
         {/* Printable Invoice Styling */}
-        <style dangerouslySetInnerHTML={{ __html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           #print-invoice-area {
             display: none;
           }
           @media print {
+            @page {
+              size: A4;
+              margin: 10mm;
+            }
             body {
               background: white !important;
               color: black !important;
             }
-            /* Hide all visual layout elements inside body */
             body * {
               visibility: hidden !important;
             }
-            /* Show only the print invoice and its descendants */
             #print-invoice-area, #print-invoice-area * {
               visibility: visible !important;
             }
-            /* Mount the invoice container at the very top-left */
             #print-invoice-area {
               display: block !important;
               position: absolute !important;
@@ -1456,190 +1467,624 @@ const OrderDetail = () => {
               top: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
-              padding: 10px !important;
+              padding: 0 !important;
               margin: 0 !important;
-              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+              font-family: Arial, sans-serif !important;
               color: black !important;
               background: white !important;
             }
-            .invoice-table th, .invoice-table td {
-              border: 1px solid #000 !important;
-              padding: 6px 8px !important;
+            .inv-box {
+              border: 1.5px solid #000 !important;
+              width: 100% !important;
+              box-sizing: border-box !important;
+              font-size: 10px !important;
+              line-height: 1.3 !important;
+            }
+            .inv-header {
+              text-align: center !important;
+              font-weight: bold !important;
+              font-size: 14px !important;
+              border-bottom: 1.5px solid #000 !important;
+              padding: 4px 0 !important;
+              text-transform: uppercase !important;
+              letter-spacing: 1px !important;
+            }
+            .inv-row {
+              display: flex !important;
+              width: 100% !important;
+            }
+            .inv-cell {
+              padding: 4px 6px !important;
+              box-sizing: border-box !important;
+            }
+            .inv-border-r {
+              border-right: 1.2px solid #000 !important;
+            }
+            .inv-border-b {
+              border-bottom: 1.2px solid #000 !important;
+            }
+            .inv-w-50 {
+              width: 50% !important;
+            }
+            .inv-w-25 {
+              width: 25% !important;
+            }
+            .inv-w-100 {
+              width: 100% !important;
+            }
+            .inv-table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              font-size: 9px !important;
+            }
+            .inv-table th, .inv-table td {
+              border: 1.2px solid #000 !important;
+              padding: 4px 5px !important;
+              vertical-align: top !important;
+            }
+            .inv-table th {
+              background-color: #f2f2f2 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              font-weight: bold !important;
+              text-align: center !important;
+            }
+            .text-center {
+              text-align: center !important;
+            }
+            .text-right {
+              text-align: right !important;
+            }
+            .text-left {
+              text-align: left !important;
+            }
+            .font-bold {
+              font-weight: bold !important;
+            }
+            .italic {
+              font-style: italic !important;
             }
           }
         `}} />
 
         {/* Printable Invoice Layout (Hidden on Screen, Active on Print) */}
-        <div id="print-invoice-area" className="hidden print:block text-black bg-white p-6 max-w-4xl mx-auto border-2 border-black">
-          {/* Header block */}
-          <div className="text-center border-b-2 border-black pb-4 mb-4">
-            <h1 className="text-2xl font-bold uppercase tracking-widest">TAX INVOICE</h1>
-            <p className="text-lg font-bold mt-1">PSQUARE ENTERPRISES</p>
-            <p className="text-xs text-gray-600">Maharashtra, State Code: 27</p>
-          </div>
-          
-          {/* Master Invoice Details Grid */}
-          <div className="grid grid-cols-2 gap-6 border-b border-black pb-4 mb-4 text-xs">
-            <div>
-              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Seller / From:</h3>
-              <p className="font-bold text-sm">PSQUARE ENTERPRISES</p>
-              <p className="text-gray-700 mt-0.5">Maharashtra, India</p>
-              <p className="mt-1"><span className="font-semibold text-gray-600">GSTIN:</span> 27XXXXXXXXXXXXX</p>
-            </div>
-            <div className="text-right">
-              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Invoice Details:</h3>
-              <p className="mt-0.5"><span className="font-semibold text-gray-600">Invoice No:</span> <span className="font-bold">{order.order_id || `ORD-${order.id}`}</span></p>
-              <p className="mt-0.5"><span className="font-semibold text-gray-600">Date:</span> {formatDate(order.order_date)}</p>
-              <p className="mt-0.5"><span className="font-semibold text-gray-600">Payment Status:</span> <span className="font-bold uppercase">{order.payment_status}</span></p>
-            </div>
-          </div>
+        {(() => {
+          const invoiceItems = getInvoiceItems();
 
-          {/* Customer Details & Shipping */}
-          <div className="grid grid-cols-2 gap-6 border-b border-black pb-4 mb-4 text-xs">
-            <div>
-              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Billing To / Buyer:</h3>
-              <p className="font-bold text-sm">{order.customer_name}</p>
-              {order.customer_details?.phone && (
-                <p className="mt-1 text-gray-700"><span className="font-semibold text-gray-600">Phone:</span> {order.customer_details.phone}</p>
-              )}
-              {order.customer_details?.email && (
-                <p className="text-gray-700"><span className="font-semibold text-gray-600">Email:</span> {order.customer_details.email}</p>
-              )}
-              <p className="mt-1 font-semibold text-gray-800"><span className="font-bold text-gray-600">GSTIN:</span> {order.customer_details?.gstin_no ? formatGstin(order.customer_details.gstin_no) : '—'}</p>
-            </div>
-            <div>
-              <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-1">Shipping To / Delivery Address:</h3>
-              {getDeliveryAddress() ? (
-                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{getDeliveryAddress()}</p>
-              ) : (
-                <p className="text-gray-400 italic">No delivery address provided</p>
-              )}
-            </div>
-          </div>
+          const getInvoiceNumber = () => {
+            const rawId = order.order_id || `ORD-${order.id}`;
+            return rawId.replace(/^ORD-?/i, '');
+          };
 
-          {/* Item Details Table */}
-          <h3 className="font-bold uppercase text-[10px] text-gray-500 mb-2">Itemised Product Details</h3>
-          <table className="w-full invoice-table border border-black border-collapse text-xs mb-4">
-            <thead>
-              <tr className="bg-gray-100 font-bold">
-                <th className="border border-black text-center w-10">S.No</th>
-                <th className="border border-black text-left">Description of Goods</th>
-                <th className="border border-black text-center w-14">Type</th>
-                <th className="border border-black text-center w-12">Qty</th>
-                <th className="border border-black text-right w-20">Unit MRP</th>
-                <th className="border border-black text-right w-20">Offer Price</th>
-                <th className="border border-black text-right w-20">Taxable Val</th>
-                <th className="border border-black text-center w-12">GST %</th>
-                <th className="border border-black text-right w-20">Tax Amount</th>
-                <th className="border border-black text-right w-24">Net Billed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {getInvoiceItems().map((item) => (
-                <tr key={item.sNo} className="hover:bg-gray-50">
-                  <td className="border border-black text-center">{item.sNo}</td>
-                  <td className="border border-black font-medium">{item.productName}</td>
-                  <td className="border border-black text-center font-semibold text-[10px]">
-                    <span className={item.type === 'Paid' ? 'text-blue-700' : item.type === 'Free' ? 'text-green-700' : 'text-purple-700'}>
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className="border border-black text-center font-bold">{item.qty}</td>
-                  <td className="border border-black text-right">{formatCurrency(item.unitMrp)}</td>
-                  <td className="border border-black text-right font-medium">{item.type === 'Paid' ? formatCurrency(item.unitOffer) : '—'}</td>
-                  <td className="border border-black text-right font-medium">{formatCurrency(item.taxableOffer)}</td>
-                  <td className="border border-black text-center">{item.gstRate}%</td>
-                  <td className="border border-black text-right">{formatCurrency(item.gstAmount)}</td>
-                  <td className="border border-black text-right font-bold text-gray-900">{item.type === 'Paid' ? formatCurrency(item.totalOffer) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          const customerFullName = `${order.customer_details?.name || order.customer_name || ""} ${order.customer_details?.surname || ""}`.trim();
+          const companyName = order.customer_details?.company_name;
 
-          {/* Invoice Summary and Tax Details */}
-          <div className="flex justify-between items-start gap-8 mt-6 text-xs">
-            {/* Left Column: Notes & State Taxation Code */}
-            <div className="flex-1">
-              {order.notes && (
-                <div className="border border-black p-3 mb-4 rounded bg-gray-50/50">
-                  <h4 className="font-bold uppercase text-[9px] text-gray-500 mb-1">Additional Order Notes:</h4>
-                   <p className="text-gray-700 leading-relaxed">{order.notes}</p>
-                </div>
-              )}
-              <div className="text-[10px] text-gray-500 leading-relaxed">
-                <p className="font-bold text-gray-700">GST Jurisdiction State Details:</p>
-                <p className="mt-0.5">Billed to State: <span className="font-bold text-gray-700 uppercase">{order.customer_details?.state || 'MH (27)'}</span></p>
-                <p>Tax Type Applied: <span className="font-bold text-gray-700">{isMaharashtra ? 'CGST + SGST (Intra-state)' : 'IGST (Inter-state)'}</span></p>
-              </div>
-            </div>
-            
-            {/* Right Column: Tax Breakdown Box */}
-            <div className="w-80 border-2 border-black p-4 bg-gray-50/20">
-              <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                <span className="font-semibold text-gray-600">Total Items Count:</span>
-                <span className="font-bold text-gray-900">{order.items?.length || 0}</span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                <span className="font-semibold text-gray-600">Total Taxable Value:</span>
-                <span className="font-bold text-gray-900">{formatCurrency(taxableValue)}</span>
-              </div>
-              {isMaharashtra ? (
-                <>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                    <span className="font-semibold text-gray-600">CGST (Inclusive):</span>
-                    <span className="font-bold text-gray-900">{formatCurrency(cgstSgstValue)}</span>
+          let totalShippedQty = 0;
+          let totalBilledQty = 0;
+          let totalTaxableValue = 0;
+          let totalCgst = 0;
+          let totalSgst = 0;
+          let totalIgst = 0;
+
+          invoiceItems.forEach(item => {
+            totalShippedQty += item.qty;
+            if (item.type === 'Paid') {
+              totalBilledQty += item.qty;
+              totalTaxableValue += item.taxableOffer;
+              if (isMaharashtra) {
+                totalCgst += item.gstAmount / 2;
+                totalSgst += item.gstAmount / 2;
+              } else {
+                totalIgst += item.gstAmount;
+              }
+            }
+          });
+
+          const exactGrandTotal = totalTaxableValue + totalCgst + totalSgst + totalIgst;
+          const roundedGrandTotal = Math.round(exactGrandTotal);
+          const roundOff = roundedGrandTotal - exactGrandTotal;
+
+          const formatRoundOff = (val) => {
+            if (Math.abs(val) < 0.005) return "0.00";
+            if (val < 0) {
+              return `(-) ${Math.abs(val).toFixed(2)}`;
+            }
+            return val.toFixed(2);
+          };
+
+          // HSN summary
+          const hsnSummary = {};
+          invoiceItems.forEach(item => {
+            if (item.type === 'Paid') {
+              const hsn = item.hsn;
+              const gstRate = item.gstRate;
+
+              const key = `${hsn}-${gstRate}`;
+              if (!hsnSummary[key]) {
+                hsnSummary[key] = {
+                  hsn: hsn,
+                  gstRate: gstRate,
+                  taxableValue: 0,
+                  cgstAmount: 0,
+                  sgstAmount: 0,
+                  igstAmount: 0,
+                  totalTax: 0
+                };
+              }
+
+              hsnSummary[key].taxableValue += item.taxableOffer;
+              if (isMaharashtra) {
+                hsnSummary[key].cgstAmount += item.gstAmount / 2;
+                hsnSummary[key].sgstAmount += item.gstAmount / 2;
+              } else {
+                hsnSummary[key].igstAmount += item.gstAmount;
+              }
+              hsnSummary[key].totalTax += item.gstAmount;
+            }
+          });
+
+          const hsnSummaryList = Object.values(hsnSummary);
+
+          return (
+            <div id="print-invoice-area" className="hidden print:block text-black bg-white">
+              <div className="inv-box">
+                <div className="inv-header">Tax Invoice</div>
+
+                {/* Row 1: Company details (Left) and Invoice Details (Right) */}
+                <div className="inv-row inv-border-b">
+                  {/* Left Column: Seller/From Details */}
+                  <div className="inv-cell inv-border-r inv-w-50 flex flex-col justify-between" style={{ minHeight: "110px" }}>
+                    <div>
+                      <div className="font-bold" style={{ fontSize: "11px" }}>PSQUARE ENTERPRISES</div>
+                      <div className="text-[9px] mt-0.5 whitespace-pre-wrap leading-normal text-gray-800">
+                        A SQUARE PLAZA GR FLR OPP
+                        {"\n"}NARMADA GARDEN SANGVI PUNE
+                        {"\n"}State Name: Maharashtra, Code: 27
+                      </div>
+                    </div>
+                    <div className="mt-2 text-[9px] text-gray-800">
+                      <div><strong>GSTIN/UIN:</strong> 27AKCPP9722G1ZY</div>
+                      <div><strong>Contact:</strong> 9960345670</div>
+                      <div><strong>E-Mail:</strong> rupesh.pataskar@gmail.com</div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                    <span className="font-semibold text-gray-600">SGST (Inclusive):</span>
-                    <span className="font-bold text-gray-900">{formatCurrency(cgstSgstValue)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                  <span className="font-semibold text-gray-600">IGST (Inclusive):</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(igstValue)}</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center py-1.5 border-b border-gray-200">
-                <span className="font-semibold text-gray-600">Total GST Tax:</span>
-                <span className="font-bold text-gray-900">{formatCurrency(totalGst)}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 text-sm font-bold mt-2 bg-gray-100 p-1.5 border border-black">
-                <span className="text-gray-800">Grand Total Billed:</span>
-                <span className="text-blue-700 text-base">{formatCurrency(order.total_amount)}</span>
-              </div>
-              <div className="flex justify-between items-center py-1 mt-1 text-[10px]">
-                <span className="font-semibold text-gray-600">Paid Amount:</span>
-                <span className="font-bold text-green-700">{formatCurrency(order.paid_amount)}</span>
-              </div>
-              {order.total_amount - order.paid_amount > 0 && (
-                <div className="flex justify-between items-center py-1 text-[10px] text-red-600 font-bold border-t border-dotted border-gray-300 mt-1">
-                  <span>Balance Due:</span>
-                  <span>{formatCurrency(order.total_amount - order.paid_amount)}</span>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Invoice Terms and Signature Footer */}
-          <div className="grid grid-cols-2 gap-6 mt-12 pt-6 border-t-2 border-black text-xs">
-            <div>
-              <h4 className="font-bold mb-1">Terms & Conditions:</h4>
-              <ul className="list-decimal pl-4 text-[10px] text-gray-600 space-y-0.5 leading-relaxed">
-                <li>Goods once sold will not be taken back or exchanged.</li>
-                <li>All disputes are subject to local jurisdiction only.</li>
-                <li>Interest at 18% per annum will be charged if payment is not made within the due date.</li>
-              </ul>
+                  {/* Right Column: Invoice Reference Numbers in a Grid */}
+                  <div className="inv-w-50 flex flex-col">
+                    <div className="inv-row inv-border-b flex-1">
+                      <div className="inv-cell inv-border-r inv-w-50">
+                        <div className="text-[8px] text-gray-500">Invoice No.</div>
+                        <div className="font-bold" style={{ fontSize: "10px" }}>{getInvoiceNumber()}</div>
+                      </div>
+                      <div className="inv-cell inv-w-50">
+                        <div className="text-[8px] text-gray-500">Dated</div>
+                        <div className="font-bold" style={{ fontSize: "10px" }}>{formatDate(order.order_date)}</div>
+                      </div>
+                    </div>
+
+                    <div className="inv-row inv-border-b flex-1">
+                      <div className="inv-cell inv-border-r inv-w-50">
+                        <div className="text-[8px] text-gray-500">Delivery Note</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                      <div className="inv-cell inv-w-50">
+                        <div className="text-[8px] text-gray-500">Mode/Terms of Payment</div>
+                        <div className="font-bold">{order.payment_status}</div>
+                      </div>
+                    </div>
+
+                    <div className="inv-row inv-border-b flex-1">
+                      <div className="inv-cell inv-border-r inv-w-50">
+                        <div className="text-[8px] text-gray-500">Reference No. & Date.</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                      <div className="inv-cell inv-w-50">
+                        <div className="text-[8px] text-gray-500">Other References</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                    </div>
+
+                    <div className="inv-row flex-1">
+                      <div className="inv-cell inv-border-r inv-w-50">
+                        <div className="text-[8px] text-gray-500">Buyer's Order No.</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                      <div className="inv-cell inv-w-50">
+                        <div className="text-[8px] text-gray-500">Dated</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Consignee & Buyer (Left) and Dispatch & Terms (Right) */}
+                <div className="inv-row inv-border-b">
+                  {/* Left Column: Billing/Shipping Details */}
+                  <div className="inv-cell inv-border-r inv-w-50 flex flex-col">
+                    <div className="inv-border-b pb-1.5 mb-1.5" style={{ minHeight: "85px" }}>
+                      <div className="text-[8px] text-gray-500 uppercase font-bold">Consignee (Ship to)</div>
+                      {companyName && <div className="font-bold" style={{ fontSize: "10px" }}>{companyName}</div>}
+                      <div className={companyName ? "text-[9px] text-gray-800" : "font-bold"} style={companyName ? {} : { fontSize: "10px" }}>
+                        {customerFullName}
+                      </div>
+                      <div className="text-[9px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
+                      <div className="text-[8px] mt-1 text-gray-600">
+                        {order.customer_details?.phone && <div><strong>Contact:</strong> {order.customer_details.phone}</div>}
+                        <div><strong>State Name:</strong> {order.customer_details?.state || 'Maharashtra'}, Code: {order.customer_details?.state ? (order.customer_details.gstin_no ? order.customer_details.gstin_no.slice(0, 2) : '—') : '27'}</div>
+                      </div>
+                    </div>
+                    <div style={{ minHeight: "85px" }}>
+                      <div className="text-[8px] text-gray-500 uppercase font-bold">Buyer (Bill to)</div>
+                      {companyName && <div className="font-bold" style={{ fontSize: "10px" }}>{companyName}</div>}
+                      <div className={companyName ? "text-[9px] text-gray-800" : "font-bold"} style={companyName ? {} : { fontSize: "10px" }}>
+                        {customerFullName}
+                      </div>
+                      <div className="text-[9px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
+                      <div className="text-[8px] mt-1 text-gray-600">
+                        {order.customer_details?.phone && <div><strong>Contact:</strong> {order.customer_details.phone}</div>}
+                        <div><strong>State Name:</strong> {order.customer_details?.state || 'Maharashtra'}, Code: {order.customer_details?.state ? (order.customer_details.gstin_no ? order.customer_details.gstin_no.slice(0, 2) : '—') : '27'}</div>
+                        {order.customer_details?.gstin_no && <div><strong>GSTIN/UIN:</strong> {formatGstin(order.customer_details.gstin_no)}</div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Dispatch Details & Terms of Delivery */}
+                  <div className="inv-w-50 flex flex-col">
+                    <div className="inv-row inv-border-b flex-1">
+                      <div className="inv-cell inv-border-r inv-w-50">
+                        <div className="text-[8px] text-gray-500">Dispatch Doc No.</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                      <div className="inv-cell inv-w-50">
+                        <div className="text-[8px] text-gray-500">Delivery Note Date</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                    </div>
+
+                    <div className="inv-row inv-border-b flex-1">
+                      <div className="inv-cell inv-border-r inv-w-50">
+                        <div className="text-[8px] text-gray-500">Dispatched through</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                      <div className="inv-cell inv-w-50">
+                        <div className="text-[8px] text-gray-500">Destination</div>
+                        <div className="font-bold">—</div>
+                      </div>
+                    </div>
+
+                    <div className="inv-cell flex-1 flex flex-col justify-start" style={{ minHeight: "70px" }}>
+                      <div className="text-[8px] text-gray-500 font-bold">Terms of Delivery:</div>
+                      <div className="text-[9px] text-gray-700 mt-1 leading-normal">
+                        Subject to Pune jurisdiction. Delivery within 7 days.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <table className="inv-table w-full">
+                  <thead>
+                    <tr>
+                      <th rowSpan="2" className="text-center w-8">Sl No.</th>
+                      <th rowSpan="2" className="text-left">Description of Goods</th>
+                      <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
+                      <th colSpan="2" className="text-center w-24">Quantity</th>
+                      <th rowSpan="2" className="text-right w-20">Rate<br/>(Incl. of Tax)</th>
+                      <th rowSpan="2" className="text-right w-20">Rate</th>
+                      <th rowSpan="2" className="text-center w-12">per</th>
+                      <th rowSpan="2" className="text-center w-12">Disc. %</th>
+                      <th rowSpan="2" className="text-right w-24">Amount</th>
+                    </tr>
+                    <tr>
+                      <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Shipped</th>
+                      <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Billed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceItems.map((item, idx) => {
+                      const isPaid = item.type === 'Paid';
+                      const discPercent = isPaid && item.unitMrp > item.unitOffer
+                        ? (((item.unitMrp - item.unitOffer) / item.unitMrp) * 100).toFixed(0) + "%"
+                        : "";
+
+                      return (
+                        <tr key={idx} style={{ height: "24px" }}>
+                          <td className="text-center">{item.sNo}</td>
+                          <td className="text-left font-bold">
+                            {item.productName}
+                          </td>
+                          <td className="text-center">{item.hsn}</td>
+                          <td className="text-center font-bold">{item.qty} PCS</td>
+                          <td className="text-center font-bold">{isPaid ? `${item.qty} PCS` : ""}</td>
+                          <td className="text-right">
+                            {isPaid ? formatCurrency(item.unitOffer) : ""}
+                          </td>
+                          <td className="text-right">
+                            {isPaid ? formatCurrency(item.unitOffer / (1 + item.gstRate / 100)) : ""}
+                          </td>
+                          <td className="text-center">{isPaid ? "PCS" : ""}</td>
+                          <td className="text-center">{discPercent}</td>
+                          <td className="text-right font-bold">
+                            {isPaid ? formatCurrency(item.taxableOffer) : ""}
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Fill empty space to give the table some height like standard invoices */}
+                    {Array.from({ length: Math.max(8 - invoiceItems.length, 1) }).map((_, i) => (
+                      <tr key={`empty-${i}`} style={{ height: "24px" }}>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                      </tr>
+                    ))}
+
+                    {/* Output Taxes rows */}
+                    {isMaharashtra ? (
+                      <>
+                        <tr style={{ height: "20px" }}>
+                          <td></td>
+                          <td className="text-right font-bold italic" colSpan="8">OUTPUT CGST</td>
+                          <td className="text-right font-bold">{formatCurrency(totalCgst)}</td>
+                        </tr>
+                        <tr style={{ height: "20px" }}>
+                          <td></td>
+                          <td className="text-right font-bold italic" colSpan="8">OUTPUT SGST</td>
+                          <td className="text-right font-bold">{formatCurrency(totalSgst)}</td>
+                        </tr>
+                      </>
+                    ) : (
+                      <tr style={{ height: "20px" }}>
+                        <td></td>
+                        <td className="text-right font-bold italic" colSpan="8">OUTPUT IGST</td>
+                        <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
+                      </tr>
+                    )}
+                    
+                    {/* Round Off row */}
+                    {Math.abs(roundOff) >= 0.005 && (
+                      <tr style={{ height: "20px" }}>
+                        <td></td>
+                        <td className="text-right italic" colSpan="8">
+                          <strong>Less:</strong> ROUND OFF
+                        </td>
+                        <td className="text-right font-bold">{formatRoundOff(roundOff)}</td>
+                      </tr>
+                    )}
+
+                    {/* Total Row */}
+                    <tr className="font-bold" style={{ borderTop: "1.5px solid #000", height: "22px" }}>
+                      <td className="text-center"></td>
+                      <td className="text-right">Total</td>
+                      <td className="text-center"></td>
+                      <td className="text-center font-bold">{totalShippedQty} PCS</td>
+                      <td className="text-center font-bold">{totalBilledQty} PCS</td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td className="text-right font-bold" style={{ fontSize: "11px" }}>{formatCurrency(roundedGrandTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Amount in words */}
+                <div className="inv-row inv-border-b inv-cell flex justify-between items-center" style={{ padding: "5px 6px" }}>
+                  <div>
+                    <span className="text-[8px] text-gray-500 block">Amount Chargeable (in words)</span>
+                    <span className="font-bold" style={{ fontSize: "10px" }}>{convertNumberToWords(roundedGrandTotal)}</span>
+                  </div>
+                  <div className="font-bold text-[10px]">E. & O.E</div>
+                </div>
+
+                {/* HSN/SAC Tax Breakdown Table */}
+                <div className="inv-w-100 inv-border-b">
+                  <table className="inv-table w-full">
+                    {isMaharashtra ? (
+                      <>
+                        <thead>
+                          <tr>
+                            <th rowSpan="2" className="text-center">HSN/SAC</th>
+                            <th rowSpan="2" className="text-right w-24">Taxable Value</th>
+                            <th colSpan="2" className="text-center">Central Tax (CGST)</th>
+                            <th colSpan="2" className="text-center">State Tax (SGST)</th>
+                            <th rowSpan="2" className="text-right w-24">Total Tax Amount</th>
+                          </tr>
+                          <tr>
+                            <th className="text-center w-16">Rate</th>
+                            <th className="text-right w-20">Amount</th>
+                            <th className="text-center w-16">Rate</th>
+                            <th className="text-right w-20">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hsnSummaryList.map((row, idx) => (
+                            <tr key={idx}>
+                              <td className="text-center font-bold">{row.hsn}</td>
+                              <td className="text-right">{formatCurrency(row.taxableValue)}</td>
+                              <td className="text-center">{(row.gstRate / 2).toFixed(1)}%</td>
+                              <td className="text-right">{formatCurrency(row.cgstAmount)}</td>
+                              <td className="text-center">{(row.gstRate / 2).toFixed(1)}%</td>
+                              <td className="text-right">{formatCurrency(row.sgstAmount)}</td>
+                              <td className="text-right font-bold">{formatCurrency(row.totalTax)}</td>
+                            </tr>
+                          ))}
+                          <tr className="font-bold" style={{ borderTop: "1.2px solid #000" }}>
+                            <td className="text-right">Total</td>
+                            <td className="text-right">{formatCurrency(totalTaxableValue)}</td>
+                            <td></td>
+                            <td className="text-right">{formatCurrency(totalCgst)}</td>
+                            <td></td>
+                            <td className="text-right">{formatCurrency(totalSgst)}</td>
+                            <td className="text-right">{formatCurrency(totalCgst + totalSgst)}</td>
+                          </tr>
+                        </tbody>
+                      </>
+                    ) : (
+                      <>
+                        <thead>
+                          <tr>
+                            <th rowSpan="2" className="text-center">HSN/SAC</th>
+                            <th rowSpan="2" className="text-right w-28">Taxable Value</th>
+                            <th colSpan="2" className="text-center">Integrated Tax (IGST)</th>
+                            <th rowSpan="2" className="text-right w-28">Total Tax Amount</th>
+                          </tr>
+                          <tr>
+                            <th className="text-center w-20">Rate</th>
+                            <th className="text-right w-28">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hsnSummaryList.map((row, idx) => (
+                            <tr key={idx}>
+                              <td className="text-center font-bold">{row.hsn}</td>
+                              <td className="text-right">{formatCurrency(row.taxableValue)}</td>
+                              <td className="text-center">{row.gstRate.toFixed(1)}%</td>
+                              <td className="text-right">{formatCurrency(row.igstAmount)}</td>
+                              <td className="text-right font-bold">{formatCurrency(row.totalTax)}</td>
+                            </tr>
+                          ))}
+                          <tr className="font-bold" style={{ borderTop: "1.2px solid #000" }}>
+                            <td className="text-right">Total</td>
+                            <td className="text-right">{formatCurrency(totalTaxableValue)}</td>
+                            <td></td>
+                            <td className="text-right">{formatCurrency(totalIgst)}</td>
+                            <td className="text-right">{formatCurrency(totalIgst)}</td>
+                          </tr>
+                        </tbody>
+                      </>
+                    )}
+                  </table>
+                </div>
+
+                {/* Tax Amount in Words */}
+                <div className="inv-row inv-border-b inv-cell" style={{ padding: "5px 6px" }}>
+                  <div style={{ fontSize: "9.5px" }}>
+                    <strong>Tax Amount (in words) :</strong> {convertNumberToWords(totalCgst + totalSgst + totalIgst)}
+                  </div>
+                </div>
+
+                {/* Row 4: Bank Details & Declaration */}
+                <div className="inv-row inv-border-b">
+                  {/* Declaration */}
+                  <div className="inv-cell inv-border-r inv-w-50 text-[8px] leading-relaxed" style={{ padding: "5px 6px" }}>
+                    <div className="font-bold text-[9px] mb-0.5">Declaration:</div>
+                    <p>
+                      I/We hereby certify that my/our Registration certificate under the GST Act 2017, is in force on the date on which the sale of the goods specified in this tax invoice is made by me/us and that the transaction of sale covered by this tax invoice has been effected by me/us and it shall be accounted for in the turnover of sales while filing of return and the due tax, if any payable on the sale has been paid or shall be paid.
+                    </p>
+                    <div className="font-bold mt-1 text-gray-700">Terms & Conditions:</div>
+                    <ul className="list-decimal pl-3 space-y-0.5 mt-0.5 text-gray-600">
+                      <li>Goods once sold will not be taken back or exchanged.</li>
+                      <li>Interest @24% p.a will be charged after due date of bill.</li>
+                      <li>We reserve the right to demand payment of this bill at any time before due date.</li>
+                    </ul>
+                  </div>
+
+                  {/* Bank Details */}
+                  <div className="inv-cell inv-w-50 flex flex-col justify-start" style={{ padding: "5px 6px" }}>
+                    <div className="font-bold text-[9px] mb-1">Company's Bank Details:</div>
+                    <div className="space-y-1 text-[9px] text-gray-800">
+                      <div><strong>Bank Name:</strong> AU SMALL FINANCE BANK</div>
+                      <div><strong>A/c No.:</strong> 2221263141506073</div>
+                      <div><strong>Branch & IFS Code:</strong> PUNE & AUBL0002631</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signatures */}
+                <div className="inv-row">
+                  {/* Customer Signature */}
+                  <div className="inv-cell inv-border-r inv-w-50 h-16 flex flex-col justify-between" style={{ padding: "5px 6px" }}>
+                    <div className="text-[8px] text-gray-500">Customer's Seal and Signature</div>
+                    <div className="border-t border-dotted border-gray-400 w-36 mt-auto"></div>
+                  </div>
+
+                  {/* Authorized Signatory */}
+                  <div className="inv-cell inv-w-50 h-16 flex flex-col justify-between text-right" style={{ padding: "5px 6px" }}>
+                    <div className="font-bold text-[9px]">for PSQUARE ENTERPRISES</div>
+                    <div className="inv-row justify-between text-[8px] text-gray-500 mt-auto">
+                      <span>Prepared by</span>
+                      <span>Verified by</span>
+                      <span className="font-bold text-black text-[9px]">Authorised Signatory</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="text-right flex flex-col justify-between h-20">
-              <p className="font-bold">For PSQUARE ENTERPRISES</p>
-              <p className="text-[10px] text-gray-500 italic mt-auto">Authorized Signatory</p>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
     </div>
   );
+};
+
+// Helper: Convert number to Indian Rupees words
+const convertNumberToWords = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return "";
+
+  const ones = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"
+  ];
+
+  const tens = [
+    "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+  ];
+
+  const convertBelowThousand = (n) => {
+    if (n < 20) return ones[n];
+    const digit = n % 10;
+    if (n < 100) return tens[Math.floor(n / 10)] + (digit ? " " + ones[digit] : "");
+    return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 === 0 ? "" : " and " + convertBelowThousand(n % 100));
+  };
+
+  const convert = (n) => {
+    if (n === 0) return "Zero";
+    let word = "";
+
+    const crore = Math.floor(n / 10000000);
+    n %= 10000000;
+    if (crore > 0) {
+      word += convertBelowThousand(crore) + " Crore ";
+    }
+
+    const lakh = Math.floor(n / 100000);
+    n %= 100000;
+    if (lakh > 0) {
+      word += convertBelowThousand(lakh) + " Lakh ";
+    }
+
+    const thousand = Math.floor(n / 1000);
+    n %= 1000;
+    if (thousand > 0) {
+      word += convertBelowThousand(thousand) + " Thousand ";
+    }
+
+    if (n > 0) {
+      word += convertBelowThousand(n);
+    }
+
+    return word.trim();
+  };
+
+  const parts = parseFloat(num).toFixed(2).split(".");
+  const rupees = parseInt(parts[0], 10);
+  const paise = parseInt(parts[1], 10);
+
+  let result = "INR " + convert(rupees) + " Only";
+  if (paise > 0) {
+    result = "INR " + convert(rupees) + " and " + convert(paise) + " Paise Only";
+  }
+
+  return result;
 };
 
 export default OrderDetail;

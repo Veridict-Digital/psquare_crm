@@ -985,26 +985,35 @@ class CustomerViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         queryset = self.filter_queryset(queryset)
 
+        # Annotate outstanding_amt to avoid database queries inside the loop
+        from django.db.models import Sum, Q, F, DecimalField
+        from django.db.models.functions import Coalesce
+        
+        queryset = queryset.annotate(
+            outstanding_amt=Coalesce(
+                Sum(
+                    F('order__total_amount') - F('order__paid_amount'),
+                    filter=Q(order__payment_status__in=['Partial', 'Credit'])
+                ),
+                0,
+                output_field=DecimalField()
+            )
+        )
+
         customers_data = []
         for customer in queryset:
             try:
                 # Retrieve all unique phone numbers for this customer (prefetched)
                 all_phones = []
-                for p in customer.phones.all().order_by('-is_primary', 'id'):
+                # Sort in memory to avoid N+1 queries (Django .order_by on prefetched queryset bypasses prefetch cache)
+                phones_list = sorted(customer.phones.all(), key=lambda p: (not p.is_primary, p.id))
+                for p in phones_list:
                     if p.phone and p.phone not in all_phones:
                         all_phones.append(p.phone)
                 if customer.phone and customer.phone not in all_phones:
                     all_phones.insert(0, customer.phone)
                 
                 phone_value = ", ".join(all_phones)
-
-                # Calculate outstanding amount
-                from django.db.models import Sum, F, Q
-                outstanding_amount = customer.order_set.filter(
-                    Q(payment_status='Partial') | Q(payment_status='Credit')
-                ).aggregate(
-                    val=Sum(F('total_amount') - F('paid_amount'))
-                )['val'] or 0
 
                 customer_dict = {
                     'ID': customer.id,
@@ -1029,7 +1038,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     'Tahsil': customer.tahsil or '',
                     'Telecaller': customer.agent.username if customer.agent else '',
                     'Total Order Value': float(getattr(customer, 'total_order_value', 0) or 0),
-                    'Outstanding Amount': float(outstanding_amount),
+                    'Outstanding Amount': float(getattr(customer, 'outstanding_amt', 0) or 0),
                     'Created At': customer.created_at.strftime('%Y-%m-%d %H:%M:%S') if customer.created_at else '',
                     'Appointment Date': customer.appointment_date.strftime('%Y-%m-%d') if customer.appointment_date else '',
                     'Appointment Time': str(customer.appointment_time) if customer.appointment_time else '',

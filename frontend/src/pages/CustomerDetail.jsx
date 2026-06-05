@@ -70,6 +70,11 @@ const CustomerDetail = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const itemsPerPage = 6;
   const dateInputRef = useRef(null);
+  const timeInputRef = useRef(null);
+  const lastSyncedDateRef = useRef(null);
+  const lastSyncedTimeRef = useRef(null);
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState("");
 
   // Fetch customer details
   const {
@@ -262,7 +267,19 @@ const CustomerDetail = () => {
       setEditingField(null);
       setEditingAddress(false);
       setShowNameEditDropdown(false);
+      toast.success("Customer details updated successfully");
     },
+    onError: (err) => {
+      console.error("Failed to update customer:", err);
+      toast.error(err.response?.data?.error || err.message || "Failed to update customer");
+      // Reset local states to query cache values on failure
+      if (customer) {
+        setAppointmentDate(customer.appointment_date || "");
+        setAppointmentTime(customer.appointment_time || "");
+        lastSyncedDateRef.current = customer.appointment_date;
+        lastSyncedTimeRef.current = customer.appointment_time;
+      }
+    }
   });
 
   // Delete customer mutation
@@ -413,6 +430,20 @@ const CustomerDetail = () => {
   const summary = customerDetails?.summary;
   const callLogs = customerDetails?.call_logs || [];
   const orders = customerDetails?.orders || [];
+
+  // Sync date/time from query result into local states, avoiding overwriting in-flight mutations
+  useEffect(() => {
+    if (customer) {
+      if (customer.appointment_date !== lastSyncedDateRef.current) {
+        setAppointmentDate(customer.appointment_date || "");
+        lastSyncedDateRef.current = customer.appointment_date;
+      }
+      if (customer.appointment_time !== lastSyncedTimeRef.current) {
+        setAppointmentTime(customer.appointment_time || "");
+        lastSyncedTimeRef.current = customer.appointment_time;
+      }
+    }
+  }, [customer]);
 
   const startEditingName = () => {
     setTempName(customer?.name || "");
@@ -599,7 +630,7 @@ const CustomerDetail = () => {
                           }
                         }}
                         placeholder="First name"
-                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-40 transition-all duration-200 focus:outline-none"
+                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-md font-semibold text-slate-800 w-40 transition-all duration-200 focus:outline-none"
                       />
                     </div>
 
@@ -622,7 +653,7 @@ const CustomerDetail = () => {
                           }
                         }}
                         placeholder="Last name"
-                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-800 w-48 transition-all duration-200 focus:outline-none"
+                        className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-md font-semibold text-slate-800 w-48 transition-all duration-200 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -743,7 +774,8 @@ const CustomerDetail = () => {
                                   primaryPhoneObj.contact_person || "",
                                 );
                               }}
-                              className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md whitespace-nowrap transition-all duration-150"
+                              className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md truncate max-w-[110px] inline-block align-middle transition-all duration-150"
+                              title={primaryPhoneObj.contact_person || "Click to add/edit contact"}
                             >
                               {primaryPhoneObj.contact_person || "+ Contact"}
                             </span>
@@ -933,7 +965,8 @@ const CustomerDetail = () => {
                                       phoneObj.contact_person || "",
                                     );
                                   }}
-                                  className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md whitespace-nowrap transition-all duration-150"
+                                  className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md truncate max-w-[110px] inline-block align-middle transition-all duration-150"
+                                  title={phoneObj.contact_person || "Click to add/edit contact"}
                                 >
                                   {phoneObj.contact_person || "+ Contact"}
                                 </span>
@@ -1065,7 +1098,8 @@ const CustomerDetail = () => {
                                               phone.contact_person || "",
                                             );
                                           }}
-                                          className="text-sm text-gray-600 cursor-pointer hover:bg-gray-100 px-2 py-0.5 rounded whitespace-nowrap"
+                                          className="text-sm text-gray-600 cursor-pointer hover:bg-gray-100 px-2 py-0.5 rounded truncate max-w-[110px] inline-block align-middle"
+                                          title={phone.contact_person || "Click to add/edit contact"}
                                         >
                                           {phone.contact_person ||
                                             "Add contact"}
@@ -1359,7 +1393,7 @@ const CustomerDetail = () => {
           {/* Secondary info below */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
             <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
                 Org:
               </div>
@@ -1381,17 +1415,17 @@ const CustomerDetail = () => {
                   }
                 }}
                 placeholder="Not set"
-                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none"
+                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none"
               />
             </div>
 
             <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
                 Org Type:
               </div>
               <div
-                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
+                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all"
                 onClick={() => setShowOrgTypeDropdown(!showOrgTypeDropdown)}
               >
                 <span className="truncate">
@@ -1406,7 +1440,7 @@ const CustomerDetail = () => {
                   <div className="p-1">
                     <button
                       onClick={() => handleOrgTypeSelect(null)}
-                      className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors"
+                      className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
                     >
                       Not set
                     </button>
@@ -1414,7 +1448,7 @@ const CustomerDetail = () => {
                       <button
                         key={orgType.id}
                         onClick={() => handleOrgTypeSelect(orgType.id)}
-                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
+                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
                       >
                         {orgType.name}
                       </button>
@@ -1425,12 +1459,12 @@ const CustomerDetail = () => {
             </div>
 
             <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
                 Cust Type:
               </div>
               <div
-                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all"
+                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all"
                 onClick={() =>
                   setShowCustomerTypeDropdown(!showCustomerTypeDropdown)
                 }
@@ -1447,7 +1481,7 @@ const CustomerDetail = () => {
                   <div className="p-1">
                     <button
                       onClick={() => handleCustomerTypeSelect("")}
-                      className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors"
+                      className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
                     >
                       Not set
                     </button>
@@ -1455,7 +1489,7 @@ const CustomerDetail = () => {
                       <button
                         key={type.id}
                         onClick={() => handleCustomerTypeSelect(type.id)}
-                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
+                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
                       >
                         {type.name}
                       </button>
@@ -1475,31 +1509,60 @@ const CustomerDetail = () => {
               }}
               className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 cursor-pointer"
             >
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
                 Date:
               </div>
               <input
                 ref={dateInputRef}
                 type="date"
-                value={customer?.appointment_date || ""}
+                value={appointmentDate}
                 onChange={(e) => {
-                  updateMutation.mutate({ appointment_date: e.target.value });
+                  const val = e.target.value;
+                  setAppointmentDate(val);
+                  updateMutation.mutate({ appointment_date: val || null });
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
                   try {
-                    e.target.showPicker();
+                    dateInputRef.current?.showPicker();
                   } catch (err) {
                     console.error("showPicker failed", err);
                   }
                 }}
-                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
               />
+              {appointmentDate && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAppointmentDate("");
+                    setAppointmentTime("");
+                    updateMutation.mutate({ 
+                      appointment_date: null,
+                      appointment_time: null
+                    });
+                  }}
+                  className="p-0.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors z-10 flex-shrink-0"
+                  title="Clear Date"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+            <div 
+              onClick={() => {
+                try {
+                  timeInputRef.current?.showPicker();
+                } catch (err) {
+                  console.error("showPicker not supported or failed", err);
+                }
+              }}
+              className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 cursor-pointer"
+            >
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <svg
                   className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0"
                   fill="none"
@@ -1516,17 +1579,42 @@ const CustomerDetail = () => {
                 Time:
               </div>
               <input
+                ref={timeInputRef}
                 type="time"
-                value={customer?.appointment_time || ""}
+                value={appointmentTime}
                 onChange={(e) => {
-                  updateMutation.mutate({ appointment_time: e.target.value });
+                  const val = e.target.value;
+                  setAppointmentTime(val);
+                  updateMutation.mutate({ appointment_time: val || null });
                 }}
-                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try {
+                    timeInputRef.current?.showPicker();
+                  } catch (err) {
+                    console.error("showPicker failed", err);
+                  }
+                }}
+                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
               />
+              {appointmentTime && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAppointmentTime("");
+                    updateMutation.mutate({ appointment_time: null });
+                  }}
+                  className="p-0.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors z-10 flex-shrink-0"
+                  title="Clear Time"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
             <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2">
-              <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <span className="truncate">GST:</span>
               </div>
               <div className="relative flex-1 w-full">
@@ -1611,10 +1699,10 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="XX-XXXXXXXXXX-XXX"
-                  className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 transition-all focus:outline-none"
+                  className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none"
                 />
                 {gstinError && (
-                  <span className="absolute top-full left-0 text-red-500 text-[10px] font-bold mt-0.5 whitespace-nowrap z-10">
+                  <span className="absolute top-full left-0 text-red-500 text-sm font-bold mt-0.5 whitespace-nowrap z-10">
                     {gstinError}
                   </span>
                 )}
@@ -1650,7 +1738,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1679,7 +1767,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1708,7 +1796,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1737,7 +1825,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1766,7 +1854,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1805,7 +1893,7 @@ const CustomerDetail = () => {
                   }}
                   placeholder="-"
                   maxLength={6}
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1834,7 +1922,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1863,7 +1951,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1892,7 +1980,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
 
@@ -1921,7 +2009,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-xs font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
                 />
               </div>
             </div>

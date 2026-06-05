@@ -35,7 +35,7 @@ import { toast } from "react-hot-toast";
 
 const CustomerList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Search states (auto-apply) - initialized from URL params
   const [phoneSearch, setPhoneSearch] = useState(() => searchParams.get("phone") || "");
   const [phoneSearchInput, setPhoneSearchInput] = useState(() => searchParams.get("phone") || "");
@@ -145,16 +145,16 @@ const CustomerList = () => {
     district: "",
     tahsil: "",
     city: "",
-      appointment_date: "",
-      gstin_no: "",
-    });
+    appointment_date: "",
+    gstin_no: "",
+  });
 
   // Validation states
   const [phoneError, setPhoneError] = useState("");
   const [gstinError, setGstinError] = useState("");
   const [pendingNameSearch, setPendingNameSearch] = useState(() => searchParams.get("name") || "");
   const [pendingSurnameSearch, setPendingSurnameSearch] = useState(() => searchParams.get("surname") || "");
-  
+
   // Selection states
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -193,7 +193,7 @@ const CustomerList = () => {
   // Function to update URL with current filters
   const updateURLParams = useCallback(() => {
     const params = new URLSearchParams();
-    
+
     // Add all active filters to URL
     if (phoneSearch) params.set("phone", phoneSearch);
     if (nameSearch) params.set("name", nameSearch);
@@ -218,7 +218,7 @@ const CustomerList = () => {
     if (viewType !== "customers") params.set("view_type", viewType);
     if (currentPage !== 1) params.set("page", currentPage);
     if (pageSize !== 15) params.set("page_size", pageSize);
-    
+
     setSearchParams(params, { replace: true });
   }, [
     phoneSearch, nameSearch, surnameSearch,
@@ -276,11 +276,11 @@ const CustomerList = () => {
       }
 
       setLoading(true);
-      
+
       fetchTimeoutRef.current = setTimeout(async () => {
         try {
           const response = await axios.get(`${fetchUrl}?q=${encodeURIComponent(inputValue)}`);
-          
+
           let optionsArray = [];
           if (Array.isArray(response.data)) {
             optionsArray = response.data;
@@ -291,7 +291,7 @@ const CustomerList = () => {
           } else if (typeof response.data === 'object') {
             optionsArray = Object.values(response.data).find(val => Array.isArray(val)) || [];
           }
-          
+
           setOptions(optionsArray);
           if (isTyping && optionsArray.length > 0) {
             setShowDropdown(true);
@@ -304,7 +304,7 @@ const CustomerList = () => {
           setLoading(false);
         }
       }, 500);
-      
+
       return () => {
         if (fetchTimeoutRef.current) {
           clearTimeout(fetchTimeoutRef.current);
@@ -314,7 +314,7 @@ const CustomerList = () => {
 
     const handleKeyDown = (e) => {
       if (!showDropdown) return;
-      
+
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setHighlighted((prev) => Math.min(prev + 1, options.length - 1));
@@ -334,12 +334,12 @@ const CustomerList = () => {
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
-      
+
       setShowDropdown(false);
       setIsTyping(false);
       setHighlighted(-1);
       setOptions([]);
-      
+
       setInputValue(option);
       onChange(option);
     };
@@ -352,7 +352,7 @@ const CustomerList = () => {
           setHighlighted(-1);
         }
       };
-      
+
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
@@ -399,9 +399,8 @@ const CustomerList = () => {
             {options.map((option, idx) => (
               <li
                 key={idx}
-                className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                  idx === highlighted ? "bg-blue-100" : ""
-                }`}
+                className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${idx === highlighted ? "bg-blue-100" : ""
+                  }`}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleSelect(option);
@@ -678,148 +677,148 @@ const CustomerList = () => {
   }, [newContact.gstin_no, gstinCheckLoading, gstinCheckData]);
 
   // Phone check and auto-fill Quick Add form if phone exists
-const [existingCustomerId, setExistingCustomerId] = useState(null);
+  const [existingCustomerId, setExistingCustomerId] = useState(null);
 
-useEffect(() => {
-  // If phone is empty, clear all fields
-  if (!newContact.phone || newContact.phone.length === 0) {
-    setExistingCustomerId(null);
-    setPhoneError("");
-    setGstinError("");
-    setNewContact({
-      name: "",
-      surname: "",
-      phone: "",
-      email: "",
-      company_name: "",
-      company_type: "",
-      customer_type: "",
-      telecaller_id: "",
-      pincode: "",
-      house_flat_no: "",
-      wing_lane: "",
-      society_colony: "",
-      landmark: "",
-      area: "",
-      state: "",
-      district: "",
-      tahsil: "",
-      city: "",
-      appointment_date: "",
-      gstin_no: "",
-    });
-    return;
-  }
+  useEffect(() => {
+    // If phone is empty, clear all fields
+    if (!newContact.phone || newContact.phone.length === 0) {
+      setExistingCustomerId(null);
+      setPhoneError("");
+      setGstinError("");
+      setNewContact({
+        name: "",
+        surname: "",
+        phone: "",
+        email: "",
+        company_name: "",
+        company_type: "",
+        customer_type: "",
+        telecaller_id: "",
+        pincode: "",
+        house_flat_no: "",
+        wing_lane: "",
+        society_colony: "",
+        landmark: "",
+        area: "",
+        state: "",
+        district: "",
+        tahsil: "",
+        city: "",
+        appointment_date: "",
+        gstin_no: "",
+      });
+      return;
+    }
 
-  // If phone length is less than 10, don't check yet
-  if (newContact.phone.length < 10) {
-    setPhoneError("Phone number must be at least 10 digits");
-    setExistingCustomerId(null);
-    // Clear all fields except phone when phone is incomplete
-    setNewContact((prev) => ({
-      name: "",
-      surname: "",
-      email: "",
-      company_name: "",
-      company_type: "",
-      customer_type: "",
-      telecaller_id: "",
-      pincode: "",
-      house_flat_no: "",
-      wing_lane: "",
-      society_colony: "",
-      landmark: "",
-      area: "",
-      state: "",
-      district: "",
-      tahsil: "",
-      city: "",
-      appointment_date: "",
-      gstin_no: "",
-      phone: prev.phone, // Preserve the phone being typed
-    }));
-    return;
-  }
-
-  // Phone length is 10 or more, check if exists
-  if (phoneCheckLoading) {
-    setPhoneError("Checking phone number...");
-    setExistingCustomerId(null);
-  } else if (phoneCheckData && phoneCheckData.count > 0) {
-    setPhoneError("Phone number already exists");
-    const customer = phoneCheckData.results && phoneCheckData.results[0];
-    if (customer) {
-      setExistingCustomerId(customer.id);
-      let companyTypeId = customer.company_type;
-      if (typeof companyTypeId === "string" && organizationTypes) {
-        const found = organizationTypes.find(
-          (org) => org.name === companyTypeId,
-        );
-        if (found) companyTypeId = found.id;
-      } else if (
-        typeof companyTypeId === "object" &&
-        companyTypeId !== null
-      ) {
-        companyTypeId = companyTypeId.id;
-      }
+    // If phone length is less than 10, don't check yet
+    if (newContact.phone.length < 10) {
+      setPhoneError("Phone number must be at least 10 digits");
+      setExistingCustomerId(null);
+      // Clear all fields except phone when phone is incomplete
       setNewContact((prev) => ({
-        ...prev,
-        name: customer.name || "",
-        surname: customer.surname || "",
-        email: customer.email || "",
-        company_name: customer.company_name || "",
-        company_type: companyTypeId || "",
-        customer_type: customer.customer_type
-          ? typeof customer.customer_type === "object"
-            ? customer.customer_type.id
-            : customer.customer_type
-          : "",
-        telecaller_id: customer.agent
-          ? typeof customer.agent === "object"
-            ? customer.agent.id
-            : customer.agent
-          : "",
-        pincode: customer.pincode || "",
-        house_flat_no: customer.house_flat_no || "",
-        wing_lane: customer.wing_lane || "",
-        society_colony: customer.society_colony || "",
-        landmark: customer.landmark || "",
-        area: customer.area || "",
-        state: customer.state || "",
-        district: customer.district || "",
-        tahsil: customer.tahsil || "",
-        city: customer.city || "",
-        appointment_date: customer.appointment_date || "",
-        gstin_no: customer.gstin_no || "",
+        name: "",
+        surname: "",
+        email: "",
+        company_name: "",
+        company_type: "",
+        customer_type: "",
+        telecaller_id: "",
+        pincode: "",
+        house_flat_no: "",
+        wing_lane: "",
+        society_colony: "",
+        landmark: "",
+        area: "",
+        state: "",
+        district: "",
+        tahsil: "",
+        city: "",
+        appointment_date: "",
+        gstin_no: "",
+        phone: prev.phone, // Preserve the phone being typed
+      }));
+      return;
+    }
+
+    // Phone length is 10 or more, check if exists
+    if (phoneCheckLoading) {
+      setPhoneError("Checking phone number...");
+      setExistingCustomerId(null);
+    } else if (phoneCheckData && phoneCheckData.count > 0) {
+      setPhoneError("Phone number already exists");
+      const customer = phoneCheckData.results && phoneCheckData.results[0];
+      if (customer) {
+        setExistingCustomerId(customer.id);
+        let companyTypeId = customer.company_type;
+        if (typeof companyTypeId === "string" && organizationTypes) {
+          const found = organizationTypes.find(
+            (org) => org.name === companyTypeId,
+          );
+          if (found) companyTypeId = found.id;
+        } else if (
+          typeof companyTypeId === "object" &&
+          companyTypeId !== null
+        ) {
+          companyTypeId = companyTypeId.id;
+        }
+        setNewContact((prev) => ({
+          ...prev,
+          name: customer.name || "",
+          surname: customer.surname || "",
+          email: customer.email || "",
+          company_name: customer.company_name || "",
+          company_type: companyTypeId || "",
+          customer_type: customer.customer_type
+            ? typeof customer.customer_type === "object"
+              ? customer.customer_type.id
+              : customer.customer_type
+            : "",
+          telecaller_id: customer.agent
+            ? typeof customer.agent === "object"
+              ? customer.agent.id
+              : customer.agent
+            : "",
+          pincode: customer.pincode || "",
+          house_flat_no: customer.house_flat_no || "",
+          wing_lane: customer.wing_lane || "",
+          society_colony: customer.society_colony || "",
+          landmark: customer.landmark || "",
+          area: customer.area || "",
+          state: customer.state || "",
+          district: customer.district || "",
+          tahsil: customer.tahsil || "",
+          city: customer.city || "",
+          appointment_date: customer.appointment_date || "",
+          gstin_no: customer.gstin_no || "",
+        }));
+      }
+    } else if (phoneCheckData && phoneCheckData.count === 0) {
+      // Phone doesn't exist, clear all fields except phone
+      setPhoneError("");
+      setExistingCustomerId(null);
+      setNewContact((prev) => ({
+        name: "",
+        surname: "",
+        email: "",
+        company_name: "",
+        company_type: "",
+        customer_type: "",
+        telecaller_id: "",
+        pincode: "",
+        house_flat_no: "",
+        wing_lane: "",
+        society_colony: "",
+        landmark: "",
+        area: "",
+        state: "",
+        district: "",
+        tahsil: "",
+        city: "",
+        gstin_no: "",
+        phone: prev.phone, // Preserve the phone being entered
       }));
     }
-  } else if (phoneCheckData && phoneCheckData.count === 0) {
-    // Phone doesn't exist, clear all fields except phone
-    setPhoneError("");
-    setExistingCustomerId(null);
-    setNewContact((prev) => ({
-      name: "",
-      surname: "",
-      email: "",
-      company_name: "",
-      company_type: "",
-      customer_type: "",
-      telecaller_id: "",
-      pincode: "",
-      house_flat_no: "",
-      wing_lane: "",
-      society_colony: "",
-      landmark: "",
-      area: "",
-      state: "",
-      district: "",
-      tahsil: "",
-      city: "",
-      gstin_no: "",
-      phone: prev.phone, // Preserve the phone being entered
-    }));
-  }
-}, [newContact.phone, phoneCheckLoading, phoneCheckData, organizationTypes]);
+  }, [newContact.phone, phoneCheckLoading, phoneCheckData, organizationTypes]);
 
   // Helper to format phone number in 3 - 3 - 4 format
   const formatPhoneSearch = (digits) => {
@@ -852,14 +851,14 @@ useEffect(() => {
     phoneFetchTimeoutRef.current = setTimeout(async () => {
       try {
         const response = await axios.get(`/api/customers/unique_phones/?q=${encodeURIComponent(phoneSearchInput)}`);
-        
+
         let optionsArray = [];
         if (Array.isArray(response.data)) {
           optionsArray = response.data;
         } else if (response.data.results && Array.isArray(response.data.results)) {
           optionsArray = response.data.results;
         }
-        
+
         setPhoneSuggestions(optionsArray);
         if (phoneIsTyping && optionsArray.length > 0) {
           setShowPhoneDropdown(true);
@@ -889,24 +888,26 @@ useEffect(() => {
         setPhoneHighlighted(-1);
       }
     };
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handlePhoneSelect = (phone) => {
+  const handlePhoneSelect = (phone, shouldSearch = false) => {
     if (phoneFetchTimeoutRef.current) {
       clearTimeout(phoneFetchTimeoutRef.current);
     }
-    
+
     setShowPhoneDropdown(false);
     setPhoneIsTyping(false);
     setPhoneHighlighted(-1);
     setPhoneSuggestions([]);
-    
+
     setPhoneSearchInput(phone);
-    setPhoneSearch(phone);
-    setCurrentPage(1);
+    if (shouldSearch) {
+      setPhoneSearch(phone);
+      setCurrentPage(1);
+    }
   };
 
   const handlePhoneSearchChange = (e) => {
@@ -940,7 +941,7 @@ useEffect(() => {
         return;
       } else if (e.key === "Enter" && phoneHighlighted >= 0) {
         e.preventDefault();
-        handlePhoneSelect(phoneSuggestions[phoneHighlighted]);
+        handlePhoneSelect(phoneSuggestions[phoneHighlighted], true);
         return;
       } else if (e.key === "Escape") {
         setShowPhoneDropdown(false);
@@ -1264,8 +1265,8 @@ useEffect(() => {
       company_type: selectedOrgType?.id || null,
       customer_type: selectedCustomerType?.id || null,
       telecaller_id: newContact.telecaller_id || null,
-        appointment_date: newContact.appointment_date || null,
-      };
+      appointment_date: newContact.appointment_date || null,
+    };
 
     addCustomerMutation.mutate(submitData);
   };
@@ -1512,17 +1513,34 @@ useEffect(() => {
                 {phoneSearchInput && !phoneLoading && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       const cleanNumber = phoneSearchInput.replace(/\D/g, "");
-                      navigator.clipboard.writeText(cleanNumber)
-                        .then(() => {
-                          toast.success("Phone number copied!");
-                          setCopiedPhoneSearch(true);
-                          setTimeout(() => setCopiedPhoneSearch(false), 2000);
-                        })
-                        .catch(() => {
-                          toast.error("Failed to copy phone number");
-                        });
+                      try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                          await navigator.clipboard.writeText(cleanNumber);
+                        } else {
+                          const textArea = document.createElement("textarea");
+                          textArea.value = cleanNumber;
+                          textArea.style.top = "0";
+                          textArea.style.left = "0";
+                          textArea.style.position = "fixed";
+                          textArea.style.opacity = "0";
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          const successful = document.execCommand("copy");
+                          document.body.removeChild(textArea);
+                          if (!successful) {
+                            throw new Error("document.execCommand('copy') was unsuccessful");
+                          }
+                        }
+                        toast.success("Phone number copied!");
+                        setCopiedPhoneSearch(true);
+                        setTimeout(() => setCopiedPhoneSearch(false), 2000);
+                      } catch (err) {
+                        console.error("Failed to copy:", err);
+                        toast.error("Failed to copy phone number");
+                      }
                     }}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors"
                     title="Copy phone number without dashes"
@@ -1542,12 +1560,11 @@ useEffect(() => {
                     {phoneSuggestions.map((phone, idx) => (
                       <li
                         key={idx}
-                        className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                          idx === phoneHighlighted ? "bg-blue-100" : ""
-                        }`}
+                        className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${idx === phoneHighlighted ? "bg-blue-100" : ""
+                          }`}
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          handlePhoneSelect(phone);
+                          handlePhoneSelect(phone, false);
                         }}
                         onMouseEnter={() => setPhoneHighlighted(idx)}
                       >
@@ -1836,11 +1853,10 @@ useEffect(() => {
                     setViewType("customers");
                     setCurrentPage(1);
                   }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    viewType === "customers"
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "customers"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   Appointments
                 </button>
@@ -1849,11 +1865,10 @@ useEffect(() => {
                     setViewType("leads");
                     setCurrentPage(1);
                   }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    viewType === "leads"
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "leads"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   Leads
                 </button>
@@ -1863,21 +1878,19 @@ useEffect(() => {
               <div className="flex items-center bg-gray-100 rounded-lg p-1 h-10">
                 <button
                   onClick={() => setViewMode("table")}
-                  className={`p-1.5 rounded-md transition-all ${
-                    viewMode === "table"
+                  className={`p-1.5 rounded-md transition-all ${viewMode === "table"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   <List className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setViewMode("card")}
-                  className={`p-1.5 rounded-md transition-all ${
-                    viewMode === "card"
+                  className={`p-1.5 rounded-md transition-all ${viewMode === "card"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   <Grid className="h-4 w-4" />
                 </button>
@@ -2191,19 +2204,19 @@ useEffect(() => {
               </select>
             </div>
             <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Appointment Date
-                      </label>
-                      <input
-                        type="date"
-                        value={newContact.appointment_date}
-                        onChange={(e) =>
-                          setNewContact({ ...newContact, appointment_date: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Appointment Date"
-                      />
-                    </div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Appointment Date
+              </label>
+              <input
+                type="date"
+                value={newContact.appointment_date}
+                onChange={(e) =>
+                  setNewContact({ ...newContact, appointment_date: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Appointment Date"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 House/Flat No
@@ -2412,9 +2425,9 @@ useEffect(() => {
                         district: "",
                         tahsil: "",
                         city: "",
-                          appointment_date: "",
-                          gstin_no: "",
-                        });
+                        appointment_date: "",
+                        gstin_no: "",
+                      });
                       queryClient.invalidateQueries({
                         queryKey: ["customers"],
                       });
@@ -2565,7 +2578,7 @@ useEffect(() => {
                             onClick={(e) => e.stopPropagation()}
                           >
                             {customer.name?.charAt(0)?.toUpperCase() +
-                              customer.name?.slice(1) || "Unknown"}
+                              customer.name?.slice(1) || ""}
                           </Link>
                           {customer.surname && (
                             <div className="text-xs text-gray-500">
@@ -2674,8 +2687,8 @@ useEffect(() => {
                           <Calendar className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
                           {customer.appointment_date
                             ? new Date(
-                                customer.appointment_date,
-                              ).toLocaleDateString()
+                              customer.appointment_date,
+                            ).toLocaleDateString()
                             : "—"}
                         </div>
                       )}
@@ -2770,7 +2783,7 @@ useEffect(() => {
                 >
                   Previous
                 </button>
-                
+
                 <div className="flex items-center gap-1.5 h-8">
                   <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Page:</span>
                   <input
@@ -2864,11 +2877,10 @@ useEffect(() => {
                           )}
                           <button
                             onClick={() => setCurrentPage(page)}
-                            className={`relative inline-flex items-center px-3 py-1.5 border text-sm font-medium transition-colors ${
-                              page === currentPage
+                            className={`relative inline-flex items-center px-3 py-1.5 border text-sm font-medium transition-colors ${page === currentPage
                                 ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
                                 : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                            }`}
+                              }`}
                           >
                             {page}
                           </button>
@@ -2951,129 +2963,128 @@ useEffect(() => {
         /* Card View */
         <div className="flex-1 min-h-0 overflow-auto pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {customers.map((customer) => (
-            <div
-              key={customer.id}
-              className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
-            >
-              <div className="bg-white p-6 border-b border-gray-100">
-                <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center border-2 border-gray-200">
-                    <span className="text-white font-bold text-xl">
-                      {customer.name?.charAt(0)?.toUpperCase() || "U"}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {customer.name?.charAt(0)?.toUpperCase() +
-                        customer.name?.slice(1) || "Unknown"}
-                      {customer.surname && (
-                        <span className="text-gray-600">
-                          {" "}
-                          {customer.surname}
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-gray-600 text-sm">ID: {customer.id}</p>
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        customer.contact_type === "Customer"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {customer.contact_type}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail className="h-4 w-4 mr-3 text-gray-400" />
-                      <span className="truncate">
-                        {customer.email || "No email"}
+            {customers.map((customer) => (
+              <div
+                key={customer.id}
+                className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+              >
+                <div className="bg-white p-6 border-b border-gray-100">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center border-2 border-gray-200">
+                      <span className="text-white font-bold text-xl">
+                        {customer.name?.charAt(0)?.toUpperCase() || "U"}
                       </span>
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Phone className="h-4 w-4 mr-3 text-gray-400" />
-                      <span>{customer.phone}</span>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {customer.name?.charAt(0)?.toUpperCase() +
+                          customer.name?.slice(1) || "Unknown"}
+                        {customer.surname && (
+                          <span className="text-gray-600">
+                            {" "}
+                            {customer.surname}
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-gray-600 text-sm">ID: {customer.id}</p>
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${customer.contact_type === "Customer"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                          }`}
+                      >
+                        {customer.contact_type}
+                      </span>
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="h-4 w-4 mr-3 text-gray-400" />
-                      <span>{customer.pincode || "No pincode"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      <User className="h-3 w-3 mr-1" />
-                      {customer.agent_name || "Unassigned"}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(customer.total_order_value)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center text-xs text-gray-500">
-                    <Calendar className="h-3 w-3 mr-2" />
-                    Joined {new Date(customer.created_at).toLocaleDateString()}
                   </div>
                 </div>
 
-                <div className="mt-6 flex gap-2">
-                  <Link
-                    to={`/customers/${customer.id}`}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Link>
-                  <Link
-                    to={`/customers/edit/${customer.id}`}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </Link>
-                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Mail className="h-4 w-4 mr-3 text-gray-400" />
+                        <span className="truncate">
+                          {customer.email || "No email"}
+                        </span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Phone className="h-4 w-4 mr-3 text-gray-400" />
+                        <span>{customer.phone}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="h-4 w-4 mr-3 text-gray-400" />
+                        <span>{customer.pincode || "No pincode"}</span>
+                      </div>
+                    </div>
 
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <User className="h-3 w-3 mr-1" />
+                        {customer.agent_name || "Unassigned"}
+                      </span>
+                      <span className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(customer.total_order_value)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Calendar className="h-3 w-3 mr-2" />
+                      Joined {new Date(customer.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex gap-2">
+                    <Link
+                      to={`/customers/${customer.id}`}
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </Link>
+                    <Link
+                      to={`/customers/edit/${customer.id}`}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </Link>
+                  </div>
+
+                  <button
+                    onClick={() => handleCall(customer)}
+                    className="w-full mt-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Call Now
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Empty State for Cards */}
+            {customers.length === 0 && (
+              <div className="col-span-full py-16 text-center">
+                <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No contacts found
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {phoneSearch || nameSearch || surnameSearch
+                    ? "No results match your search criteria"
+                    : "Try adjusting your filters and click Apply"}
+                </p>
                 <button
-                  onClick={() => handleCall(customer)}
-                  className="w-full mt-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2 shadow-lg"
+                  onClick={() => setShowAddForm(true)}
+                  className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200"
                 >
-                  <Phone className="h-4 w-4" />
-                  Call Now
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Your First Contact
                 </button>
               </div>
-            </div>
-          ))}
-
-          {/* Empty State for Cards */}
-          {customers.length === 0 && (
-            <div className="col-span-full py-16 text-center">
-              <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No contacts found
-              </h3>
-              <p className="text-gray-600 mb-6">
-                {phoneSearch || nameSearch || surnameSearch
-                  ? "No results match your search criteria"
-                  : "Try adjusting your filters and click Apply"}
-              </p>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Contact
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
       )}
 
       {/* Assignment Modal */}
