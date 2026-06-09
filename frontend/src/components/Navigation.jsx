@@ -96,13 +96,13 @@ const Navigation = () => {
         {/* Back Button */}
         <button
           onClick={() => navigate(-1)}
-          className={`flex items-center gap-3 mb-6 p-2 rounded-lg hover:bg-white/10 transition-all duration-200 ${
+          className={`flex items-center gap-3 w-full px-3 py-3 mb-6 rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200 group ${
             !isOpen ? 'justify-center' : ''
           }`}
-          title={!isOpen ? 'Go Back' : 'Go Back'}
+          title={!isOpen ? 'Go Back' : ''}
         >
-          <ArrowLeft className="h-5 w-5" />
-          {isOpen && <span className="text-sm">Back</span>}
+          <ArrowLeft className="h-5 w-5 text-gray-400 group-hover:text-white" />
+          {isOpen && <span className="text-sm font-medium transition-opacity duration-200">Back</span>}
         </button>
 
         <nav>

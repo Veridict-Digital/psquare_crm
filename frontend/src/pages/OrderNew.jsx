@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
   Search,
   Plus,
@@ -22,6 +23,8 @@ import {
   Minus,
   ArrowLeft,
   Calendar,
+  FileText,
+  Printer,
 } from "lucide-react";
 
 const OrderNew = () => {
@@ -161,14 +164,15 @@ const OrderNew = () => {
 
   const [showComboModal, setShowComboModal] = useState(false);
   const [showPurchaseComboModal, setShowPurchaseComboModal] = useState(false);
-  const [filterPaid, setFilterPaid] = useState(false);
+  const [filterPaid, setFilterPaid] = useState(true);
   const [filterFree, setFilterFree] = useState(false);
   const [filterGift, setFilterGift] = useState(false);
+  const [showQuotationModal, setShowQuotationModal] = useState(false);
 
-  // Clear combo filters if no product is selected
+  // Clear combo filters if no product is selected (with purchase product default selected)
   useEffect(() => {
     if (!selectedProduct) {
-      setFilterPaid(false);
+      setFilterPaid(true);
       setFilterFree(false);
       setFilterGift(false);
     }
@@ -210,26 +214,30 @@ const OrderNew = () => {
     }
   }, [editMode, orderItems, appliedCombos]);
 
-  // Fetch data
+  // Fetch data with staleTime to cache products, combinations and customers for snappy performance
   const { data: customers, isLoading: customersLoading } = useQuery({
     queryKey: ["customers", "all"],
     queryFn: () => axios.get("/api/customers/?page_size=1000").then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: urlCustomer } = useQuery({
     queryKey: ["customer", urlCustomerId],
     queryFn: () => axios.get(`/api/customers/${urlCustomerId}/`).then((res) => res.data),
     enabled: !!urlCustomerId,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: () => axios.get("/api/products/").then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: combinations } = useQuery({
     queryKey: ["combinations"],
     queryFn: () => axios.get("/api/productcombinations/").then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   // Server-side search for customers
@@ -1209,6 +1217,18 @@ const OrderNew = () => {
 
     mutation.mutate(orderData);
   };
+  const selectedCustomerObj = useMemo(() => {
+    if (!formData.customer) return null;
+
+    if (urlCustomer && urlCustomer.id.toString() === formData.customer.toString()) {
+      return urlCustomer;
+    }
+
+    const allCustomersList = customers?.results || customers || [];
+    return allCustomersList.find(
+      (c) => c.id.toString() === formData.customer.toString()
+    ) || null;
+  }, [formData.customer, urlCustomer, customers]);
 
   // ========== HELPER FUNCTIONS ==========
   const getSelectedCustomerName = () => {
@@ -1219,34 +1239,11 @@ const OrderNew = () => {
       return urlCustomerName;
     }
 
-    // 2. Direct single-customer fetch result display
-    if (urlCustomer && urlCustomer.id.toString() === formData.customer.toString()) {
-      return urlCustomer.name;
-    }
-
-    // 3. Fallback to loaded customers list search
-    if (!customers) return "Loading...";
-    const allCustomers = customers?.results || customers || [];
-    const customer = allCustomers.find(
-      (c) => c.id.toString() === formData.customer.toString()
-    );
-    return customer ? customer.name : "Select Customer";
+    return selectedCustomerObj ? selectedCustomerObj.name : "Select Customer";
   };
 
   const getSelectedCustomerAgent = () => {
-    if (!formData.customer) return "";
-
-    // Direct single-customer fetch result agent
-    if (urlCustomer && urlCustomer.id.toString() === formData.customer.toString()) {
-      return urlCustomer.agent_name || "";
-    }
-
-    if (!customers) return "";
-    const allCustomers = customers?.results || customers || [];
-    const customer = allCustomers.find(
-      (c) => c.id.toString() === formData.customer.toString()
-    );
-    return customer?.agent_name || "";
+    return selectedCustomerObj ? selectedCustomerObj.agent_name || "" : "";
   };
 
   const filteredProducts = useMemo(() => {
@@ -1356,7 +1353,7 @@ const OrderNew = () => {
 
   // Combo Offers Table Component
   const ComboOffersTable = ({ combinations, showActions = true, showGrandTotals = false, excludeApplied = false }) => {
-    const filteredCombos = getFilteredCombinations(combinations);
+    const filteredCombos = excludeApplied ? getFilteredCombinations(combinations) : combinations;
 
     const displayCombos = excludeApplied
       ? filteredCombos.filter(combo => !appliedCombos.some(ac => (ac.comboId === combo.id) || (ac.combo_id === combo.id)))
@@ -1452,7 +1449,7 @@ const OrderNew = () => {
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Combo</th>
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="4">Purchase Product</th>
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="4">Free Product</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Gifts Product</th>
+            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Gift Product</th>
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Total</th>
             <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Action</th>
           </tr>
@@ -1471,7 +1468,7 @@ const OrderNew = () => {
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total Mrp</th>
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Combo Total</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Savings</th>
+            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">You Save</th>
             <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
           </tr>
         </thead>
@@ -1579,26 +1576,27 @@ const OrderNew = () => {
                       <button
                         type="button"
                         onClick={() => updateComboQuantity(combo.id, appliedQuantity - 1, combo)}
-                        className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300"
+                        className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300 flex-shrink-0"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="w-8 text-center text-xs font-medium">{appliedQuantity}</span>
+                      <span className="w-8 text-center text-xs font-medium flex-shrink-0">{appliedQuantity}</span>
                       <button
                         type="button"
                         onClick={() => updateComboQuantity(combo.id, appliedQuantity + 1, combo)}
-                        className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300"
+                        className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300 flex-shrink-0"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
                       <button
                         type="button"
                         onClick={() => removeCombo(combo.id)}
-                        className="ml-1 text-red-500 hover:text-red-700"
+                        className="ml-1 text-red-500 hover:text-red-700 flex-shrink-0"
+                        title="Remove combo"
                       >
                         <X className="w-4 h-4" />
                       </button>
-                    </div>
+                     </div>
                   )}
                 </td>
               </tr>
@@ -1666,6 +1664,766 @@ const OrderNew = () => {
           )}
         </tbody>
       </table>
+    );
+  };
+
+  const getOriginalPrice = (productId) => {
+    const productObj = products?.find(p => p.id === productId);
+    if (productObj) {
+      if (productObj.pricing?.mrp !== undefined && productObj.pricing?.mrp !== null) {
+        return parseFloat(productObj.pricing.mrp);
+      }
+      return parseFloat(productObj.mrp || productObj.price || 0);
+    }
+    return 0;
+  };
+
+  const getProductGstRate = (productId) => {
+    const productObj = products?.find(p => p.id === productId);
+    if (productObj) {
+      if (productObj.gst_rate_display) {
+        return parseFloat(productObj.gst_rate_display) || 0;
+      }
+      if (productObj.gst_rate) {
+        if (typeof productObj.gst_rate === 'object') {
+          return parseFloat(productObj.gst_rate.rate) || 0;
+        }
+        return parseFloat(productObj.gst_rate) || 0;
+      }
+    }
+    return 0;
+  };
+
+  const getProductHsn = (productId) => {
+    const productObj = products?.find(p => p.id === productId);
+    return productObj ? productObj.hsn : '';
+  };
+
+  const getProductTitle = (productId) => {
+    const productObj = products?.find(p => p.id === productId);
+    return productObj ? productObj.title : '';
+  };
+
+  const getAllAppliedCombosInvoiceItems = () => {
+    const invoiceItems = [];
+    let sNo = 1;
+
+    appliedCombos.forEach((ac) => {
+      const combo = combinations?.find(c => c.id === (ac.comboId || ac.combo_id));
+      if (!combo) return;
+      const quantity = ac.quantity || 1;
+
+      // 1. Paid items
+      (combo.items || []).forEach((item) => {
+        const itemQty = item.quantity_required * quantity;
+        const unitMrp = getOriginalPrice(item.product);
+        const totalMrp = unitMrp * itemQty;
+        const unitOffer = parseFloat(item.offer_price) || 0;
+        const totalOffer = unitOffer * itemQty;
+        const gstRate = getProductGstRate(item.product);
+
+        const taxableOffer = totalOffer / (1 + gstRate / 100);
+        const gstOfferAmount = totalOffer - taxableOffer;
+
+        invoiceItems.push({
+          sNo: sNo++,
+          productName: `${getProductTitle(item.product)} (Billed under ${combo.name})`,
+          qty: itemQty,
+          unitMrp: unitMrp,
+          totalMrp: totalMrp,
+          unitOffer: unitOffer,
+          totalOffer: totalOffer,
+          gstRate: gstRate,
+          taxableOffer: taxableOffer,
+          gstAmount: gstOfferAmount,
+          type: 'Paid',
+          hsn: getProductHsn(item.product)
+        });
+      });
+
+      // 2. Free items
+      (combo.rewards || []).forEach((reward) => {
+        const itemQty = reward.quantity_free * quantity;
+        const unitMrp = getOriginalPrice(reward.product);
+        const totalMrp = unitMrp * itemQty;
+        const gstRate = getProductGstRate(reward.product);
+
+        const taxableMrp = totalMrp / (1 + gstRate / 100);
+        const gstMrpAmount = totalMrp - taxableMrp;
+
+        invoiceItems.push({
+          sNo: sNo++,
+          productName: `${getProductTitle(reward.product)} (Free under ${combo.name})`,
+          qty: itemQty,
+          unitMrp: unitMrp,
+          totalMrp: totalMrp,
+          unitOffer: 0,
+          totalOffer: 0,
+          gstRate: gstRate,
+          taxableOffer: taxableMrp,
+          gstAmount: gstMrpAmount,
+          type: 'Free',
+          hsn: getProductHsn(reward.product)
+        });
+      });
+
+      // 3. Gift items
+      (combo.gifts || []).forEach((gift) => {
+        const giftQtyVal = gift.quantity_free || gift.quantity || 1;
+        const itemQty = giftQtyVal * quantity;
+        const unitMrp = getOriginalPrice(gift.product);
+        const totalMrp = unitMrp * itemQty;
+        const gstRate = getProductGstRate(gift.product);
+
+        const taxableMrp = totalMrp / (1 + gstRate / 100);
+        const gstMrpAmount = totalMrp - taxableMrp;
+
+        invoiceItems.push({
+          sNo: sNo++,
+          productName: `${getProductTitle(gift.product)} (Gift under ${combo.name})`,
+          qty: itemQty,
+          unitMrp: unitMrp,
+          totalMrp: totalMrp,
+          unitOffer: 0,
+          totalOffer: 0,
+          gstRate: gstRate,
+          taxableOffer: taxableMrp,
+          gstAmount: gstMrpAmount,
+          type: 'Gift',
+          hsn: getProductHsn(gift.product)
+        });
+      });
+    });
+
+    return invoiceItems;
+  };
+
+  // Quotation Modal Component
+  const QuotationModal = () => {
+    if (appliedCombos.length === 0) return null;
+
+    const invoiceItems = getAllAppliedCombosInvoiceItems();
+
+    const selectedState = selectedCustomerObj?.state ? selectedCustomerObj.state.toLowerCase() : "";
+    const isMaharashtra = selectedState.includes("maharashtra") || !selectedState;
+
+    const customerFullName = `${selectedCustomerObj?.name || ""} ${selectedCustomerObj?.surname || ""}`.trim();
+    const companyName = selectedCustomerObj?.company_name;
+
+    const getDeliveryAddress = () => {
+      return Object.values(formData.delivery_address).filter(Boolean).join(', ');
+    };
+
+    let totalShippedQty = 0;
+    let totalBilledQty = 0;
+    let totalTaxableValue = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+
+    invoiceItems.forEach(item => {
+      totalShippedQty += item.qty;
+      if (item.type === 'Paid') {
+        totalBilledQty += item.qty;
+        totalTaxableValue += item.taxableOffer;
+        if (isMaharashtra) {
+          totalCgst += item.gstAmount / 2;
+          totalSgst += item.gstAmount / 2;
+        } else {
+          totalIgst += item.gstAmount;
+        }
+      }
+    });
+
+    const exactGrandTotal = totalTaxableValue + totalCgst + totalSgst + totalIgst;
+    const roundedGrandTotal = Math.round(exactGrandTotal);
+    const roundOff = roundedGrandTotal - exactGrandTotal;
+
+    const formatRoundOff = (val) => {
+      if (Math.abs(val) < 0.005) return "0.00";
+      if (val < 0) {
+        return `(-) ${Math.abs(val).toFixed(2)}`;
+      }
+      return val.toFixed(2);
+    };
+
+    // HSN summary
+    const hsnSummary = {};
+    invoiceItems.forEach(item => {
+      if (item.type === 'Paid') {
+        const hsn = item.hsn;
+        const gstRate = item.gstRate;
+
+        const key = `${hsn}-${gstRate}`;
+        if (!hsnSummary[key]) {
+          hsnSummary[key] = {
+            hsn: hsn,
+            gstRate: gstRate,
+            taxableValue: 0,
+            cgstAmount: 0,
+            sgstAmount: 0,
+            igstAmount: 0,
+            totalTax: 0
+          };
+        }
+
+        hsnSummary[key].taxableValue += item.taxableOffer;
+        if (isMaharashtra) {
+          hsnSummary[key].cgstAmount += item.gstAmount / 2;
+          hsnSummary[key].sgstAmount += item.gstAmount / 2;
+        } else {
+          hsnSummary[key].igstAmount += item.gstAmount;
+        }
+        hsnSummary[key].totalTax += item.gstAmount;
+      }
+    });
+
+    const hsnSummaryList = Object.values(hsnSummary);
+
+    const formatCurrency = (val) => {
+      if (val === null || val === undefined || isNaN(val)) return "₹0.00";
+      return `₹${parseFloat(val).toFixed(2)}`;
+    };
+
+    const formatDate = (dateStr) => {
+      if (!dateStr) return new Date().toLocaleDateString('en-IN');
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return new Date().toLocaleDateString('en-IN');
+      return date.toLocaleDateString('en-IN');
+    };
+
+    const renderInvoiceContent = () => (
+      <div className="inv-box">
+        <div className="inv-header">Quotation Invoice</div>
+
+        {/* Row 1: Company details (Left) and Invoice Details (Right) */}
+        <div className="inv-row inv-border-b">
+          {/* Left Column: Seller/From Details */}
+          <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between" style={{ padding: "5px 6px" }}>
+            <div style={{ width: "50%" }} className="pr-2 text-[10px]">
+              <div className="font-bold" style={{ fontSize: "11px" }}>PARU ENTERPRISES</div>
+              <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-normal text-gray-800">
+                A SQUARE PLAZA GR FLR OPP{"\n"}NARMADA GARDEN SANGVI PUNE{"\n"}State Name: Maharashtra, Code: 27
+              </div>
+            </div>
+            <div style={{ width: "50%" }} className="pl-2 text-[11px] text-gray-800 self-start mt-0.5">
+              <div><strong>GSTIN/UIN:</strong> 27AKCPP9722G1ZY</div>
+              <div><strong>Contact:</strong> 9960345670</div>
+              <div><strong>E-Mail:</strong> Dcrpsquare@gmail.co</div>
+            </div>
+          </div>
+
+          {/* Right Column: Invoice Reference Numbers in a Grid */}
+          <div className="inv-w-50 flex flex-col text-[10px]">
+            <div className="inv-row inv-border-b flex-1">
+              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Quotation No.</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}>TEMP-QUOTE</span>
+              </div>
+              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Dated</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}>{formatDate(null)}</span>
+              </div>
+            </div>
+
+            <div className="inv-row inv-border-b flex-1">
+              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Delivery Note</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Mode/Terms of Payment</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}>{formData.payment_status}</span>
+              </div>
+            </div>
+
+            <div className="inv-row inv-border-b flex-1">
+              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Ref No. & Date</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Other References</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+            </div>
+
+            <div className="inv-row flex-1">
+              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Buyer's Order No.</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Dated</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Consignee & Buyer (Left) and Dispatch & Terms (Right) */}
+        <div className="inv-row inv-border-b text-[10px]">
+          {/* Left Column: Billing/Shipping Details */}
+          <div className="inv-cell inv-border-r inv-w-50 flex flex-col" style={{ padding: "5px 6px" }}>
+            <div className="inv-border-b pb-1.5 mb-1.5">
+              <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
+                <span className="text-[11px] text-gray-500 uppercase font-bold">Consignee (Ship to)</span>
+                {companyName && <span className="font-bold text-black">{companyName}</span>}
+                <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
+                  {customerFullName || "Walk-In Customer"}
+                </span>
+              </div>
+              <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
+              <div className="text-[11px] mt-1 text-gray-600">
+                {selectedCustomerObj?.phone && <div><strong>Contact:</strong> {selectedCustomerObj.phone}</div>}
+                <div><strong>State Name:</strong> {selectedCustomerObj?.state || 'Maharashtra'}, Code: {selectedCustomerObj?.state ? (selectedCustomerObj.gstin_no ? selectedCustomerObj.gstin_no.slice(0, 2) : '—') : '27'}</div>
+              </div>
+            </div>
+            <div>
+              <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
+                <span className="text-[11px] text-gray-500 uppercase font-bold">Buyer (Bill to)</span>
+                {companyName && <span className="font-bold text-black">{companyName}</span>}
+                <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
+                  {customerFullName || "Walk-In Customer"}
+                </span>
+              </div>
+              <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
+              <div className="text-[11px] mt-1 text-gray-600">
+                {selectedCustomerObj?.phone && <div><strong>Contact:</strong> {selectedCustomerObj.phone}</div>}
+                <div><strong>State Name:</strong> {selectedCustomerObj?.state || 'Maharashtra'}, Code: {selectedCustomerObj?.state ? (selectedCustomerObj.gstin_no ? selectedCustomerObj.gstin_no.slice(0, 2) : '—') : '27'}</div>
+                {selectedCustomerObj?.gstin_no && <div><strong>GSTIN/UIN:</strong> {formatGtin(selectedCustomerObj.gstin_no)}</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Dispatch Details & Terms of Delivery */}
+          <div className="inv-w-50 flex flex-col">
+            <div className="inv-row inv-border-b flex-1">
+              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Dispatch Doc No.</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Delivery Note Date</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+            </div>
+
+            <div className="inv-row flex-1">
+              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Dispatched through</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">Destination</span>
+                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Items Table */}
+        <table className="inv-table w-full">
+          <thead>
+            <tr>
+              <th rowSpan="2" className="text-center w-8">Sl No.</th>
+              <th rowSpan="2" className="text-left">Description of Goods</th>
+              <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
+              <th colSpan="2" className="text-center w-24">Quantity</th>
+              <th rowSpan="2" className="text-right w-20">Rate<br/>(Incl. of Tax)</th>
+              <th rowSpan="2" className="text-right w-20">Rate</th>
+              <th rowSpan="2" className="text-center w-12">per</th>
+              <th rowSpan="2" className="text-center w-12">Disc. %</th>
+              <th rowSpan="2" className="text-right w-24">Amount</th>
+            </tr>
+            <tr>
+              <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Shipped</th>
+              <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Billed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoiceItems.map((item, idx) => {
+              const isPaid = item.type === 'Paid';
+              const discPercent = isPaid && item.unitMrp > item.unitOffer
+                ? (((item.unitMrp - item.unitOffer) / item.unitMrp) * 100).toFixed(0) + "%"
+                : "";
+
+              return (
+                <tr key={idx} style={{ height: "24px" }} className="text-[10px]">
+                  <td className="text-center">{item.sNo}</td>
+                  <td className="text-left font-bold">{item.productName}</td>
+                  <td className="text-center">{item.hsn}</td>
+                  <td className="text-center font-bold">{item.qty} PCS</td>
+                  <td className="text-center font-bold">{isPaid ? `${item.qty} PCS` : ""}</td>
+                  <td className="text-right">{isPaid ? formatCurrency(item.unitOffer) : ""}</td>
+                  <td className="text-right">
+                    {isPaid ? formatCurrency(item.unitOffer / (1 + item.gstRate / 100)) : ""}
+                  </td>
+                  <td className="text-center">{isPaid ? "PCS" : ""}</td>
+                  <td className="text-center">{discPercent}</td>
+                  <td className="text-right font-bold">
+                    {isPaid ? formatCurrency(item.taxableOffer) : ""}
+                  </td>
+                </tr>
+              );
+            })}
+
+            {/* Output Taxes rows */}
+            {isMaharashtra ? (
+              <>
+                <tr style={{ height: "20px" }}>
+                  <td></td>
+                  <td className="text-right font-bold italic" colSpan="8">OUTPUT CGST</td>
+                  <td className="text-right font-bold">{formatCurrency(totalCgst)}</td>
+                </tr>
+                <tr style={{ height: "20px" }}>
+                  <td></td>
+                  <td className="text-right font-bold italic" colSpan="8">OUTPUT SGST</td>
+                  <td className="text-right font-bold">{formatCurrency(totalSgst)}</td>
+                </tr>
+              </>
+            ) : (
+              <tr style={{ height: "20px" }}>
+                <td></td>
+                <td className="text-right font-bold italic" colSpan="8">OUTPUT IGST</td>
+                <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
+              </tr>
+            )}
+            
+            {/* Round Off row */}
+            {Math.abs(roundOff) >= 0.005 && (
+              <tr style={{ height: "20px" }}>
+                <td></td>
+                <td className="text-right italic" colSpan="8">
+                  <strong>Less:</strong> ROUND OFF
+                </td>
+                <td className="text-right font-bold">{formatRoundOff(roundOff)}</td>
+              </tr>
+            )}
+
+            {/* Total Row */}
+            <tr className="font-bold" style={{ borderTop: "1.5px solid #000", height: "22px" }}>
+              <td className="text-center"></td>
+              <td className="text-right">Total</td>
+              <td className="text-center"></td>
+              <td className="text-center font-bold">{totalShippedQty} PCS</td>
+              <td className="text-center font-bold">{totalBilledQty} PCS</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td className="text-right font-bold" style={{ fontSize: "11px" }}>{formatCurrency(roundedGrandTotal)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Amount in words */}
+        <div className="inv-row inv-border-b inv-cell flex justify-between items-center text-[10px]" style={{ padding: "5px 6px" }}>
+          <div>
+            <span className="text-[8px] text-gray-500 block">Amount Chargeable (in words)</span>
+            <span className="font-bold">{convertNumberToWords(roundedGrandTotal)}</span>
+          </div>
+          <div className="font-bold">E. & O.E</div>
+        </div>
+
+        {/* HSN/SAC Tax Breakdown Table */}
+        <div className="inv-w-100 inv-border-b">
+          <table className="inv-table w-full">
+            {isMaharashtra ? (
+              <>
+                <thead>
+                  <tr>
+                    <th rowSpan="2" className="text-center">HSN/SAC</th>
+                    <th rowSpan="2" className="text-right w-24">Taxable Value</th>
+                    <th colSpan="2" className="text-center">Central Tax (CGST)</th>
+                    <th colSpan="2" className="text-center">State Tax (SGST)</th>
+                    <th rowSpan="2" className="text-right w-24">Total Tax Amount</th>
+                  </tr>
+                  <tr>
+                    <th className="text-center w-16">Rate</th>
+                    <th className="text-right w-20">Amount</th>
+                    <th className="text-center w-16">Rate</th>
+                    <th className="text-right w-20">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {hsnSummaryList.map((row, idx) => (
+                    <tr key={idx} className="text-[9px]">
+                      <td className="text-center font-bold">{row.hsn}</td>
+                      <td className="text-right">{formatCurrency(row.taxableValue)}</td>
+                      <td className="text-center">{(row.gstRate / 2).toFixed(1)}%</td>
+                      <td className="text-right">{formatCurrency(row.cgstAmount)}</td>
+                      <td className="text-center">{(row.gstRate / 2).toFixed(1)}%</td>
+                      <td className="text-right">{formatCurrency(row.sgstAmount)}</td>
+                      <td className="text-right font-bold">{formatCurrency(row.totalTax)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-bold" style={{ borderTop: "1.2px solid #000" }}>
+                    <td className="text-right">Total</td>
+                    <td className="text-right">{formatCurrency(totalTaxableValue)}</td>
+                    <td></td>
+                    <td className="text-right">{formatCurrency(totalCgst)}</td>
+                    <td></td>
+                    <td className="text-right">{formatCurrency(totalSgst)}</td>
+                    <td className="text-right">{formatCurrency(totalCgst + totalSgst)}</td>
+                  </tr>
+                </tbody>
+              </>
+            ) : (
+              <>
+                <thead>
+                  <tr>
+                    <th rowSpan="2" className="text-center">HSN/SAC</th>
+                    <th rowSpan="2" className="text-right w-28">Taxable Value</th>
+                    <th colSpan="2" className="text-center">Integrated Tax (IGST)</th>
+                    <th rowSpan="2" className="text-right w-28">Total Tax Amount</th>
+                  </tr>
+                  <tr>
+                    <th className="text-center w-20">Rate</th>
+                    <th className="text-right w-28">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {hsnSummaryList.map((row, idx) => (
+                    <tr key={idx} className="text-[9px]">
+                      <td className="text-center font-bold">{row.hsn}</td>
+                      <td className="text-right">{formatCurrency(row.taxableValue)}</td>
+                      <td className="text-center">{row.gstRate.toFixed(1)}%</td>
+                      <td className="text-right">{formatCurrency(row.igstAmount)}</td>
+                      <td className="text-right font-bold">{formatCurrency(row.totalTax)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-bold" style={{ borderTop: "1.2px solid #000" }}>
+                    <td className="text-right">Total</td>
+                    <td className="text-right">{formatCurrency(totalTaxableValue)}</td>
+                    <td></td>
+                    <td className="text-right">{formatCurrency(totalIgst)}</td>
+                    <td className="text-right">{formatCurrency(totalIgst)}</td>
+                  </tr>
+                </tbody>
+              </>
+            )}
+          </table>
+        </div>
+
+        {/* Tax Amount in Words */}
+        <div className="inv-row inv-border-b inv-cell text-[10px]" style={{ padding: "5px 6px" }}>
+          <div style={{ fontSize: "9.5px" }}>
+            <strong>Tax Amount (in words) :</strong> {convertNumberToWords(totalCgst + totalSgst + totalIgst)}
+          </div>
+        </div>
+
+        {/* Row 4: Bank Details & Declaration */}
+        <div className="inv-row inv-border-b text-[8px] leading-relaxed">
+          {/* Declaration */}
+          <div className="inv-cell inv-border-r inv-w-50" style={{ padding: "5px 6px" }}>
+            <div className="font-bold text-[9px] mb-0.5">Declaration:</div>
+            <p>
+              I/We hereby certify that my/our Registration certificate under the GST Act 2017, is in force on the date on which the sale of the goods specified in this tax invoice is made by me/us and that the transaction of sale covered by this tax invoice has been effected by me/us and it shall be accounted for in the turnover of sales while filing of return and the due tax, if any payable on the sale has been paid or shall be paid.
+            </p>
+            <div className="font-bold mt-1 text-gray-700">Terms & Conditions:</div>
+            <ul className="list-decimal pl-3 space-y-0.5 mt-0.5 text-gray-600">
+              <li>Goods once sold will not be taken back or exchanged.</li>
+              <li>Interest @24% p.a will be charged after due date of bill.</li>
+              <li>We reserve the right to demand payment of this bill at any time before due date.</li>
+            </ul>
+          </div>
+
+          {/* Bank Details */}
+          <div className="inv-cell inv-w-50 flex flex-col justify-between" style={{ padding: "5px 6px" }}>
+            <div>
+              <div className="font-bold text-[9px] mb-1">Company's Bank Details:</div>
+              <div className="space-y-1 text-[9px] text-gray-800">
+                <div><strong>Bank Name:</strong> AU SMALL FINANCE BANK</div>
+                <div><strong>A/c No.:</strong> 2221263141506073</div>
+                <div><strong>Branch & IFS Code:</strong> PUNE & AUBL0002631</div>
+              </div>
+            </div>
+            <div className="mt-2 pt-1.5 border-t border-gray-200">
+              <div className="text-[8px] text-gray-500 font-bold">Terms of Delivery:</div>
+              <div className="text-[9px] text-gray-700 leading-normal">
+                Subject to Pune jurisdiction. Delivery within 7 days.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Signatures */}
+        <div className="inv-row">
+          {/* Customer Signature */}
+          <div className="inv-cell inv-border-r inv-w-50 h-16 flex flex-col justify-between" style={{ padding: "5px 6px" }}>
+            <div className="text-[8px] text-gray-500">Customer's Seal and Signature</div>
+            <div className="border-t border-dotted border-gray-400 w-36 mt-auto"></div>
+          </div>
+
+          {/* Authorized Signatory */}
+          <div className="inv-cell inv-w-50 h-16 flex flex-col justify-between text-right text-[8px]" style={{ padding: "5px 6px" }}>
+            <div className="font-bold text-[9px]">for PSQUARE ENTERPRISES</div>
+            <div className="inv-row justify-between text-[8px] text-gray-500 mt-auto">
+              <span>Prepared by</span>
+              <span>Verified by</span>
+              <span className="font-bold text-black text-[9px]">Authorised Signatory</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <style dangerouslySetInnerHTML={{
+          __html: `
+          .quotation-modal-content {
+            font-family: Arial, sans-serif;
+            color: black;
+            background: white;
+          }
+          .inv-box {
+            border: 1.5px solid #000;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 10px;
+            line-height: 1.3;
+          }
+          .inv-header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            border-bottom: 1.5px solid #000;
+            padding: 4px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+          .inv-row {
+            display: flex;
+            width: 100%;
+          }
+          .inv-cell {
+            padding: 4px 6px;
+            box-sizing: border-box;
+          }
+          .inv-border-r {
+            border-right: 1.2px solid #000;
+          }
+          .inv-border-b {
+            border-bottom: 1.2px solid #000;
+          }
+          .inv-w-50 {
+            width: 50%;
+          }
+          .inv-w-25 {
+            width: 25%;
+          }
+          .inv-w-100 {
+            width: 100%;
+          }
+          .inv-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+          }
+          .inv-table th, .inv-table td {
+            border: 1.2px solid #000;
+            padding: 4px 5px;
+            vertical-align: top;
+          }
+          .inv-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            text-align: center;
+          }
+          .text-center {
+            text-align: center;
+          }
+          .text-right {
+            text-align: right;
+          }
+          .text-left {
+            text-align: left;
+          }
+          .font-bold {
+            font-weight: bold;
+          }
+          .italic {
+            font-style: italic;
+          }
+          
+          @media print {
+            @page {
+              size: A4;
+              margin: 10mm;
+            }
+            body {
+              background: white !important;
+              color: black !important;
+            }
+            body * {
+              visibility: hidden !important;
+            }
+            #quotation-print-area, #quotation-print-area * {
+              visibility: visible !important;
+            }
+            #quotation-print-area {
+              display: block !important;
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              background: white !important;
+              color: black !important;
+            }
+          }
+        `}} />
+
+        <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full flex flex-col max-h-[95vh] overflow-hidden print:hidden" onClick={(e) => e.stopPropagation()}>
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                Applied Combos Quotation Preview
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">Quotation generated for all applied combo offers</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm flex items-center gap-1.5 shadow-md shadow-blue-500/20 animate-pulse"
+              >
+                <Printer className="w-4 h-4" />
+                Print Quotation
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowQuotationModal(false)}
+                className="p-2 hover:bg-gray-200 rounded-full transition-colors bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6 overflow-y-auto bg-gray-100/50 flex-1 flex justify-center">
+            {/* Exact invoice template (screen preview only) */}
+            <div className="quotation-modal-content p-6 shadow-lg border border-gray-300 rounded-lg max-w-[800px] w-full bg-white self-start">
+              {renderInvoiceContent()}
+            </div>
+          </div>
+        </div>
+
+        {/* Print Only Portal (Direct child of body, prevents double printing) */}
+        {createPortal(
+          <div id="quotation-print-area" className="hidden print:block text-black bg-white">
+            {renderInvoiceContent()}
+          </div>,
+          document.body
+        )}
+      </div>
     );
   };
 
@@ -1759,14 +2517,29 @@ const OrderNew = () => {
                                 <div className="flex items-center justify-between">
                                   <div>
                                     <div className="font-medium text-gray-900">{customer.name}</div>
-                                    <div className="text-sm text-gray-500">{customer.phone}</div>
+                                    <div className="text-xs text-gray-500 flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                      <span>{customer.phone}</span>
+                                      {customer.company_name && (
+                                        <>
+                                          <span className="text-gray-300">|</span>
+                                          <span className="font-medium text-gray-700">{customer.company_name}</span>
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${customer.contact_type === 'Customer'
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                    {customer.contact_type}
-                                  </span>
+                                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                    {customer.customer_type_display && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                                        {customer.customer_type_display}
+                                      </span>
+                                    )}
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${customer.contact_type === 'Customer'
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                      }`}>
+                                      {customer.contact_type}
+                                    </span>
+                                  </div>
                                 </div>
                               </button>
                             ))
@@ -1795,7 +2568,7 @@ const OrderNew = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
                     <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                    Status
+                    Order Status
                   </label>
                   <select
                     name="status"
@@ -1803,9 +2576,12 @@ const OrderNew = () => {
                     onChange={handleFormChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
                   >
+                    <option value="ordered">Ordered</option>
+                    <option value="Preparing">Preparing</option>
                     <option value="Placed">Placed</option>
                     <option value="Dispatched">Dispatched</option>
                     <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
                   </select>
                 </div>
 
@@ -1823,9 +2599,36 @@ const OrderNew = () => {
                     <option value="Credit">Credit</option>
                     <option value="Paid">Paid</option>
                     <option value="Partial">Partial</option>
+                    <option value="Advance">Advance</option>
                   </select>
                 </div>
               </div>
+
+              {selectedCustomerObj && (
+                <div className="mt-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100 flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-600">
+                  {selectedCustomerObj.company_name && (
+                    <div>
+                      <span className="font-semibold text-gray-700">Organization Name: </span>
+                      <span className="text-gray-900 font-medium">{selectedCustomerObj.company_name}</span>
+                    </div>
+                  )}
+                  {selectedCustomerObj.company_type_display && (
+                    <div>
+                      <span className="font-semibold text-gray-700">Organization Type: </span>
+                      <span className="text-gray-900 font-medium">{selectedCustomerObj.company_type_display}</span>
+                    </div>
+                  )}
+                  {selectedCustomerObj.customer_type_display && (
+                    <div>
+                      <span className="font-semibold text-gray-700">Customer Type: </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                        {selectedCustomerObj.customer_type_display}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -2150,14 +2953,25 @@ const OrderNew = () => {
                     <Gift className="w-5 h-5 mr-2 text-green-600" />
                     Purchase Combos
                   </h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowPurchaseComboModal(true)}
-                    className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
-                    title="Expand view"
-                  >
-                    <Maximize2 className="w-4 h-4 text-gray-600" />
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowQuotationModal(true)}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02]"
+                      title="View Quotation for all applied offers"
+                    >
+                      <FileText className="w-4 h-4" />
+                      View Quotation
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPurchaseComboModal(true)}
+                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                      title="Expand view"
+                    >
+                      <Maximize2 className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -2344,6 +3158,9 @@ const OrderNew = () => {
         </div>
       )}
 
+      {/* Quotation Modal */}
+      {showQuotationModal && <QuotationModal />}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div
@@ -2422,6 +3239,73 @@ const OrderNew = () => {
       )}
     </form>
   );
+};
+
+// Helper: Format GSTIN
+const formatGtin = (gtin) => {
+  if (!gtin) return "";
+  return gtin.toUpperCase().trim();
+};
+
+// Helper: Convert number to Indian Rupees words
+const convertNumberToWords = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return "";
+
+  const ones = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"
+  ];
+
+  const tens = [
+    "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+  ];
+
+  const convertBelowThousand = (n) => {
+    if (n < 20) return ones[n];
+    const digit = n % 10;
+    if (n < 100) return tens[Math.floor(n / 10)] + (digit ? " " + ones[digit] : "");
+    return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 === 0 ? "" : " and " + convertBelowThousand(n % 100));
+  };
+
+  const convert = (n) => {
+    if (n === 0) return "Zero";
+    let word = "";
+
+    const crore = Math.floor(n / 10000000);
+    n %= 10000000;
+    if (crore > 0) {
+      word += convertBelowThousand(crore) + " Crore ";
+    }
+
+    const lakh = Math.floor(n / 100000);
+    n %= 100000;
+    if (lakh > 0) {
+      word += convertBelowThousand(lakh) + " Lakh ";
+    }
+
+    const thousand = Math.floor(n / 1000);
+    n %= 1000;
+    if (thousand > 0) {
+      word += convertBelowThousand(thousand) + " Thousand ";
+    }
+
+    if (n > 0) {
+      word += convertBelowThousand(n);
+    }
+
+    return word.trim();
+  };
+
+  const parts = parseFloat(num).toFixed(2).split(".");
+  const rupees = parseInt(parts[0], 10);
+  const paise = parseInt(parts[1], 10);
+
+  let result = "INR " + convert(rupees) + " Only";
+  if (paise > 0) {
+    result = "INR " + convert(rupees) + " and " + convert(paise) + " Paise Only";
+  }
+
+  return result;
 };
 
 export default OrderNew;

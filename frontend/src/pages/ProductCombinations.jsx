@@ -1517,7 +1517,8 @@ const ProductCombinations = () => {
       if (product) {
         const pricing = productPricings[product.id];
         const productValue =
-          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+          formatNumber(pricing?.mrp) || formatNumber(product.mrp) ||
+          formatNumber(pricing?.calculated_rate) || formatNumber(product.price);
         totalRewardsValue += productValue * formatNumber(reward.quantity_free);
 
         totalMRP +=
@@ -1538,7 +1539,8 @@ const ProductCombinations = () => {
       if (product) {
         const pricing = productPricings[product.id];
         const productValue =
-          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+          formatNumber(pricing?.mrp) || formatNumber(product.mrp) ||
+          formatNumber(pricing?.calculated_rate) || formatNumber(product.price);
         totalGiftsValue += productValue * (formatNumber(gift.quantity) || 1);
 
         totalMRP +=
@@ -1663,7 +1665,8 @@ const ProductCombinations = () => {
       if (product) {
         const pricing = productPricings[product.id];
         const saleRate =
-          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+          formatNumber(pricing?.mrp) || formatNumber(product.mrp) ||
+          formatNumber(pricing?.calculated_rate) || formatNumber(product.price);
         const landingRate = formatNumber(pricing?.landing_rate) || 0;
 
         totalMRP +=
@@ -1683,7 +1686,8 @@ const ProductCombinations = () => {
       if (product) {
         const pricing = productPricings[product.id];
         const saleRate =
-          formatNumber(pricing?.sale_rate) || formatNumber(product.price);
+          formatNumber(pricing?.mrp) || formatNumber(product.mrp) ||
+          formatNumber(pricing?.calculated_rate) || formatNumber(product.price);
         const landingRate = formatNumber(pricing?.landing_rate) || 0;
 
         totalMRP +=
@@ -2718,7 +2722,7 @@ const ProductCombinations = () => {
     }
   };
 
-  const resetForm = () => {
+  const resetForm = (isPopState = false) => {
     setFormData({
       name: "",
       combo_weight: "",
@@ -2743,7 +2747,32 @@ const ProductCombinations = () => {
     });
     setEditingCombination(null);
     setShowForm(false);
+
+    // Clean up history state if closed manually and popup state is in history
+    if (!isPopState && window.history.state?.popup === "comboForm") {
+      window.history.back();
+    }
   };
+
+  // Handle popstate / back button navigation when form is open
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (showForm) {
+        resetForm(true);
+      }
+    };
+
+    if (showForm) {
+      if (window.history.state?.popup !== "comboForm") {
+        window.history.pushState({ popup: "comboForm" }, "");
+      }
+      window.addEventListener("popstate", handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [showForm]);
 
   const handleEdit = (combination) => {
     setFormData({
@@ -2899,7 +2928,7 @@ const ProductCombinations = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-2"></div>
-          <p className="text-gray-600">Loading product combinations...</p>
+          <p className="text-gray-600">Loading Combo's...</p>
         </div>
       </div>
     );
@@ -5201,7 +5230,7 @@ const ProductCombinations = () => {
 
                               // For free rewards, offer price is typically 0 since it's free
                               const offerPrice = 0;
-                              const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
+                              const effectiveRate = mrp && mrp !== 0 ? mrp : calculatedRate;
                               const subtotal = effectiveRate * quantity;
 
                               return (
@@ -5677,17 +5706,17 @@ const ProductCombinations = () => {
                                             parseInt(selectedProductId),
                                         )
                                         : null;
-                                      const saleRate = formatNumber(
-                                        pricing?.sale_rate ??
-                                        product?.price ??
-                                        0,
-                                      );
                                       const calculatedRate = formatNumber(
                                         pricing?.calculated_rate ??
                                         product?.price ??
                                         0,
                                       );
-                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
+                                      const mrp = formatNumber(
+                                        pricing?.mrp ??
+                                        product?.mrp ??
+                                        0,
+                                      );
+                                      const effectiveRate = mrp && mrp !== 0 ? mrp : calculatedRate;
                                       const quantity = formatNumber(
                                         reward.quantity_free,
                                       );
@@ -5858,8 +5887,7 @@ const ProductCombinations = () => {
                                   ? `${totalVolume.toFixed(6)} m³`
                                   : "-";
 
-                              // FIXED: Use saleRate for subtotal, offer_price is just for display
-                              const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
+                              const effectiveRate = mrp && mrp !== 0 ? mrp : calculatedRate;
                               const subtotal = effectiveRate * quantity;
 
                               return (
@@ -6325,16 +6353,16 @@ const ProductCombinations = () => {
                                             parseInt(selectedProductId),
                                         )
                                         : null;
-                                      const saleRate = formatNumber(
-                                        pricing?.sale_rate ??
-                                        product?.price ??
+                                      const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
+                                      const mrp = formatNumber(
+                                        pricing?.mrp ??
+                                        product?.mrp ??
                                         0,
                                       );
+                                      const effectiveRate = mrp && mrp !== 0 ? mrp : calculatedRate;
                                       const quantity = formatNumber(
                                         gift.quantity,
                                       );
-                                      const calculatedRate = formatNumber(pricing?.calculated_rate ?? product?.price ?? 0);
-                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
                                       return total + effectiveRate * quantity;
                                     }, 0)
                                     .toFixed(2)}
@@ -6960,17 +6988,17 @@ const ProductCombinations = () => {
                                         (p) =>
                                           p.id === parseInt(reward.product),
                                       );
-                                      const saleRate = formatNumber(
-                                        pricing?.sale_rate ??
-                                        product?.price ??
-                                        0,
-                                      );
                                       const calculatedRate = formatNumber(
                                         pricing?.calculated_rate ??
                                         product?.price ??
                                         0,
                                       );
-                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
+                                      const mrp = formatNumber(
+                                        pricing?.mrp ??
+                                        product?.mrp ??
+                                        0,
+                                      );
+                                      const effectiveRate = mrp && mrp !== 0 ? mrp : calculatedRate;
                                       return (
                                         total +
                                         effectiveRate *
@@ -6983,17 +7011,17 @@ const ProductCombinations = () => {
                                       const product = products.find(
                                         (p) => p.id === parseInt(gift.product),
                                       );
-                                      const saleRate = formatNumber(
-                                        pricing?.sale_rate ??
-                                        product?.price ??
-                                        0,
-                                      );
                                       const calculatedRate = formatNumber(
                                         pricing?.calculated_rate ??
                                         product?.price ??
                                         0,
                                       );
-                                      const effectiveRate = saleRate && saleRate !== 0 ? saleRate : calculatedRate;
+                                      const mrp = formatNumber(
+                                        pricing?.mrp ??
+                                        product?.mrp ??
+                                        0,
+                                      );
+                                      const effectiveRate = mrp && mrp !== 0 ? mrp : calculatedRate;
                                       return (
                                         total +
                                         effectiveRate *

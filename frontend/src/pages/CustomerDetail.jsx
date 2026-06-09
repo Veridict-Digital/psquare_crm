@@ -14,6 +14,8 @@ import {
   X,
   Plus,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   MapPin,
   Copy,
@@ -75,6 +77,7 @@ const CustomerDetail = () => {
   const lastSyncedTimeRef = useRef(null);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Fetch customer details
   const {
@@ -484,6 +487,12 @@ const CustomerDetail = () => {
       const seconds = totalSeconds % 60;
       return seconds > 0 ? `${minutes} min ${seconds} sec` : `${minutes} min`;
     }
+  };
+
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return "Select date";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
   };
 
   const handleAgentSelect = (agentId) => {
@@ -1499,39 +1508,19 @@ const CustomerDetail = () => {
               )}
             </div>
 
-            <div 
+            <div
               onClick={() => {
-                try {
-                  dateInputRef.current?.showPicker();
-                } catch (err) {
-                  console.error("showPicker not supported or failed", err);
-                }
+                setShowCalendar(!showCalendar);
               }}
-              className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 cursor-pointer"
+              className="relative flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 cursor-pointer"
             >
               <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
                 Date:
               </div>
-              <input
-                ref={dateInputRef}
-                type="date"
-                value={appointmentDate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setAppointmentDate(val);
-                  updateMutation.mutate({ appointment_date: val || null });
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  try {
-                    dateInputRef.current?.showPicker();
-                  } catch (err) {
-                    console.error("showPicker failed", err);
-                  }
-                }}
-                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
-              />
+              <span className={`flex-1 text-sm font-semibold px-2 py-1 transition-all ${appointmentDate ? "text-slate-800" : "text-slate-400"}`}>
+                {appointmentDate ? formatDisplayDate(appointmentDate) : "Select date"}
+              </span>
               {appointmentDate && (
                 <button
                   type="button"
@@ -1539,7 +1528,7 @@ const CustomerDetail = () => {
                     e.stopPropagation();
                     setAppointmentDate("");
                     setAppointmentTime("");
-                    updateMutation.mutate({ 
+                    updateMutation.mutate({
                       appointment_date: null,
                       appointment_time: null
                     });
@@ -1550,9 +1539,19 @@ const CustomerDetail = () => {
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
+              {showCalendar && (
+                <TwoMonthCalendar
+                  selectedDate={appointmentDate}
+                  onChange={(dateVal) => {
+                    setAppointmentDate(dateVal);
+                    updateMutation.mutate({ appointment_date: dateVal || null });
+                  }}
+                  onClose={() => setShowCalendar(false)}
+                />
+              )}
             </div>
 
-            <div 
+            <div
               onClick={() => {
                 try {
                   timeInputRef.current?.showPicker();
@@ -2755,6 +2754,212 @@ const CustomerDetail = () => {
         </div>
       </div>
     </>
+  );
+};
+
+const TwoMonthCalendar = ({ selectedDate, onChange, onClose }) => {
+  const getInitialMonth = () => {
+    if (selectedDate) {
+      const parsed = new Date(selectedDate);
+      if (!isNaN(parsed.getTime())) {
+        return new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+      }
+    }
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  };
+
+  const [leftMonth, setLeftMonth] = useState(getInitialMonth);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedDate) {
+      const parsed = new Date(selectedDate);
+      if (!isNaN(parsed.getTime())) {
+        const selYear = parsed.getFullYear();
+        const selMonth = parsed.getMonth();
+
+        const leftYear = leftMonth.getFullYear();
+        const leftMonthVal = leftMonth.getMonth();
+
+        const rightMonthVal = (leftMonthVal + 1) % 12;
+        const rightYear = leftMonthVal === 11 ? leftYear + 1 : leftYear;
+
+        const isVisible =
+          (selYear === leftYear && selMonth === leftMonthVal) ||
+          (selYear === rightYear && selMonth === rightMonthVal);
+
+        if (!isVisible) {
+          setLeftMonth(new Date(selYear, selMonth, 1));
+        }
+      }
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [onClose]);
+
+  const handlePrevMonth = (e) => {
+    e.stopPropagation();
+    setLeftMonth(new Date(leftMonth.getFullYear(), leftMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = (e) => {
+    e.stopPropagation();
+    setLeftMonth(new Date(leftMonth.getFullYear(), leftMonth.getMonth() + 1, 1));
+  };
+
+  const getMonthData = (baseDate) => {
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+
+    const days = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      days.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push(new Date(year, month, d));
+    }
+
+    return {
+      year,
+      month,
+      monthName: baseDate.toLocaleString("default", { month: "long" }),
+      days,
+    };
+  };
+
+  const leftMonthData = getMonthData(leftMonth);
+  const rightMonthData = getMonthData(
+    new Date(leftMonth.getFullYear(), leftMonth.getMonth() + 1, 1)
+  );
+
+  const isSelected = (date) => {
+    if (!date || !selectedDate) return false;
+    const dYear = date.getFullYear();
+    const dMonth = String(date.getMonth() + 1).padStart(2, "0");
+    const dDay = String(date.getDate()).padStart(2, "0");
+    return `${dYear}-${dMonth}-${dDay}` === selectedDate;
+  };
+
+  const isToday = (date) => {
+    if (!date) return false;
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const handleDateClick = (date, e) => {
+    e.stopPropagation();
+    if (!date) return;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const formatted = `${y}-${m}-${d}`;
+    onChange(formatted);
+    onClose();
+  };
+
+  const weekdays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+  const renderMonthPanel = (monthData, showPrevBtn, showNextBtn) => {
+    return (
+      <div className="w-64 select-none">
+        <div className="flex items-center justify-between mb-4">
+          {showPrevBtn ? (
+            <button
+              onClick={handlePrevMonth}
+              type="button"
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors focus:outline-none"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="w-7 h-7" />
+          )}
+
+          <h3 className="font-bold text-slate-800 text-sm">
+            {monthData.monthName} {monthData.year}
+          </h3>
+
+          {showNextBtn ? (
+            <button
+              onClick={handleNextMonth}
+              type="button"
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors focus:outline-none"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="w-7 h-7" />
+          )}
+        </div>
+
+        <div className="grid grid-cols-7 gap-y-1 mb-2 text-center">
+          {weekdays.map((day) => (
+            <span key={day} className="text-xs font-bold text-slate-400">
+              {day}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-y-1 text-center">
+          {monthData.days.map((day, idx) => {
+            if (day === null) {
+              return <div key={`empty-${idx}`} className="h-8" />;
+            }
+
+            const selected = isSelected(day);
+            const today = isToday(day);
+
+            return (
+              <button
+                key={day.getTime()}
+                type="button"
+                onClick={(e) => handleDateClick(day, e)}
+                className={`h-8 w-8 text-xs font-semibold rounded-lg flex items-center justify-center transition-all duration-150 focus:outline-none mx-auto
+                  ${
+                    selected
+                      ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25"
+                      : today
+                      ? "border border-blue-500 text-blue-600 hover:bg-slate-100"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  }
+                `}
+              >
+                {day.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 flex flex-col md:flex-row gap-6 md:gap-8 justify-center items-start animate-in fade-in slide-in-from-top-2 duration-200"
+    >
+      {renderMonthPanel(leftMonthData, true, false)}
+      <div className="hidden md:block w-px bg-slate-100 self-stretch my-1" />
+      {renderMonthPanel(rightMonthData, false, true)}
+    </div>
   );
 };
 

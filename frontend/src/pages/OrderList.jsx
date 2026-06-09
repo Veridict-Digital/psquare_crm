@@ -800,11 +800,13 @@ const OrderList = () => {
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Order ID</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Order Date</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Customer</th>
+                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Org Name</th>
+                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Org Type</th>
+                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Phone</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Agent</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Total Amount</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Paid Amount</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Pending Amount</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Items</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Status</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Payment Status</th>
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Delivery Address</th>
@@ -829,8 +831,19 @@ const OrderList = () => {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center">
                             <Users className="w-4 h-4 text-gray-400 mr-2" />
-                            <span className="text-sm font-medium text-gray-900">{order.customer_name}</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {`${order.customer_details?.name || order.customer_name || ""} ${order.customer_details?.surname || ""}`.trim()}
+                            </span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.customer_details?.company_name || '—'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.customer_details?.company_type_display || '—'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.customer_details?.phone || '—'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{order.agent_name}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -843,9 +856,6 @@ const OrderList = () => {
                           <span className="text-sm font-medium text-red-600">
                             ₹{(parseFloat(order.total_amount || 0) - parseFloat(order.paid_amount || 0)).toLocaleString()}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.items ? order.items.length : 0} items
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -909,7 +919,7 @@ const OrderList = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="13" className="px-6 py-12 text-center">
+                      <td colSpan="14" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center">
                           <ShoppingCart className="w-12 h-12 text-gray-400 mb-4" />
                           <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
@@ -1034,7 +1044,7 @@ const OrderList = () => {
                           <Package className="w-5 h-5 text-green-600" />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{order.customer_name}</h3>
+                           <h3 className="font-semibold text-gray-900">{`${order.customer_details?.name || order.customer_name || ""} ${order.customer_details?.surname || ""}`.trim()}</h3>
                           <p className="text-sm text-gray-500 font-mono">{order.order_id || `ORD-${order.id}`}</p>
                         </div>
                       </div>
@@ -1063,6 +1073,20 @@ const OrderList = () => {
                     </div>
 
                     <div className="space-y-3 mb-4">
+                      {order.customer_details?.company_name && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Organization:</span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {order.customer_details.company_name} {order.customer_details.company_type_display ? `(${order.customer_details.company_type_display})` : ''}
+                          </span>
+                        </div>
+                      )}
+                      {order.customer_details?.phone && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Phone:</span>
+                          <span className="text-sm font-medium text-gray-900">{order.customer_details.phone}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Agent:</span>
                         <span className="text-sm font-medium text-gray-900">{order.agent_name}</span>
