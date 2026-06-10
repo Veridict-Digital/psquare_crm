@@ -141,6 +141,7 @@ export const CallPopupProvider = ({ children }) => {
             setCallIdString(data.callId || newStringId);
             setCallId(null); // Database ID not known yet
             console.log('New call - generated ID:', newStringId);
+            setIsRunning(true); // Automatically start call timer
         }
         
         setSelectedAssumption(data.selectedAssumption || []);
@@ -195,7 +196,7 @@ export const CallPopupProvider = ({ children }) => {
     setIsRunning(false);
   };
 
-  const saveInfo = async (isEditing = false) => {
+  const saveInfo = async (isEditing = false, statusToSave = 'In Progress') => {
     // If editing and externalSaveFn is provided, use it for instant update
     if (externalSaveFn && callId) {
         // Compose the payload for edit
@@ -218,7 +219,7 @@ export const CallPopupProvider = ({ children }) => {
         }
     }
     
-    console.log('saveInfo called with isEditing:', isEditing);
+    console.log('saveInfo called with isEditing:', isEditing, 'statusToSave:', statusToSave);
     console.log('callId (db):', callId);
     console.log('callIdString:', callIdString);
     console.log('Current customer:', customer);
@@ -253,7 +254,7 @@ export const CallPopupProvider = ({ children }) => {
         const callLogData = {
             duration: timer,
             note: notes,
-            status: 'In Progress',
+            status: statusToSave,
             call_id: callIdString,
         };
 
@@ -301,6 +302,9 @@ export const CallPopupProvider = ({ children }) => {
                 setCallIdString(response.data.call_id);
             }
             
+            queryClient.invalidateQueries(['call-logs']);
+            queryClient.invalidateQueries(['customer-details']);
+            
             if (isEditing || isEditingLastCall) {
                 resetCallState();
             }
@@ -316,19 +320,20 @@ export const CallPopupProvider = ({ children }) => {
         alert(`Failed to save info: ${error.response?.data?.error || error.message}`);
         return null;
     }
-};
+  };
 
   const endCall = async () => {
     let latestCallId = callId;
     
-    // If info is not saved (no callId but timer > 0), save it first
+    // If info is not saved (no callId but timer > 0), save it directly as 'Completed' in a single request!
     if ((!callId || callId === null) && timer > 0 && callIdString) {
-        // Pass isEditing flag if this was an edit operation
-        const newId = await saveInfo(isEditingLastCall);
+        const newId = await saveInfo(isEditingLastCall, 'Completed');
         if (newId) {
             latestCallId = newId;
             setCallId(newId);
         }
+        resetCallState();
+        return;
     }
 
     // Now update the call as completed if callId exists
@@ -372,7 +377,7 @@ export const CallPopupProvider = ({ children }) => {
 
     // Reset all call state
     resetCallState();
-};
+  };
 
   // Create, edit, delete for each assumption type
   const createNewAssumption = async () => {

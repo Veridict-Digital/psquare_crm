@@ -60,6 +60,30 @@ const OrderNew = () => {
     return isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
   };
 
+  // Get active customer ID on mount
+  const initialCustomerId = useMemo(() => {
+    if (editMode) return "";
+    return urlCustomerId || sessionStorage.getItem("orderNewLastActiveCustomerId") || "";
+  }, [urlCustomerId, editMode]);
+
+  // Helper to load initial values from customer-specific keys
+  const getInitialDraft = (type, defaultVal) => {
+    if (editMode) return defaultVal;
+    const targetId = initialCustomerId.toString();
+    const key = type === "form" 
+      ? `orderNewFormData_${targetId || 'anonymous'}`
+      : type === "items"
+        ? `orderNewOrderItems_${targetId || 'anonymous'}`
+        : `orderNewAppliedCombos_${targetId || 'anonymous'}`;
+    const saved = sessionStorage.getItem(key);
+    if (!saved) return defaultVal;
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      return defaultVal;
+    }
+  };
+
   // State initialization with edit mode support
   const [formData, setFormData] = useState(() => {
     const defaultData = {
@@ -104,9 +128,14 @@ const OrderNew = () => {
         };
       }
     }
-    if (!urlCustomerId && !editMode) {
-      const saved = sessionStorage.getItem("orderNewFormData");
-      return saved ? JSON.parse(saved) : defaultData;
+    if (!editMode) {
+      const draft = getInitialDraft("form", null);
+      if (draft) {
+        if (urlCustomerId) {
+          return { ...draft, customer: urlCustomerId };
+        }
+        return draft;
+      }
     }
     return defaultData;
   });
@@ -120,11 +149,7 @@ const OrderNew = () => {
         return editData.orderItems || [];
       }
     }
-    if (!editMode) {
-      const saved = sessionStorage.getItem("orderNewOrderItems");
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+    return getInitialDraft("items", []);
   });
 
   const [selectedProduct, setSelectedProduct] = useState("");
@@ -138,11 +163,7 @@ const OrderNew = () => {
         return editData.appliedCombos || [];
       }
     }
-    if (!editMode) {
-      const saved = sessionStorage.getItem("orderNewAppliedCombos");
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+    return getInitialDraft("combos", []);
   });
 
   const [customerKPIs, setCustomerKPIs] = useState(null);
@@ -169,6 +190,55 @@ const OrderNew = () => {
   const [filterGift, setFilterGift] = useState(false);
   const [showQuotationModal, setShowQuotationModal] = useState(false);
 
+  // Helper to switch drafts between customers
+  const loadDraftForCustomer = (custId) => {
+    const targetId = custId ? custId.toString() : "";
+    const savedForm = sessionStorage.getItem(`orderNewFormData_${targetId || 'anonymous'}`);
+    
+    const defaultData = {
+      customer: targetId,
+      agent: "",
+      status: "Placed",
+      payment_status: "Credit",
+      followup_date: "",
+      partial_amount: 0,
+      delivery_address: {
+        house_flat_no: "",
+        wing_lane: "",
+        society_colony: "",
+        landmark: "",
+        area: "",
+        pincode: "",
+        state: "",
+        district: "",
+        tahsil: "",
+        city: "",
+      },
+      delivery_option: "primary",
+      order_date: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString().split('T')[0],
+    };
+
+    let newForm = defaultData;
+    let newItems = [];
+    let newCombos = [];
+
+    if (savedForm) {
+      try {
+        newForm = JSON.parse(savedForm);
+        newItems = JSON.parse(sessionStorage.getItem(`orderNewOrderItems_${targetId || 'anonymous'}`) || "[]");
+        newCombos = JSON.parse(sessionStorage.getItem(`orderNewAppliedCombos_${targetId || 'anonymous'}`) || "[]");
+      } catch (e) {
+        console.error("Error parsing saved draft for customer " + targetId, e);
+      }
+    }
+
+    setFormData(newForm);
+    setOrderItems(newItems);
+    setAppliedCombos(newCombos);
+    sessionStorage.setItem("orderNewLastActiveCustomerId", targetId);
+  };
+
   // Clear combo filters if no product is selected (with purchase product default selected)
   useEffect(() => {
     if (!selectedProduct) {
@@ -181,21 +251,25 @@ const OrderNew = () => {
   // Persist to sessionStorage (only for new orders, not edit mode)
   useEffect(() => {
     if (!editMode) {
-      sessionStorage.setItem("orderNewFormData", JSON.stringify(formData));
+      const targetId = formData.customer ? formData.customer.toString() : "";
+      sessionStorage.setItem(`orderNewFormData_${targetId || 'anonymous'}`, JSON.stringify(formData));
+      sessionStorage.setItem("orderNewLastActiveCustomerId", targetId);
     }
   }, [formData, editMode]);
 
   useEffect(() => {
     if (!editMode) {
-      sessionStorage.setItem("orderNewOrderItems", JSON.stringify(orderItems));
+      const targetId = formData.customer ? formData.customer.toString() : "";
+      sessionStorage.setItem(`orderNewOrderItems_${targetId || 'anonymous'}`, JSON.stringify(orderItems));
     }
-  }, [orderItems, editMode]);
+  }, [orderItems, formData.customer, editMode]);
 
   useEffect(() => {
     if (!editMode) {
-      sessionStorage.setItem("orderNewAppliedCombos", JSON.stringify(appliedCombos));
+      const targetId = formData.customer ? formData.customer.toString() : "";
+      sessionStorage.setItem(`orderNewAppliedCombos_${targetId || 'anonymous'}`, JSON.stringify(appliedCombos));
     }
-  }, [appliedCombos, editMode]);
+  }, [appliedCombos, formData.customer, editMode]);
 
   // Log for debugging
   useEffect(() => {
@@ -1128,9 +1202,10 @@ const OrderNew = () => {
         sessionStorage.removeItem("orderEditData");
         sessionStorage.removeItem("orderEditId");
       } else {
-        sessionStorage.removeItem("orderNewFormData");
-        sessionStorage.removeItem("orderNewOrderItems");
-        sessionStorage.removeItem("orderNewAppliedCombos");
+        const targetId = formData.customer ? formData.customer.toString() : "";
+        sessionStorage.removeItem(`orderNewFormData_${targetId || 'anonymous'}`);
+        sessionStorage.removeItem(`orderNewOrderItems_${targetId || 'anonymous'}`);
+        sessionStorage.removeItem(`orderNewAppliedCombos_${targetId || 'anonymous'}`);
       }
 
       if (!editMode) {
@@ -2508,7 +2583,7 @@ const OrderNew = () => {
                                 key={customer.id}
                                 type="button"
                                 onClick={() => {
-                                  setFormData((prev) => ({ ...prev, customer: customer.id }));
+                                  loadDraftForCustomer(customer.id);
                                   setCustomerDropdownOpen(false);
                                   setCustomerSearch("");
                                 }}

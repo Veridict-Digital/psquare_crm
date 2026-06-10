@@ -789,7 +789,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         all_phones = list(all_phones_dict.values())
 
         # Get call logs for this customer
-        call_logs = CallLog.objects.filter(customer=customer).select_related('employee').order_by('-date')
+        call_logs = CallLog.objects.filter(customer=customer).select_related('employee').prefetch_related('assumption', 'assumption2', 'assumption3').order_by('-date')
 
         old_order_histories = OldOrderHistory.objects.filter(customer=customer).order_by('-date')
         
@@ -798,7 +798,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             call_logs = call_logs.filter(employee=user)
 
         # Get orders for this customer
-        orders = Order.objects.filter(customer=customer).select_related('agent').order_by('-id')
+        orders = Order.objects.filter(customer=customer).select_related('agent').prefetch_related('items__product').order_by('-id')
 
         # Calculate summary statistics
         total_calls = call_logs.count()
@@ -1055,7 +1055,11 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 # ========== PRODUCT VIEWSET ==========
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all().order_by('-id')
+    queryset = Product.objects.select_related(
+        'category', 'category1', 'category2', 'category3', 'category4',
+        'gst_rate', 'brand', 'brand_category', 'flavour', 'residual',
+        'brand_category1', 'packing_weight_unit'
+    ).prefetch_related('pricings').all().order_by('-id')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -1883,7 +1887,11 @@ class GSTRateViewSet(viewsets.ModelViewSet):
 
 # ========== PRODUCT COMBINATION VIEWSET ==========
 class ProductCombinationViewSet(viewsets.ModelViewSet):
-    queryset = ProductCombination.objects.filter(is_active=True)
+    queryset = ProductCombination.objects.prefetch_related(
+        'items__product',
+        'rewards__product',
+        'gifts__product'
+    ).filter(is_active=True)
     serializer_class = ProductCombinationSerializer
     permission_classes = [IsAuthenticated]
 
