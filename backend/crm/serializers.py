@@ -313,6 +313,22 @@ class OrderSerializer(serializers.ModelSerializer):
         # Handle delivery address (structured and legacy)
         delivery_address = validated_data.pop('delivery_address', None)
         logger.warning(f"Order create: delivery_address={delivery_address}, validated_data={validated_data}")
+        if delivery_address is not None:
+            if isinstance(delivery_address, str):
+                import json
+                import ast
+                try:
+                    parsed = json.loads(delivery_address)
+                    if isinstance(parsed, dict):
+                        delivery_address = parsed
+                except (ValueError, TypeError):
+                    try:
+                        parsed = ast.literal_eval(delivery_address)
+                        if isinstance(parsed, dict):
+                            delivery_address = parsed
+                    except (ValueError, SyntaxError, TypeError):
+                        pass
+
         if isinstance(delivery_address, dict):
             for field in [
                 'house_flat_no', 'wing_lane', 'society_colony', 'landmark', 'area', 'pincode',
@@ -348,6 +364,35 @@ class OrderSerializer(serializers.ModelSerializer):
         applied_combos = validated_data.pop('applied_combos', None)
         if applied_combos is not None:
             instance.applied_combos = applied_combos
+
+        # Handle delivery address (structured and legacy)
+        delivery_address = validated_data.pop('delivery_address', None)
+        if delivery_address is not None:
+            if isinstance(delivery_address, str):
+                import json
+                import ast
+                try:
+                    parsed = json.loads(delivery_address)
+                    if isinstance(parsed, dict):
+                        delivery_address = parsed
+                except (ValueError, TypeError):
+                    try:
+                        parsed = ast.literal_eval(delivery_address)
+                        if isinstance(parsed, dict):
+                            delivery_address = parsed
+                    except (ValueError, SyntaxError, TypeError):
+                        pass
+
+            if isinstance(delivery_address, dict):
+                for field in [
+                    'house_flat_no', 'wing_lane', 'society_colony', 'landmark', 'area', 'pincode',
+                    'state', 'district', 'tahsil', 'city']:
+                    setattr(instance, f'delivery_{field}', delivery_address.get(field, ''))
+                instance.delivery_address = ', '.join([delivery_address.get(f, '') for f in [
+                    'house_flat_no', 'wing_lane', 'society_colony', 'landmark', 'area', 'city', 'district', 'state', 'pincode'] if delivery_address.get(f)])
+            elif isinstance(delivery_address, str):
+                instance.delivery_address = delivery_address
+
         # Explicit validation
         if not validated_data.get('customer'):
             raise serializers.ValidationError('Customer is required.')

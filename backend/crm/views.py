@@ -1491,7 +1491,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         if customer_pincode:
             queryset = queryset.filter(customer__pincode__icontains=customer_pincode)
 
-        return queryset
+        return queryset.prefetch_related('items__product')
 
 
     def update(self, request, *args, **kwargs):

@@ -169,6 +169,7 @@ const OrderNew = () => {
   const [customerKPIs, setCustomerKPIs] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [generatedOrderId, setGeneratedOrderId] = useState("");
+  const [savedDbOrderId, setSavedDbOrderId] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
@@ -1194,6 +1195,7 @@ const OrderNew = () => {
     },
     onSuccess: (data) => {
       setGeneratedOrderId(data.order_id);
+      setSavedDbOrderId(data.id);
       setShowSuccessModal(true);
       queryClient.invalidateQueries(["orders"]);
       queryClient.invalidateQueries(["customers"]);
@@ -1967,135 +1969,137 @@ const OrderNew = () => {
       return date.toLocaleDateString('en-IN');
     };
 
-    const renderInvoiceContent = () => (
-      <div className="inv-box">
-        <div className="inv-header">Quotation Invoice</div>
+    const renderInvoiceContent = (isPrint = false) => (
+      <div className={isPrint ? "inv-box" : ""}>
+        {isPrint && <div className="inv-header">Quotation Invoice</div>}
 
-        {/* Row 1: Company details (Left) and Invoice Details (Right) */}
-        <div className="inv-row inv-border-b">
-          {/* Left Column: Seller/From Details */}
-          <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between" style={{ padding: "5px 6px" }}>
-            <div style={{ width: "50%" }} className="pr-2 text-[10px]">
-              <div className="font-bold" style={{ fontSize: "11px" }}>PARU ENTERPRISES</div>
-              <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-normal text-gray-800">
-                A SQUARE PLAZA GR FLR OPP{"\n"}NARMADA GARDEN SANGVI PUNE{"\n"}State Name: Maharashtra, Code: 27
+        {isPrint && (
+          <div className="inv-row inv-border-b">
+            {/* Left Column: Seller/From Details */}
+            <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between" style={{ padding: "5px 6px" }}>
+              <div style={{ width: "50%" }} className="pr-2 text-[10px]">
+                <div className="font-bold" style={{ fontSize: "11px" }}>PARU ENTERPRISES</div>
+                <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-normal text-gray-800">
+                  A SQUARE PLAZA GR FLR OPP{"\n"}NARMADA GARDEN SANGVI PUNE{"\n"}State Name: Maharashtra, Code: 27
+                </div>
               </div>
-            </div>
-            <div style={{ width: "50%" }} className="pl-2 text-[11px] text-gray-800 self-start mt-0.5">
-              <div><strong>GSTIN/UIN:</strong> 27AKCPP9722G1ZY</div>
-              <div><strong>Contact:</strong> 9960345670</div>
-              <div><strong>E-Mail:</strong> Dcrpsquare@gmail.co</div>
-            </div>
-          </div>
-
-          {/* Right Column: Invoice Reference Numbers in a Grid */}
-          <div className="inv-w-50 flex flex-col text-[10px]">
-            <div className="inv-row inv-border-b flex-1">
-              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Quotation No.</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}>TEMP-QUOTE</span>
-              </div>
-              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Dated</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}>{formatDate(null)}</span>
+              <div style={{ width: "50%" }} className="pl-2 text-[11px] text-gray-800 self-start mt-0.5">
+                <div><strong>GSTIN/UIN:</strong> 27AKCPP9722G1ZY</div>
+                <div><strong>Contact:</strong> 9960345670</div>
+                <div><strong>E-Mail:</strong> Dcrpsquare@gmail.co</div>
               </div>
             </div>
 
-            <div className="inv-row inv-border-b flex-1">
-              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Delivery Note</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+            {/* Right Column: Invoice Reference Numbers in a Grid */}
+            <div className="inv-w-50 flex flex-col text-[10px]">
+              <div className="inv-row inv-border-b flex-1">
+                <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Quotation No.</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}>TEMP-QUOTE</span>
+                </div>
+                <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Dated</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}>{formatDate(null)}</span>
+                </div>
               </div>
-              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Mode/Terms of Payment</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}>{formData.payment_status}</span>
-              </div>
-            </div>
 
-            <div className="inv-row inv-border-b flex-1">
-              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Ref No. & Date</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              <div className="inv-row inv-border-b flex-1">
+                <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Delivery Note</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
+                <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Mode/Terms of Payment</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}>{formData.payment_status}</span>
+                </div>
               </div>
-              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Other References</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
-              </div>
-            </div>
 
-            <div className="inv-row flex-1">
-              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Buyer's Order No.</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              <div className="inv-row inv-border-b flex-1">
+                <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Ref No. & Date</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
+                <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Other References</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
               </div>
-              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Dated</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Row 2: Consignee & Buyer (Left) and Dispatch & Terms (Right) */}
-        <div className="inv-row inv-border-b text-[10px]">
-          {/* Left Column: Billing/Shipping Details */}
-          <div className="inv-cell inv-border-r inv-w-50 flex flex-col" style={{ padding: "5px 6px" }}>
-            <div className="inv-border-b pb-1.5 mb-1.5">
-              <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
-                <span className="text-[11px] text-gray-500 uppercase font-bold">Consignee (Ship to)</span>
-                {companyName && <span className="font-bold text-black">{companyName}</span>}
-                <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
-                  {customerFullName || "Walk-In Customer"}
-                </span>
-              </div>
-              <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
-              <div className="text-[11px] mt-1 text-gray-600">
-                {selectedCustomerObj?.phone && <div><strong>Contact:</strong> {selectedCustomerObj.phone}</div>}
-                <div><strong>State Name:</strong> {selectedCustomerObj?.state || 'Maharashtra'}, Code: {selectedCustomerObj?.state ? (selectedCustomerObj.gstin_no ? selectedCustomerObj.gstin_no.slice(0, 2) : '—') : '27'}</div>
-              </div>
-            </div>
-            <div>
-              <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
-                <span className="text-[11px] text-gray-500 uppercase font-bold">Buyer (Bill to)</span>
-                {companyName && <span className="font-bold text-black">{companyName}</span>}
-                <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
-                  {customerFullName || "Walk-In Customer"}
-                </span>
-              </div>
-              <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
-              <div className="text-[11px] mt-1 text-gray-600">
-                {selectedCustomerObj?.phone && <div><strong>Contact:</strong> {selectedCustomerObj.phone}</div>}
-                <div><strong>State Name:</strong> {selectedCustomerObj?.state || 'Maharashtra'}, Code: {selectedCustomerObj?.state ? (selectedCustomerObj.gstin_no ? selectedCustomerObj.gstin_no.slice(0, 2) : '—') : '27'}</div>
-                {selectedCustomerObj?.gstin_no && <div><strong>GSTIN/UIN:</strong> {formatGtin(selectedCustomerObj.gstin_no)}</div>}
+              <div className="inv-row flex-1">
+                <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Buyer's Order No.</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
+                <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Dated</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Right Column: Dispatch Details & Terms of Delivery */}
-          <div className="inv-w-50 flex flex-col">
-            <div className="inv-row inv-border-b flex-1">
-              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Dispatch Doc No.</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+        {isPrint && (
+          <div className="inv-row inv-border-b text-[10px]">
+            {/* Left Column: Billing/Shipping Details */}
+            <div className="inv-cell inv-border-r inv-w-50 flex flex-col" style={{ padding: "5px 6px" }}>
+              <div className="inv-border-b pb-1.5 mb-1.5">
+                <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
+                  <span className="text-[11px] text-gray-500 uppercase font-bold">Consignee (Ship to)</span>
+                  {companyName && <span className="font-bold text-black">{companyName}</span>}
+                  <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
+                    {customerFullName || "Walk-In Customer"}
+                  </span>
+                </div>
+                <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
+                <div className="text-[11px] mt-1 text-gray-600">
+                  {selectedCustomerObj?.phone && <div><strong>Contact:</strong> {selectedCustomerObj.phone}</div>}
+                  <div><strong>State Name:</strong> {selectedCustomerObj?.state || 'Maharashtra'}, Code: {selectedCustomerObj?.state ? (selectedCustomerObj.gstin_no ? selectedCustomerObj.gstin_no.slice(0, 2) : '—') : '27'}</div>
+                </div>
               </div>
-              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Delivery Note Date</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+              <div>
+                <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
+                  <span className="text-[11px] text-gray-500 uppercase font-bold">Buyer (Bill to)</span>
+                  {companyName && <span className="font-bold text-black">{companyName}</span>}
+                  <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
+                    {customerFullName || "Walk-In Customer"}
+                  </span>
+                </div>
+                <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
+                <div className="text-[11px] mt-1 text-gray-600">
+                  {selectedCustomerObj?.phone && <div><strong>Contact:</strong> {selectedCustomerObj.phone}</div>}
+                  <div><strong>State Name:</strong> {selectedCustomerObj?.state || 'Maharashtra'}, Code: {selectedCustomerObj?.state ? (selectedCustomerObj.gstin_no ? selectedCustomerObj.gstin_no.slice(0, 2) : '—') : '27'}</div>
+                  {selectedCustomerObj?.gstin_no && <div><strong>GSTIN/UIN:</strong> {formatGtin(selectedCustomerObj.gstin_no)}</div>}
+                </div>
               </div>
             </div>
 
-            <div className="inv-row flex-1">
-              <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Dispatched through</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+            {/* Right Column: Dispatch Details & Terms of Delivery */}
+            <div className="inv-w-50 flex flex-col">
+              <div className="inv-row inv-border-b flex-1">
+                <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Dispatch Doc No.</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
+                <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Delivery Note Date</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
               </div>
-              <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">Destination</span>
-                <span className="font-bold" style={{ fontSize: "10px" }}></span>
+
+              <div className="inv-row flex-1">
+                <div className="inv-cell inv-border-r inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Dispatched through</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
+                <div className="inv-cell inv-w-50 flex flex-row justify-between items-center" style={{ padding: "2px 6px" }}>
+                  <span className="text-[8px] text-gray-500 font-bold uppercase">Destination</span>
+                  <span className="font-bold" style={{ fontSize: "10px" }}></span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Items Table */}
         <table className="inv-table w-full">
@@ -2288,59 +2292,63 @@ const OrderNew = () => {
           </div>
         </div>
 
-        {/* Row 4: Bank Details & Declaration */}
-        <div className="inv-row inv-border-b text-[8px] leading-relaxed">
-          {/* Declaration */}
-          <div className="inv-cell inv-border-r inv-w-50" style={{ padding: "5px 6px" }}>
-            <div className="font-bold text-[9px] mb-0.5">Declaration:</div>
-            <p>
-              I/We hereby certify that my/our Registration certificate under the GST Act 2017, is in force on the date on which the sale of the goods specified in this tax invoice is made by me/us and that the transaction of sale covered by this tax invoice has been effected by me/us and it shall be accounted for in the turnover of sales while filing of return and the due tax, if any payable on the sale has been paid or shall be paid.
-            </p>
-            <div className="font-bold mt-1 text-gray-700">Terms & Conditions:</div>
-            <ul className="list-decimal pl-3 space-y-0.5 mt-0.5 text-gray-600">
-              <li>Goods once sold will not be taken back or exchanged.</li>
-              <li>Interest @24% p.a will be charged after due date of bill.</li>
-              <li>We reserve the right to demand payment of this bill at any time before due date.</li>
-            </ul>
-          </div>
+        {isPrint && (
+          <>
+            {/* Row 4: Bank Details & Declaration */}
+            <div className="inv-row inv-border-b text-[8px] leading-relaxed">
+              {/* Declaration */}
+              <div className="inv-cell inv-border-r inv-w-50" style={{ padding: "5px 6px" }}>
+                <div className="font-bold text-[9px] mb-0.5">Declaration:</div>
+                <p>
+                  I/We hereby certify that my/our Registration certificate under the GST Act 2017, is in force on the date on which the sale of the goods specified in this tax invoice is made by me/us and that the transaction of sale covered by this tax invoice has been effected by me/us and it shall be accounted for in the turnover of sales while filing of return and the due tax, if any payable on the sale has been paid or shall be paid.
+                </p>
+                <div className="font-bold mt-1 text-gray-700">Terms & Conditions:</div>
+                <ul className="list-decimal pl-3 space-y-0.5 mt-0.5 text-gray-600">
+                  <li>Goods once sold will not be taken back or exchanged.</li>
+                  <li>Interest @24% p.a will be charged after due date of bill.</li>
+                  <li>We reserve the right to demand payment of this bill at any time before due date.</li>
+                </ul>
+              </div>
 
-          {/* Bank Details */}
-          <div className="inv-cell inv-w-50 flex flex-col justify-between" style={{ padding: "5px 6px" }}>
-            <div>
-              <div className="font-bold text-[9px] mb-1">Company's Bank Details:</div>
-              <div className="space-y-1 text-[9px] text-gray-800">
-                <div><strong>Bank Name:</strong> AU SMALL FINANCE BANK</div>
-                <div><strong>A/c No.:</strong> 2221263141506073</div>
-                <div><strong>Branch & IFS Code:</strong> PUNE & AUBL0002631</div>
+              {/* Bank Details */}
+              <div className="inv-cell inv-w-50 flex flex-col justify-between" style={{ padding: "5px 6px" }}>
+                <div>
+                  <div className="font-bold text-[9px] mb-1">Company's Bank Details:</div>
+                  <div className="space-y-1 text-[9px] text-gray-800">
+                    <div><strong>Bank Name:</strong> AU SMALL FINANCE BANK</div>
+                    <div><strong>A/c No.:</strong> 2221263141506073</div>
+                    <div><strong>Branch & IFS Code:</strong> PUNE & AUBL0002631</div>
+                  </div>
+                </div>
+                <div className="mt-2 pt-1.5 border-t border-gray-200">
+                  <div className="text-[8px] text-gray-500 font-bold">Terms of Delivery:</div>
+                  <div className="text-[9px] text-gray-700 leading-normal">
+                    Subject to Pune jurisdiction. Delivery within 7 days.
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-2 pt-1.5 border-t border-gray-200">
-              <div className="text-[8px] text-gray-500 font-bold">Terms of Delivery:</div>
-              <div className="text-[9px] text-gray-700 leading-normal">
-                Subject to Pune jurisdiction. Delivery within 7 days.
+
+            {/* Signatures */}
+            <div className="inv-row">
+              {/* Customer Signature */}
+              <div className="inv-cell inv-border-r inv-w-50 h-16 flex flex-col justify-between" style={{ padding: "5px 6px" }}>
+                <div className="text-[8px] text-gray-500">Customer's Seal and Signature</div>
+                <div className="border-t border-dotted border-gray-400 w-36 mt-auto"></div>
+              </div>
+
+              {/* Authorized Signatory */}
+              <div className="inv-cell inv-w-50 h-16 flex flex-col justify-between text-right text-[8px]" style={{ padding: "5px 6px" }}>
+                <div className="font-bold text-[9px]">for PSQUARE ENTERPRISES</div>
+                <div className="inv-row justify-between text-[8px] text-gray-500 mt-auto">
+                  <span>Prepared by</span>
+                  <span>Verified by</span>
+                  <span className="font-bold text-black text-[9px]">Authorised Signatory</span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Signatures */}
-        <div className="inv-row">
-          {/* Customer Signature */}
-          <div className="inv-cell inv-border-r inv-w-50 h-16 flex flex-col justify-between" style={{ padding: "5px 6px" }}>
-            <div className="text-[8px] text-gray-500">Customer's Seal and Signature</div>
-            <div className="border-t border-dotted border-gray-400 w-36 mt-auto"></div>
-          </div>
-
-          {/* Authorized Signatory */}
-          <div className="inv-cell inv-w-50 h-16 flex flex-col justify-between text-right text-[8px]" style={{ padding: "5px 6px" }}>
-            <div className="font-bold text-[9px]">for PSQUARE ENTERPRISES</div>
-            <div className="inv-row justify-between text-[8px] text-gray-500 mt-auto">
-              <span>Prepared by</span>
-              <span>Verified by</span>
-              <span className="font-bold text-black text-[9px]">Authorised Signatory</span>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     );
 
@@ -2352,6 +2360,29 @@ const OrderNew = () => {
             font-family: Arial, sans-serif;
             color: black;
             background: white;
+            font-size: 14px;
+          }
+          .quotation-modal-content .inv-table {
+            font-size: 12.5px;
+          }
+          .quotation-modal-content .inv-table th,
+          .quotation-modal-content .inv-table td {
+            padding: 8px 10px;
+          }
+          .quotation-modal-content .text-\[10px\] {
+            font-size: 13.5px !important;
+          }
+          .quotation-modal-content .text-\[9px\] {
+            font-size: 12.5px !important;
+          }
+          .quotation-modal-content .text-\[8px\] {
+            font-size: 11.5px !important;
+          }
+          .quotation-modal-content td[style*="font-size: 11px"] {
+            font-size: 14.5px !important;
+          }
+          .quotation-modal-content div[style*="font-size: 9.5px"] {
+            font-size: 13.5px !important;
           }
           .inv-box {
             border: 1.5px solid #000;
@@ -2453,7 +2484,7 @@ const OrderNew = () => {
           }
         `}} />
 
-        <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full flex flex-col max-h-[95vh] overflow-hidden print:hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white rounded-3xl shadow-2xl max-w-7xl w-full flex flex-col max-h-[95vh] overflow-hidden print:hidden" onClick={(e) => e.stopPropagation()}>
           {/* Modal Header */}
           <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-gray-50 flex-shrink-0">
             <div>
@@ -2485,7 +2516,7 @@ const OrderNew = () => {
           {/* Modal Body */}
           <div className="p-6 overflow-y-auto bg-gray-100/50 flex-1 flex justify-center">
             {/* Exact invoice template (screen preview only) */}
-            <div className="quotation-modal-content p-6 shadow-lg border border-gray-300 rounded-lg max-w-[800px] w-full bg-white self-start">
+            <div className="quotation-modal-content p-6 shadow-lg border border-gray-300 rounded-lg max-w-5xl w-full bg-white self-start">
               {renderInvoiceContent()}
             </div>
           </div>
@@ -2494,7 +2525,7 @@ const OrderNew = () => {
         {/* Print Only Portal (Direct child of body, prevents double printing) */}
         {createPortal(
           <div id="quotation-print-area" className="hidden print:block text-black bg-white">
-            {renderInvoiceContent()}
+            {renderInvoiceContent(true)}
           </div>,
           document.body
         )}
@@ -2515,7 +2546,7 @@ const OrderNew = () => {
                     const orderId = sessionStorage.getItem('orderEditId');
                     sessionStorage.removeItem('orderEditData');
                     sessionStorage.removeItem('orderEditId');
-                    navigate(`/orders/edit/${orderId}`);
+                    navigate(`/orders/${orderId}`);
                   }}
                   className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all flex items-center space-x-2"
                 >
@@ -3243,7 +3274,7 @@ const OrderNew = () => {
           onClick={() => {
             setShowSuccessModal(false);
             if (editMode) {
-              navigate("/orders");
+              navigate(`/orders/${savedDbOrderId || editOrderId}`);
             }
           }}
         >
@@ -3302,11 +3333,11 @@ const OrderNew = () => {
               <button
                 onClick={() => {
                   setShowSuccessModal(false);
-                  navigate("/orders");
+                  navigate(editMode ? `/orders/${savedDbOrderId || editOrderId}` : "/orders");
                 }}
                 className="bg-gray-900 text-white px-6 py-2 rounded-lg hover:bg-gray-800"
               >
-                View Orders
+                {editMode ? "View Order Details" : "View Orders"}
               </button>
             </div>
           </div>

@@ -78,6 +78,102 @@ const OrderDetail = () => {
     }
   };
 
+  const handleEditClick = () => {
+    if (!order) return;
+
+    // 1. Format the delivery address
+    const deliveryAddress = {
+      house_flat_no: order.delivery_house_flat_no || "",
+      wing_lane: order.delivery_wing_lane || "",
+      society_colony: order.delivery_society_colony || "",
+      landmark: order.delivery_landmark || "",
+      area: order.delivery_area || "",
+      pincode: order.delivery_pincode || "",
+      state: order.delivery_state || "",
+      district: order.delivery_district || "",
+      tahsil: order.delivery_tahsil || "",
+      city: order.delivery_city || "",
+    };
+
+    // If order.delivery_address exists, try to parse it
+    if (order.delivery_address) {
+      if (typeof order.delivery_address === 'object' && order.delivery_address !== null) {
+        Object.assign(deliveryAddress, order.delivery_address);
+      } else if (typeof order.delivery_address === 'string' && order.delivery_address.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(order.delivery_address);
+          if (typeof parsed === 'object' && parsed !== null) {
+            Object.assign(deliveryAddress, parsed);
+          }
+        } catch (e) {
+          try {
+            // Try fallback: replacing single quotes with double quotes for single-quoted Python dict representation
+            const parsed = JSON.parse(order.delivery_address.replace(/'/g, '"'));
+            if (typeof parsed === 'object' && parsed !== null) {
+              Object.assign(deliveryAddress, parsed);
+            }
+          } catch (err) {
+            // If it's a plain string, keep deliveryAddress fields as they are from individual fields, or set area
+            if (!deliveryAddress.area) {
+              deliveryAddress.area = order.delivery_address;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Format the form data
+    const formData = {
+      customer: order.customer.toString(),
+      agent: order.agent || "",
+      status: order.status,
+      payment_status: order.payment_status,
+      followup_date: order.followup_date || "",
+      partial_amount: order.paid_amount || 0,
+      delivery_address: deliveryAddress,
+      delivery_option: order.delivery_option || "primary",
+      order_date: order.order_date || new Date().toISOString().split('T')[0],
+      created_at: order.created_at || new Date().toISOString().split('T')[0],
+    };
+
+    // 3. Format the order items
+    const orderItems = (order.items || []).map(item => ({
+      product: item.product,
+      product_title: item.product_title,
+      product_sku: item.product_sku,
+      quantity: item.quantity,
+      unit_price: parseFloat(item.unit_price),
+      original_price: parseFloat(item.unit_price),
+      gst_rate: item.gst_rate,
+      gst_rate_value: parseFloat(item.gst_rate_display || 0),
+      is_free: item.is_free || false,
+      is_gift: item.is_gift || false,
+      combo_id: item.combo || item.combo_id || null,
+    }));
+
+    // 4. Format applied combos
+    const appliedCombos = (order.applied_combos || []).map(ac => ({
+      comboId: ac.combo_id,
+      combo_id: ac.combo_id,
+      quantity: ac.quantity || 1,
+      name: ac.name || ""
+    }));
+
+    // 5. Package it together
+    const editData = {
+      formData,
+      orderItems,
+      appliedCombos
+    };
+
+    // 6. Set in sessionStorage
+    sessionStorage.setItem("orderEditData", JSON.stringify(editData));
+    sessionStorage.setItem("orderEditId", order.id.toString());
+
+    // 7. Navigate to OrderNew
+    navigate(`/orders/new?mode=edit&customer=${order.customer}`);
+  };
+
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -201,8 +297,17 @@ const OrderDetail = () => {
             return addressParts.length > 0 ? addressParts.join(', ') : null;
           }
         } catch (e) {
-          // Not a JSON string, just return as is
-          return order.delivery_address;
+          try {
+            // Try fallback: replacing single quotes with double quotes for single-quoted Python dict representation
+            const parsed = JSON.parse(order.delivery_address.replace(/'/g, '"'));
+            if (typeof parsed === 'object' && parsed !== null) {
+              const addressParts = Object.values(parsed).filter(Boolean);
+              return addressParts.length > 0 ? addressParts.join(', ') : null;
+            }
+          } catch (err) {
+            // Not a JSON string, just return as is
+            return order.delivery_address;
+          }
         }
         return order.delivery_address;
       }
@@ -581,12 +686,19 @@ const OrderDetail = () => {
               Export
             </button>
             <Link
-              to={`/orders/edit/${order.id}`}
+              to={`/customers/${order.customer}`}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center"
+            >
+              <User className="h-4 w-4 mr-2 text-indigo-600" />
+              View Customer
+            </Link>
+            <button
+              onClick={handleEditClick}
               className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center"
             >
               <Edit className="h-4 w-4 mr-2" />
               Edit
-            </Link>
+            </button>
             <button
               onClick={handleDelete}
               disabled={deleteMutation.isLoading}
@@ -602,7 +714,7 @@ const OrderDetail = () => {
         <div className="flex justify-center bg-gray-100/50 py-8 border border-gray-300 rounded-2xl shadow-inner mb-6 print:bg-transparent print:border-none print:shadow-none print:py-0 print:mb-0">
           <div id="print-invoice-area" className="bg-white p-8 shadow-2xl border border-gray-300 rounded-xl max-w-[800px] w-full text-black print:shadow-none print:border-none print:p-0 print:max-w-full print:bg-transparent">
             <div className="inv-box">
-              <div className="inv-header">Tax Invoice</div>
+              <div className="inv-header">Quotation Invoice</div>
 
               {/* Row 1: Company details (Left) and Invoice Details (Right) */}
               <div className="inv-row inv-border-b">
@@ -613,7 +725,6 @@ const OrderDetail = () => {
                     <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-normal text-gray-800">
                       A SQUARE PLAZA GR FLR OPP
                       {"\n"}NARMADA GARDEN SANGVI PUNE
-                      {"\n"}State Name: Maharashtra, Code: 27
                     </div>
                   </div>
                   <div style={{ width: "50%" }} className="pl-2 text-[11px] text-gray-800 self-start mt-0.5">
@@ -678,24 +789,31 @@ const OrderDetail = () => {
                   <div className="inv-border-b pb-1.5 mb-1.5">
                     <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
                       <span className="text-[11px] text-gray-500 uppercase font-bold">Consignee (Ship to)</span>
-                      {companyName && <span className="font-bold text-black">{companyName}</span>}
-                      <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
+                      {companyName && (
+                        <Link to={`/customers/${order.customer}`} className="font-bold text-blue-600 hover:underline hover:text-blue-800 print:text-black print:no-underline">
+                          {companyName}
+                        </Link>
+                      )}
+                      <Link to={`/customers/${order.customer}`} className={`${companyName ? "text-gray-800 font-normal" : "font-bold text-black"} hover:underline text-blue-600 hover:text-blue-800 print:text-black print:no-underline`}>
                         {customerFullName}
-                      </span>
+                      </Link>
                     </div>
                     <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
                     <div className="text-[11px] mt-1 text-gray-600">
                       {order.customer_details?.phone && <div><strong>Contact:</strong> {order.customer_details.phone}</div>}
-                      <div><strong>State Name:</strong> {order.customer_details?.state || 'Maharashtra'}, Code: {order.customer_details?.state ? (order.customer_details.gstin_no ? order.customer_details.gstin_no.slice(0, 2) : '—') : '27'}</div>
                     </div>
                   </div>
                   <div>
                     <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
                       <span className="text-[11px] text-gray-500 uppercase font-bold">Buyer (Bill to)</span>
-                      {companyName && <span className="font-bold text-black">{companyName}</span>}
-                      <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
+                      {companyName && (
+                        <Link to={`/customers/${order.customer}`} className="font-bold text-blue-600 hover:underline hover:text-blue-800 print:text-black print:no-underline">
+                          {companyName}
+                        </Link>
+                      )}
+                      <Link to={`/customers/${order.customer}`} className={`${companyName ? "text-gray-800 font-normal" : "font-bold text-black"} hover:underline text-blue-600 hover:text-blue-800 print:text-black print:no-underline`}>
                         {customerFullName}
-                      </span>
+                      </Link>
                     </div>
                     <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
                     <div className="text-[11px] mt-1 text-gray-600">
@@ -740,7 +858,7 @@ const OrderDetail = () => {
                     <th rowSpan="2" className="text-left">Description of Goods</th>
                     <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
                     <th colSpan="2" className="text-center w-24">Quantity</th>
-                    <th rowSpan="2" className="text-right w-20">Rate<br/>(Incl. of Tax)</th>
+                    <th rowSpan="2" className="text-right w-20">Rate<br />(Incl. of Tax)</th>
                     <th rowSpan="2" className="text-right w-20">Rate</th>
                     <th rowSpan="2" className="text-center w-12">per</th>
                     <th rowSpan="2" className="text-center w-12">Disc. %</th>
@@ -804,7 +922,7 @@ const OrderDetail = () => {
                       <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
                     </tr>
                   )}
-                  
+
                   {/* Round Off row */}
                   {Math.abs(roundOff) >= 0.005 && (
                     <tr style={{ height: "20px" }}>

@@ -183,6 +183,101 @@ const OrderList = () => {
     },
   });
 
+  const handleEditClick = (order) => {
+    if (!order) return;
+
+    // 1. Format the delivery address
+    const deliveryAddress = {
+      house_flat_no: order.delivery_house_flat_no || "",
+      wing_lane: order.delivery_wing_lane || "",
+      society_colony: order.delivery_society_colony || "",
+      landmark: order.delivery_landmark || "",
+      area: order.delivery_area || "",
+      pincode: order.delivery_pincode || "",
+      state: order.delivery_state || "",
+      district: order.delivery_district || "",
+      tahsil: order.delivery_tahsil || "",
+      city: order.delivery_city || "",
+    };
+
+    // If order.delivery_address exists, try to parse it
+    if (order.delivery_address) {
+      if (typeof order.delivery_address === 'object' && order.delivery_address !== null) {
+        Object.assign(deliveryAddress, order.delivery_address);
+      } else if (typeof order.delivery_address === 'string' && order.delivery_address.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(order.delivery_address);
+          if (typeof parsed === 'object' && parsed !== null) {
+            Object.assign(deliveryAddress, parsed);
+          }
+        } catch (e) {
+          try {
+            // Try fallback: replacing single quotes with double quotes for single-quoted Python dict representation
+            const parsed = JSON.parse(order.delivery_address.replace(/'/g, '"'));
+            if (typeof parsed === 'object' && parsed !== null) {
+              Object.assign(deliveryAddress, parsed);
+            }
+          } catch (err) {
+            if (!deliveryAddress.area) {
+              deliveryAddress.area = order.delivery_address;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Format the form data
+    const formData = {
+      customer: order.customer.toString(),
+      agent: order.agent || "",
+      status: order.status,
+      payment_status: order.payment_status,
+      followup_date: order.followup_date || "",
+      partial_amount: order.paid_amount || 0,
+      delivery_address: deliveryAddress,
+      delivery_option: order.delivery_option || "primary",
+      order_date: order.order_date || new Date().toISOString().split('T')[0],
+      created_at: order.created_at || new Date().toISOString().split('T')[0],
+    };
+
+    // 3. Format the order items
+    const orderItems = (order.items || []).map(item => ({
+      product: item.product,
+      product_title: item.product_title,
+      product_sku: item.product_sku,
+      quantity: item.quantity,
+      unit_price: parseFloat(item.unit_price),
+      original_price: parseFloat(item.unit_price),
+      gst_rate: item.gst_rate,
+      gst_rate_value: parseFloat(item.gst_rate_display || 0),
+      is_free: item.is_free || false,
+      is_gift: item.is_gift || false,
+      combo_id: item.combo || item.combo_id || null,
+    }));
+
+    // 4. Format applied combos
+    const appliedCombos = (order.applied_combos || []).map(ac => ({
+      comboId: ac.combo_id,
+      combo_id: ac.combo_id,
+      quantity: ac.quantity || 1,
+      name: ac.name || ""
+    }));
+
+    // 5. Package it together
+    const editData = {
+      formData,
+      orderItems,
+      appliedCombos
+    };
+
+    // 6. Set in sessionStorage
+    sessionStorage.setItem("orderEditData", JSON.stringify(editData));
+    sessionStorage.setItem("orderEditId", order.id.toString());
+
+    // 7. Navigate to OrderNew
+    navigate(`/orders/new?mode=edit&customer=${order.customer}`);
+  };
+
   // Use paginated data from server
   const ordersData = orders?.results || orders || [];
   const totalOrders = orders?.count || ordersData.length;
@@ -330,7 +425,16 @@ const OrderList = () => {
             if (addressParts.length > 0) return addressParts.join(', ');
           }
         } catch (e) {
-          return order.delivery_address.trim();
+          try {
+            // Try fallback: replacing single quotes with double quotes for single-quoted Python dict representation
+            const parsed = JSON.parse(order.delivery_address.replace(/'/g, '"'));
+            if (typeof parsed === 'object' && parsed !== null) {
+              const addressParts = Object.values(parsed).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+              if (addressParts.length > 0) return addressParts.join(', ');
+            }
+          } catch (err) {
+            return order.delivery_address.trim();
+          }
         }
         return order.delivery_address.trim();
       }
@@ -896,7 +1000,7 @@ const OrderList = () => {
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => navigate(`/orders/edit/${order.id}`)}
+                              onClick={() => handleEditClick(order)}
                               className="text-green-600 hover:text-green-900 transition-colors duration-200"
                               title="Edit"
                             >
@@ -1107,7 +1211,7 @@ const OrderList = () => {
                       </button>
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => navigate(`/orders/edit/${order.id}`)}
+                          onClick={() => handleEditClick(order)}
                           className="text-green-600 hover:text-green-900 transition-colors duration-200"
                           title="Edit"
                         >
