@@ -714,7 +714,7 @@ const OrderDetail = () => {
         <div className="flex justify-center bg-gray-100/50 py-8 border border-gray-300 rounded-2xl shadow-inner mb-6 print:bg-transparent print:border-none print:shadow-none print:py-0 print:mb-0">
           <div id="print-invoice-area" className="bg-white p-8 shadow-2xl border border-gray-300 rounded-xl max-w-[800px] w-full text-black print:shadow-none print:border-none print:p-0 print:max-w-full print:bg-transparent">
             <div className="inv-box">
-              <div className="inv-header">Quotation Invoice</div>
+              <div className="inv-header">Quotation</div>
 
               {/* Row 1: Company details (Left) and Invoice Details (Right) */}
               <div className="inv-row inv-border-b">
@@ -788,35 +788,35 @@ const OrderDetail = () => {
                 <div className="inv-cell inv-border-r inv-w-50 flex flex-col" style={{ padding: "5px 6px" }}>
                   <div className="inv-border-b pb-1.5 mb-1.5">
                     <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
-                      <span className="text-[11px] text-gray-500 uppercase font-bold">Consignee (Ship to)</span>
+                      <span className="text-[11px] text-black uppercase font-bold">Consignee (Ship to)</span>
                       {companyName && (
                         <Link to={`/customers/${order.customer}`} className="font-bold text-blue-600 hover:underline hover:text-blue-800 print:text-black print:no-underline">
                           {companyName}
                         </Link>
                       )}
-                      <Link to={`/customers/${order.customer}`} className={`${companyName ? "text-gray-800 font-normal" : "font-bold text-black"} hover:underline text-blue-600 hover:text-blue-800 print:text-black print:no-underline`}>
+                      <Link to={`/customers/${order.customer}`} className={`${companyName ? "text-gray-800 font-normal" : "font-bold text-black"} hover:underline text-blue-600 hover:text-blue-800 print:text-black print:no-underline font-bold`}>
                         {customerFullName}
                       </Link>
                     </div>
-                    <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
-                    <div className="text-[11px] mt-1 text-gray-600">
+                    <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight font-bold text-black">{getDeliveryAddress() || "—"}</div>
+                    <div className="text-[11px] mt-1 text-black font-bold">
                       {order.customer_details?.phone && <div><strong>Contact:</strong> {order.customer_details.phone}</div>}
                     </div>
                   </div>
                   <div>
                     <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
-                      <span className="text-[11px] text-gray-500 uppercase font-bold">Buyer (Bill to)</span>
+                      <span className="text-[11px] text-black uppercase font-bold">Buyer (Bill to)</span>
                       {companyName && (
                         <Link to={`/customers/${order.customer}`} className="font-bold text-blue-600 hover:underline hover:text-blue-800 print:text-black print:no-underline">
                           {companyName}
                         </Link>
                       )}
-                      <Link to={`/customers/${order.customer}`} className={`${companyName ? "text-gray-800 font-normal" : "font-bold text-black"} hover:underline text-blue-600 hover:text-blue-800 print:text-black print:no-underline`}>
+                      <Link to={`/customers/${order.customer}`} className={`${companyName ? "text-gray-800 font-normal" : "font-bold text-black"} hover:underline text-blue-600 hover:text-blue-800 print:text-black print:no-underline font-bold`}>
                         {customerFullName}
                       </Link>
                     </div>
-                    <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-gray-700">{getDeliveryAddress() || "—"}</div>
-                    <div className="text-[11px] mt-1 text-gray-600">
+                    <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-tight text-black font-bold">{getDeliveryAddress() || "—"}</div>
+                    <div className="text-[11px] mt-1 text-black font-bold">
                       {order.customer_details?.phone && <div><strong>Contact:</strong> {order.customer_details.phone}</div>}
                       <div><strong>State Name:</strong> {order.customer_details?.state || 'Maharashtra'}, Code: {order.customer_details?.state ? (order.customer_details.gstin_no ? order.customer_details.gstin_no.slice(0, 2) : '—') : '27'}</div>
                       {order.customer_details?.gstin_no && <div><strong>GSTIN/UIN:</strong> {formatGtin(order.customer_details.gstin_no)}</div>}

@@ -41,6 +41,22 @@ class OrderPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+    def paginate_queryset(self, queryset, request, view=None):
+        self.full_queryset = queryset
+        return super().paginate_queryset(queryset, request, view)
+
+    def get_paginated_response(self, data):
+        from collections import OrderedDict
+        from django.db.models import Sum
+        total_sum = self.full_queryset.aggregate(total=Sum('total_amount'))['total'] or 0.0
+        return Response(OrderedDict([
+            ('count', self.page.paginator.count),
+            ('next', self.get_next_link()),
+            ('previous', self.get_previous_link()),
+            ('total_amount', total_sum),
+            ('results', data)
+        ]))
+
 class CallLogPagination(PageNumberPagination):
     page_size = 15
     page_size_query_param = 'page_size'
@@ -1539,6 +1555,69 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=['get'])
+    def export_excel(self, request):
+        queryset = self.get_queryset()
+        queryset = self.filter_queryset(queryset)
+        
+        # Prefetch customer and items for performance
+        queryset = queryset.select_related('customer', 'agent').prefetch_related('items__product')
+        
+        orders_data = []
+        for order in queryset:
+            # Address formatting
+            delivery_address = order.get_full_delivery_address()
+            if not delivery_address:
+                delivery_address = order.delivery_address or ''
+
+            total_amount = float(order.total_amount)
+            
+            # Subtotal and GST bifurcation
+            without_gst_total = 0.0
+            customer_state = order.customer.state or ''
+            is_maharashtra = 'maharashtra' in customer_state.lower() or not customer_state.strip()
+            
+            for item in order.items.all():
+                if item.is_free or item.is_gift:
+                    continue
+                item_total = float(item.total_price)
+                gst_rate = float(item.gst_rate)
+                taxable_value = item_total / (1.0 + (gst_rate / 100.0))
+                without_gst_total += taxable_value
+            
+            without_gst_total = round(without_gst_total, 2)
+            total_gst = round(total_amount - without_gst_total, 2)
+            
+            if is_maharashtra:
+                cgst_total = round(total_gst / 2.0, 2)
+                sgst_total = round(total_gst / 2.0, 2)
+                igst_total = 0.0
+            else:
+                cgst_total = 0.0
+                sgst_total = 0.0
+                igst_total = total_gst
+                
+            orders_data.append({
+                'Order Date': order.order_date.strftime('%Y-%m-%d') if order.order_date else '',
+                'Customer Name': f"{order.customer.name or ''} {order.customer.surname or ''}".strip(),
+                'Organization Name': order.customer.company_name or '',
+                'Contact Number': order.customer.phone or '',
+                'Address': delivery_address,
+                'Total Amount': total_amount,
+                'Without GST Amount': without_gst_total,
+                'CGST Amount': cgst_total,
+                'SGST Amount': sgst_total,
+                'IGST Amount': igst_total,
+                'Total GST Amount': total_gst,
+                'Status': order.get_status_display(),
+                'Payment Status': order.get_payment_status_display()
+            })
+            
+        return Response({
+            'orders': orders_data,
+            'total_count': len(orders_data)
+        })
 
 # ========== OLD ORDER HISTORY VIEWSETS ==========
 class OldOrderHistoryViewSet(viewsets.ModelViewSet):

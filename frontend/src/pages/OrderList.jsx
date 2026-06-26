@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, DollarSign, ShoppingCart, Truck, AlertCircle, Plus, X, IndianRupee } from 'lucide-react';
+import { Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, DollarSign, ShoppingCart, Truck, AlertCircle, Plus, X, IndianRupee, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const OrderList = () => {
   // Filter States - Draft/Pending
@@ -77,6 +78,7 @@ const OrderList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [allAgents, setAllAgents] = useState([]);
+  const [exporting, setExporting] = useState(false);
   
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -278,13 +280,71 @@ const OrderList = () => {
     navigate(`/orders/new?mode=edit&customer=${order.customer}`);
   };
 
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      const params = new URLSearchParams();
+      if (appliedSearch) params.append('search', appliedSearch);
+      if (appliedAgent) params.append('agent', appliedAgent);
+      if (appliedStatus) params.append('status', appliedStatus);
+      if (appliedPaymentStatus) params.append('payment_status', appliedPaymentStatus);
+      if (appliedProductName) params.append('product_name', appliedProductName);
+      if (appliedBrandName) params.append('brand_name', appliedBrandName);
+      if (appliedMinPrice) params.append('min_price', appliedMinPrice);
+      if (appliedMaxPrice) params.append('max_price', appliedMaxPrice);
+      if (appliedMinItems) params.append('min_items', appliedMinItems);
+      if (appliedMaxItems) params.append('max_items', appliedMaxItems);
+      if (appliedDateFrom) params.append('date_from', appliedDateFrom);
+      if (appliedDateTo) params.append('date_to', appliedDateTo);
+      
+      // Customer filters
+      if (appliedCustomerPhone) params.append('customer_phone', appliedCustomerPhone);
+      if (appliedCustomerName) params.append('customer_name', appliedCustomerName);
+      if (appliedCustomerSurname) params.append('customer_surname', appliedCustomerSurname);
+      if (appliedCustomerOrgName) params.append('customer_org_name', appliedCustomerOrgName);
+      if (appliedCustomerOrgType) params.append('customer_org_type', appliedCustomerOrgType);
+      if (appliedCustomerCustomerType) params.append('customer_customer_type', appliedCustomerCustomerType);
+      if (appliedCustomerTelecaller) params.append('customer_telecaller', appliedCustomerTelecaller);
+      
+      if (appliedCustomerHouseFlatNo) params.append('customer_house_flat_no', appliedCustomerHouseFlatNo);
+      if (appliedCustomerWingLane) params.append('customer_wing_lane', appliedCustomerWingLane);
+      if (appliedCustomerSocietyColony) params.append('customer_society_colony', appliedCustomerSocietyColony);
+      if (appliedCustomerLandmark) params.append('customer_landmark', appliedCustomerLandmark);
+      if (appliedCustomerArea) params.append('customer_area', appliedCustomerArea);
+      if (appliedCustomerCity) params.append('customer_city', appliedCustomerCity);
+      if (appliedCustomerDistrict) params.append('customer_district', appliedCustomerDistrict);
+      if (appliedCustomerTahsil) params.append('customer_tahsil', appliedCustomerTahsil);
+      if (appliedCustomerState) params.append('customer_state', appliedCustomerState);
+      if (appliedCustomerPincode) params.append('customer_pincode', appliedCustomerPincode);
+
+      const response = await axios.get(`/api/orders/export_excel/?${params.toString()}`);
+      const { orders: ordersDataList } = response.data;
+
+      const ws = XLSX.utils.json_to_sheet(ordersDataList);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Orders");
+
+      const date = new Date().toISOString().split("T")[0];
+      const filename = `orders_export_${date}.xlsx`;
+
+      XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error("Error exporting orders Excel:", error);
+      alert("Failed to export orders data");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Use paginated data from server
   const ordersData = orders?.results || orders || [];
   const totalOrders = orders?.count || ordersData.length;
   const totalPages = Math.ceil(totalOrders / pageSize);
 
   // Calculate KPIs
-  const totalRevenue = ordersData?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0;
+  const totalRevenue = orders?.total_amount !== undefined 
+    ? parseFloat(orders.total_amount) 
+    : (ordersData?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0);
 
   // Track all telecallers seen so the list doesn't shrink when filtered
   useEffect(() => {
@@ -868,6 +928,16 @@ const OrderList = () => {
                       <IndianRupee className="w-4 h-4 text-green-600" />
                       <span>{totalRevenue.toLocaleString()}</span>
                     </div>
+
+                    <button
+                      onClick={handleExportExcel}
+                      disabled={exporting}
+                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1 text-sm font-bold shadow-sm h-full disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      title="Export filtered orders to Excel"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+                      <span>{exporting ? 'Exporting...' : 'Export to Excel'}</span>
+                    </button>
 
                     {/* View Mode Toggle */}
                     <div className="flex items-center bg-gray-100 rounded-lg p-0.5 border border-gray-200 h-full">
