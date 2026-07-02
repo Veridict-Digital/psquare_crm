@@ -50,6 +50,16 @@ const OrderNew = () => {
     }).format(amount);
   };
 
+  const formatCurrencyNoDecimals = (amount) => {
+    if (amount === undefined || amount === null) return '₹0';
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   const safeParseFloat = (val, fallback = 0) => {
     const parsed = parseFloat(val);
     return isNaN(parsed) ? fallback : parsed;
@@ -1962,6 +1972,16 @@ const OrderNew = () => {
       return `₹${parseFloat(val).toFixed(2)}`;
     };
 
+    const formatCurrencyNoDecimals = (val) => {
+      if (val === null || val === undefined || isNaN(val)) return "₹0";
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(val);
+    };
+
     const formatDate = (dateStr) => {
       if (!dateStr) return new Date().toLocaleDateString('en-IN');
       const date = new Date(dateStr);
@@ -2191,7 +2211,7 @@ const OrderNew = () => {
               <td></td>
               <td></td>
               <td></td>
-              <td className="text-right font-bold" style={{ fontSize: "11px" }}>{formatCurrency(roundedGrandTotal)}</td>
+              <td className="text-right font-bold" style={{ fontSize: "11px" }}>{formatCurrencyNoDecimals(roundedGrandTotal)}</td>
             </tr>
           </tbody>
         </table>
@@ -3111,7 +3131,7 @@ const OrderNew = () => {
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex justify-between text-lg font-bold text-gray-900">
                     <span>Grand Total</span>
-                    <span>₹{totals.total.toFixed(2)}</span>
+                    <span>{formatCurrencyNoDecimals(totals.total)}</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">Inclusive of all taxes</p>
                 </div>

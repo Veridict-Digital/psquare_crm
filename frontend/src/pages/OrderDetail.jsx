@@ -184,6 +184,15 @@ const OrderDetail = () => {
     }).format(amount);
   };
 
+  const formatCurrencyNoDecimals = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   // Format date
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -945,7 +954,7 @@ const OrderDetail = () => {
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td className="text-right font-bold" style={{ fontSize: "11px" }}>{formatCurrency(roundedGrandTotal)}</td>
+                    <td className="text-right font-bold" style={{ fontSize: "11px" }}>{formatCurrencyNoDecimals(roundedGrandTotal)}</td>
                   </tr>
                 </tbody>
               </table>

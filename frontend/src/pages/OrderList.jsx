@@ -956,6 +956,23 @@ const OrderList = () => {
                         <Grid className="w-4 h-4" />
                       </button>
                     </div>
+
+                    {/* Page Size Selector */}
+                    <div className="flex items-center gap-1.5 h-full">
+                      <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Show:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="h-full px-2 py-1 text-sm border border-gray-200 rounded-lg bg-gray-50 hover:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all shadow-sm"
+                      >
+                        <option value={15}>15</option>
+                        <option value={30}>30</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
