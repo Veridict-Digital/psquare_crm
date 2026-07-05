@@ -6,13 +6,31 @@ from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+class Role(models.Model):
+    name = models.CharField(max_length=50, unique=True, help_text="Name of the custom role (e.g., 'Data Entry')")
+    description = models.TextField(blank=True, null=True, help_text="Brief description of the role responsibilities")
+
+    def __str__(self):
+        return self.name
+
+class RoleFeaturePermission(models.Model):
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name='permissions')
+    feature_key = models.CharField(max_length=50, help_text="The key of the feature (e.g., 'create_order')")
+    is_enabled = models.BooleanField(default=False, help_text="Whether this feature is enabled for this role")
+
+    class Meta:
+        unique_together = ('role', 'feature_key')
+
+    def __str__(self):
+        return f"{self.role.name} -> {self.feature_key}: {'Enabled' if self.is_enabled else 'Disabled'}"
+
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('Admin', 'Admin'),
         ('Employee', 'Employee'),
         ('Telecaller', 'Telecaller'),
     ]
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='Employee')
+    role = models.CharField(max_length=50, default='Employee')
     pincode_territory = models.CharField(max_length=10, blank=True, null=True)
 
     # Additional user details
@@ -100,7 +118,7 @@ class Customer(models.Model):
 
         # Only assign agent based on pincode if no agent is set (on creation or if agent is None)
         if not self.agent:
-            agent = User.objects.filter(pincode_territory=self.pincode, role='Employee').first()
+            agent = User.objects.filter(pincode_territory=self.pincode).exclude(role='Admin').first()
             if agent:
                 self.agent = agent
 

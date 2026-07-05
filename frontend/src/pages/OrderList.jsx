@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, DollarSign, ShoppingCart, Truck, AlertCircle, Plus, X, IndianRupee, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const OrderList = () => {
+  const { hasPermission } = useAuth();
   // Filter States - Draft/Pending
   const [search, setSearch] = useState('');
   const [filterAgent, setFilterAgent] = useState('');
@@ -902,14 +904,16 @@ const OrderList = () => {
                       <span>Clear</span>
                     </button>
                     {/* New Order */}
-                    <button
-                      onClick={() => navigate('/orders/new')}
-                      className="px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1 shadow-md hover:shadow-lg transition-all h-full"
-                      title="Create a new order"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>New</span>
-                    </button>
+                    {hasPermission('create_order') && (
+                      <button
+                        onClick={() => navigate('/orders/new')}
+                        className="px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1 shadow-md hover:shadow-lg transition-all h-full"
+                        title="Create a new order"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>New</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* KPIs & View Mode */}

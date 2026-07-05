@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 const Navigation = () => {
-  const { isAuthenticated, logout, user } = useAuth();
+  const { isAuthenticated, logout, user, hasPermission } = useAuth();
   const { isOpen, toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,37 +32,21 @@ const Navigation = () => {
     return null;
   }
 
-  // Define navigation items based on role
+  // Define navigation items based on permissions
   const getNavItems = () => {
-    // Admin sees everything
-    if (user?.role === 'Admin') {
-      return [
-        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/customers', label: 'Appointment', icon: Calendar },
-        { path: '/orders', label: 'Orders', icon: Package },
-        { path: '/products', label: 'Products', icon: ShoppingBag },
-        { path: '/products/pricing', label: 'Calculator', icon: Calculator },
-        { path: '/product-combinations', label: "Combo's", icon: Gift },
-        { path: '/users', label: 'Users', icon: Users },
-        { path: '/calllogs', label: 'Call Logs', icon: Phone },
-        { path: '/profile', label: 'Profile', icon: User },
-      ];
-    }
-    
-    // Telecaller/Employee sees limited items
-    if (user?.role === 'Telecaller' || user?.role === 'Employee') {
-      return [
-        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/customers', label: 'Appointment', icon: Calendar },
-        { path: '/profile', label: 'Profile', icon: User },
-      ];
-    }
-    
-    // Default fallback (just in case)
-    return [
-      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    const allItems = [
+      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, feature: 'view_dashboard' },
+      { path: '/customers', label: 'Appointment', icon: Calendar, feature: 'view_customers' },
+      { path: '/orders', label: 'Orders', icon: Package, feature: 'view_orders' },
+      { path: '/products', label: 'Products', icon: ShoppingBag, feature: 'view_products' },
+      { path: '/products/pricing', label: 'Calculator', icon: Calculator, feature: 'view_products' },
+      { path: '/product-combinations', label: "Combo's", icon: Gift, feature: 'manage_combos' },
+      { path: '/users', label: 'Users', icon: Users, feature: 'manage_users' },
+      { path: '/calllogs', label: 'Call Logs', icon: Phone, feature: 'make_calls' },
       { path: '/profile', label: 'Profile', icon: User },
     ];
+
+    return allItems.filter(item => !item.feature || hasPermission(item.feature));
   };
 
   const navItems = getNavItems();

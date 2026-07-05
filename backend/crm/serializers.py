@@ -1,6 +1,16 @@
 from rest_framework import serializers
 from django.db import models
-from .models import BrandCategory1, Flavour, Residual, User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory
+from .models import BrandCategory1, Flavour, Residual, User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name', 'description']
+
+class RoleFeaturePermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoleFeaturePermission
+        fields = ['id', 'role', 'feature_key', 'is_enabled']
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -41,7 +51,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     # ADD THIS FIELD
     telecaller_id = serializers.PrimaryKeyRelatedField(
         source='agent', 
-        queryset=User.objects.filter(role__in=['Employee', 'Telecaller']),
+        queryset=User.objects.exclude(role='Admin'),
         write_only=True,
         required=False,
         allow_null=True

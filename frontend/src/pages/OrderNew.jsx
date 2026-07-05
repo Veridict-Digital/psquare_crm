@@ -1814,7 +1814,8 @@ const OrderNew = () => {
 
         invoiceItems.push({
           sNo: sNo++,
-          productName: `${getProductTitle(item.product)} (Billed under ${combo.name})`,
+          productId: item.product,
+          productName: getProductTitle(item.product),
           qty: itemQty,
           unitMrp: unitMrp,
           totalMrp: totalMrp,
@@ -1840,7 +1841,8 @@ const OrderNew = () => {
 
         invoiceItems.push({
           sNo: sNo++,
-          productName: `${getProductTitle(reward.product)} (Free under ${combo.name})`,
+          productId: reward.product,
+          productName: getProductTitle(reward.product),
           qty: itemQty,
           unitMrp: unitMrp,
           totalMrp: totalMrp,
@@ -1867,7 +1869,8 @@ const OrderNew = () => {
 
         invoiceItems.push({
           sNo: sNo++,
-          productName: `${getProductTitle(gift.product)} (Gift under ${combo.name})`,
+          productId: gift.product,
+          productName: getProductTitle(gift.product),
           qty: itemQty,
           unitMrp: unitMrp,
           totalMrp: totalMrp,
@@ -1886,10 +1889,51 @@ const OrderNew = () => {
   };
 
   // Quotation Modal Component
+  // Quotation Modal Component
   const QuotationModal = () => {
     if (appliedCombos.length === 0) return null;
 
-    const invoiceItems = getAllAppliedCombosInvoiceItems();
+    const getRolledUpInvoiceItems = () => {
+      const rawItems = getAllAppliedCombosInvoiceItems();
+      const grouped = {};
+      rawItems.forEach(item => {
+        const pid = item.productId;
+        if (!grouped[pid]) {
+          grouped[pid] = {
+            productId: pid,
+            productName: item.productName,
+            hsn: item.hsn,
+            billedQty: 0,
+            freeQty: 0,
+            giftQty: 0,
+            unitMrp: item.unitMrp,
+            unitOffer: 0,
+            totalOffer: 0,
+            gstRate: item.gstRate,
+            taxableOffer: 0,
+            gstAmount: 0
+          };
+        }
+        if (item.type === 'Paid') {
+          grouped[pid].billedQty += item.qty;
+          grouped[pid].unitOffer = item.unitOffer;
+          grouped[pid].totalOffer += item.totalOffer;
+          grouped[pid].taxableOffer += item.taxableOffer;
+          grouped[pid].gstAmount += item.gstAmount;
+        } else if (item.type === 'Free') {
+          grouped[pid].freeQty += item.qty;
+        } else if (item.type === 'Gift') {
+          grouped[pid].giftQty += item.qty;
+        }
+      });
+
+      return Object.values(grouped).map((item, idx) => ({
+        ...item,
+        sNo: idx + 1
+      }));
+    };
+
+    const invoiceItems = getRolledUpInvoiceItems();
 
     const selectedState = selectedCustomerObj?.state ? selectedCustomerObj.state.toLowerCase() : "";
     const isMaharashtra = selectedState.includes("maharashtra") || !selectedState;
@@ -1901,24 +1945,24 @@ const OrderNew = () => {
       return Object.values(formData.delivery_address).filter(Boolean).join(', ');
     };
 
-    let totalShippedQty = 0;
     let totalBilledQty = 0;
+    let totalFreeQty = 0;
+    let totalGiftQty = 0;
     let totalTaxableValue = 0;
     let totalCgst = 0;
     let totalSgst = 0;
     let totalIgst = 0;
 
     invoiceItems.forEach(item => {
-      totalShippedQty += item.qty;
-      if (item.type === 'Paid') {
-        totalBilledQty += item.qty;
-        totalTaxableValue += item.taxableOffer;
-        if (isMaharashtra) {
-          totalCgst += item.gstAmount / 2;
-          totalSgst += item.gstAmount / 2;
-        } else {
-          totalIgst += item.gstAmount;
-        }
+      totalBilledQty += item.billedQty || 0;
+      totalFreeQty += item.freeQty || 0;
+      totalGiftQty += item.giftQty || 0;
+      totalTaxableValue += item.taxableOffer;
+      if (isMaharashtra) {
+        totalCgst += item.gstAmount / 2;
+        totalSgst += item.gstAmount / 2;
+      } else {
+        totalIgst += item.gstAmount;
       }
     });
 
@@ -1937,7 +1981,7 @@ const OrderNew = () => {
     // HSN summary
     const hsnSummary = {};
     invoiceItems.forEach(item => {
-      if (item.type === 'Paid') {
+      if (item.taxableOffer > 0) {
         const hsn = item.hsn;
         const gstRate = item.gstRate;
 
@@ -2128,40 +2172,35 @@ const OrderNew = () => {
               <th rowSpan="2" className="text-center w-8">Sl No.</th>
               <th rowSpan="2" className="text-left">Description of Goods</th>
               <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
-              <th colSpan="2" className="text-center w-24">Quantity</th>
+              <th colSpan="3" className="text-center w-36">Quantity</th>
               <th rowSpan="2" className="text-right w-20">Rate<br/>(Incl. of Tax)</th>
               <th rowSpan="2" className="text-right w-20">Rate</th>
-              <th rowSpan="2" className="text-center w-12">per</th>
-              <th rowSpan="2" className="text-center w-12">Disc. %</th>
               <th rowSpan="2" className="text-right w-24">Amount</th>
             </tr>
             <tr>
-              <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Shipped</th>
               <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Billed</th>
+              <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Free</th>
+              <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Gift</th>
             </tr>
           </thead>
           <tbody>
             {invoiceItems.map((item, idx) => {
-              const isPaid = item.type === 'Paid';
-              const discPercent = isPaid && item.unitMrp > item.unitOffer
-                ? (((item.unitMrp - item.unitOffer) / item.unitMrp) * 100).toFixed(0) + "%"
-                : "";
-
               return (
                 <tr key={idx} style={{ height: "24px" }} className="text-[10px]">
                   <td className="text-center">{item.sNo}</td>
                   <td className="text-left font-bold">{item.productName}</td>
                   <td className="text-center">{item.hsn}</td>
-                  <td className="text-center font-bold">{item.qty} PCS</td>
-                  <td className="text-center font-bold">{isPaid ? `${item.qty} PCS` : ""}</td>
-                  <td className="text-right">{isPaid ? formatCurrency(item.unitOffer) : ""}</td>
+                  <td className="text-center font-bold">{item.billedQty > 0 ? `${item.billedQty} PCS` : ""}</td>
+                  <td className="text-center font-bold">{item.freeQty > 0 ? `${item.freeQty} PCS` : ""}</td>
+                  <td className="text-center font-bold">{item.giftQty > 0 ? `${item.giftQty} PCS` : ""}</td>
                   <td className="text-right">
-                    {isPaid ? formatCurrency(item.unitOffer / (1 + item.gstRate / 100)) : ""}
+                    {item.billedQty > 0 ? formatCurrency(item.unitOffer) : ""}
                   </td>
-                  <td className="text-center">{isPaid ? "PCS" : ""}</td>
-                  <td className="text-center">{discPercent}</td>
+                  <td className="text-right">
+                    {item.billedQty > 0 ? formatCurrency(item.unitOffer / (1 + item.gstRate / 100)) : ""}
+                  </td>
                   <td className="text-right font-bold">
-                    {isPaid ? formatCurrency(item.taxableOffer) : ""}
+                    {item.billedQty > 0 ? formatCurrency(item.taxableOffer) : ""}
                   </td>
                 </tr>
               );
@@ -2172,19 +2211,19 @@ const OrderNew = () => {
               <>
                 <tr style={{ height: "20px" }}>
                   <td></td>
-                  <td className="text-right font-bold italic" colSpan="8">OUTPUT CGST</td>
+                  <td className="text-right font-bold italic" colSpan="7">OUTPUT CGST</td>
                   <td className="text-right font-bold">{formatCurrency(totalCgst)}</td>
                 </tr>
                 <tr style={{ height: "20px" }}>
                   <td></td>
-                  <td className="text-right font-bold italic" colSpan="8">OUTPUT SGST</td>
+                  <td className="text-right font-bold italic" colSpan="7">OUTPUT SGST</td>
                   <td className="text-right font-bold">{formatCurrency(totalSgst)}</td>
                 </tr>
               </>
             ) : (
               <tr style={{ height: "20px" }}>
                 <td></td>
-                <td className="text-right font-bold italic" colSpan="8">OUTPUT IGST</td>
+                <td className="text-right font-bold italic" colSpan="7">OUTPUT IGST</td>
                 <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
               </tr>
             )}
@@ -2193,7 +2232,7 @@ const OrderNew = () => {
             {Math.abs(roundOff) >= 0.005 && (
               <tr style={{ height: "20px" }}>
                 <td></td>
-                <td className="text-right italic" colSpan="8">
+                <td className="text-right italic" colSpan="7">
                   <strong>Less:</strong> ROUND OFF
                 </td>
                 <td className="text-right font-bold">{formatRoundOff(roundOff)}</td>
@@ -2205,10 +2244,9 @@ const OrderNew = () => {
               <td className="text-center"></td>
               <td className="text-right">Total</td>
               <td className="text-center"></td>
-              <td className="text-center font-bold">{totalShippedQty} PCS</td>
               <td className="text-center font-bold">{totalBilledQty} PCS</td>
-              <td></td>
-              <td></td>
+              <td className="text-center font-bold">{totalFreeQty} PCS</td>
+              <td className="text-center font-bold">{totalGiftQty} PCS</td>
               <td></td>
               <td></td>
               <td className="text-right font-bold" style={{ fontSize: "11px" }}>{formatCurrencyNoDecimals(roundedGrandTotal)}</td>

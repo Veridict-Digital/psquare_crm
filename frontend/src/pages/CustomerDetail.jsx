@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../api/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallPopup } from "../context/CallPopupContext";
+import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
 import {
   User,
@@ -32,6 +33,7 @@ const CustomerDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { openPopup } = useCallPopup();
+  const { hasPermission } = useAuth();
   const [editingField, setEditingField] = useState(null);
   const [tempValue, setTempValue] = useState("");
   const [callLogsPage, setCallLogsPage] = useState(1);
@@ -1192,7 +1194,7 @@ const CustomerDetail = () => {
                           className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 hover:text-slate-900 text-slate-600 transition-colors truncate"
                           title={employee.username}
                         >
-                          {employee.username}
+                          {employee.username} ({employee.role})
                         </button>
                       ))}
                     </div>
@@ -1347,25 +1349,27 @@ const CustomerDetail = () => {
                 </div>
               )}
 
-              <button
-                onClick={() => {
-                  const callData = {
-                    ...customer,
-                    id: customer?.id,
-                    customer_id: customer?.id,
-                    timer: 0,
-                    notes: "",
-                    selectedAssumption: [],
-                    selectedAssumption2: [],
-                    selectedAssumption3: [],
-                  };
-                  openPopup(callData);
-                }}
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
-              >
-                <Phone className="h-4 w-4 mr-2" />
-                Call
-              </button>
+              {hasPermission('make_calls') && (
+                <button
+                  onClick={() => {
+                    const callData = {
+                      ...customer,
+                      id: customer?.id,
+                      customer_id: customer?.id,
+                      timer: 0,
+                      notes: "",
+                      selectedAssumption: [],
+                      selectedAssumption2: [],
+                      selectedAssumption3: [],
+                    };
+                    openPopup(callData);
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call
+                </button>
+              )}
               <button
                 onClick={() => navigate(`/orders/new?customer=${customer?.id}&customer_name=${encodeURIComponent(customer?.name || "")}`)}
                 className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm whitespace-nowrap"
@@ -1501,13 +1505,16 @@ const CustomerDetail = () => {
 
             <div
               onClick={() => {
+                if (!hasPermission('manage_appointments')) return;
                 try {
                   dateInputRef.current?.showPicker();
                 } catch (err) {
                   console.error("showPicker not supported or failed", err);
                 }
               }}
-              className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 cursor-pointer"
+              className={`flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 ${
+                hasPermission('manage_appointments') ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
+              }`}
             >
               <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
@@ -1517,6 +1524,7 @@ const CustomerDetail = () => {
                 ref={dateInputRef}
                 type="date"
                 value={appointmentDate}
+                disabled={!hasPermission('manage_appointments')}
                 onChange={(e) => {
                   const val = e.target.value;
                   setAppointmentDate(val);
@@ -1524,15 +1532,18 @@ const CustomerDetail = () => {
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!hasPermission('manage_appointments')) return;
                   try {
                     dateInputRef.current?.showPicker();
                   } catch (err) {
                     console.error("showPicker failed", err);
                   }
                 }}
-                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+                className={`flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none ${
+                  hasPermission('manage_appointments') ? 'cursor-pointer' : 'cursor-not-allowed'
+                }`}
               />
-              {appointmentDate && (
+              {appointmentDate && hasPermission('manage_appointments') && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1554,13 +1565,16 @@ const CustomerDetail = () => {
 
             <div
               onClick={() => {
+                if (!hasPermission('manage_appointments')) return;
                 try {
                   timeInputRef.current?.showPicker();
                 } catch (err) {
                   console.error("showPicker not supported or failed", err);
                 }
               }}
-              className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 cursor-pointer"
+              className={`flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 min-w-0 gap-2 ${
+                hasPermission('manage_appointments') ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
+              }`}
             >
               <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <svg
@@ -1582,6 +1596,7 @@ const CustomerDetail = () => {
                 ref={timeInputRef}
                 type="time"
                 value={appointmentTime}
+                disabled={!hasPermission('manage_appointments')}
                 onChange={(e) => {
                   const val = e.target.value;
                   setAppointmentTime(val);
@@ -1589,15 +1604,18 @@ const CustomerDetail = () => {
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!hasPermission('manage_appointments')) return;
                   try {
                     timeInputRef.current?.showPicker();
                   } catch (err) {
                     console.error("showPicker failed", err);
                   }
                 }}
-                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none cursor-pointer"
+                className={`flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none ${
+                  hasPermission('manage_appointments') ? 'cursor-pointer' : 'cursor-not-allowed'
+                }`}
               />
-              {appointmentTime && (
+              {appointmentTime && hasPermission('manage_appointments') && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -2044,7 +2062,7 @@ const CustomerDetail = () => {
                   </h2>
                 </div>
               </div>
-              {callLogs.length > 0 &&
+              {hasPermission('make_calls') && callLogs.length > 0 &&
                 callLogs[0]?.date &&
                 new Date() - new Date(callLogs[0].date) <
                 24 * 60 * 60 * 1000 && (

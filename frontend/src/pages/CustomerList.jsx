@@ -185,7 +185,7 @@ const CustomerList = () => {
   const addFormPhoneInputRef = useRef(null);
   const isFirstFiltersRender = useRef(true);
 
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { openPopup } = useCallPopup();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -1784,10 +1784,10 @@ const CustomerList = () => {
                 >
                   <option value="">All Telecallers</option>
                   {employees
-                    ?.filter((emp) => emp.role === "Telecaller")
+                    ?.filter((emp) => emp.role !== "Admin")
                     .map((emp) => (
                       <option key={emp.id} value={emp.username}>
-                        {emp.username}
+                        {emp.username} ({emp.role})
                       </option>
                     ))}
                 </select>
@@ -1926,13 +1926,15 @@ const CustomerList = () => {
               </button>
 
               {/* Quick Add Button */}
-              <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
-              >
-                <Plus className="h-4 w-4" />
-                Add
-              </button>
+              {hasPermission('create_customer') && (
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2195,10 +2197,10 @@ const CustomerList = () => {
               >
                 <option value="">Select Telecaller</option>
                 {employees
-                  ?.filter((emp) => emp.role === "Telecaller")
+                  ?.filter((emp) => emp.role !== "Admin")
                   .map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.username})
+                      {emp.first_name} {emp.last_name} ({emp.username} - {emp.role})
                     </option>
                   ))}
               </select>
@@ -2470,7 +2472,7 @@ const CustomerList = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-[#1a2332] sticky top-0 z-10">
                 <tr>
-                  {user?.role === "Admin" && (
+                  {hasPermission('reassign_customers') && (
                     <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider sticky left-0 bg-[#1a2332] z-20">
                       <input
                         type="checkbox"
@@ -2511,7 +2513,7 @@ const CustomerList = () => {
                     Actions
                   </th>
                 </tr>
-                {selectedCustomers.length > 0 && user?.role === "Admin" && (
+                {selectedCustomers.length > 0 && hasPermission('reassign_customers') && (
                   <tr className="bg-blue-50">
                     <td colSpan="10" className="px-6 py-3">
                       <div className="flex items-center justify-between">
@@ -2546,7 +2548,7 @@ const CustomerList = () => {
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => navigate(`/customers/${customer.id}`)}
                   >
-                    {user?.role === "Admin" && (
+                    {hasPermission('reassign_customers') && (
                       <td
                         className="px-6 py-3"
                         onClick={(e) => e.stopPropagation()}
@@ -2754,16 +2756,18 @@ const CustomerList = () => {
                         >
                           <Phone className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleIndividualAssign(customer);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-                          title="Assign to Agent"
-                        >
-                          <UserCheck className="h-4 w-4" />
-                        </button>
+                        {hasPermission('reassign_customers') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleIndividualAssign(customer);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                            title="Assign to Agent"
+                          >
+                            <UserCheck className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -2949,13 +2953,15 @@ const CustomerList = () => {
                   ? "No results match your search criteria"
                   : "Try adjusting your filters"}
               </p>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Add Contact
-              </button>
+              {hasPermission('create_customer') && (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add Contact
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -3074,13 +3080,15 @@ const CustomerList = () => {
                     ? "No results match your search criteria"
                     : "Try adjusting your filters and click Apply"}
                 </p>
-                <button
-                  onClick={() => setShowAddForm(true)}
-                  className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Contact
-                </button>
+                {hasPermission('create_customer') && (
+                  <button
+                    onClick={() => setShowAddForm(true)}
+                    className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Contact
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -3105,10 +3113,10 @@ const CustomerList = () => {
               >
                 <option value="">Choose an agent...</option>
                 {employees
-                  ?.filter((emp) => emp.role === "Telecaller")
+                  ?.filter((emp) => emp.role !== "Admin")
                   .map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.username})
+                      {emp.first_name} {emp.last_name} ({emp.username} - {emp.role})
                     </option>
                   ))}
               </select>

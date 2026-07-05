@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ const UserNew = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const [roles, setRoles] = useState([]);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -30,6 +31,12 @@ const UserNew = () => {
     bank_name: '',
     ifsc_code: '',
   });
+
+  useEffect(() => {
+    axios.get('/api/roles/')
+      .then(res => setRoles(res.data))
+      .catch(err => console.error('Error loading roles:', err));
+  }, []);
 
   const createUserMutation = useMutation({
     mutationFn: (data) => axios.post('/api/users/', data),
@@ -120,9 +127,16 @@ const UserNew = () => {
               required
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="Employee">Employee</option>
-              <option value="Admin">Admin</option>
-              <option value="Telecaller">Telecaller</option>
+              {roles.map(r => (
+                <option key={r.id} value={r.name}>{r.name}</option>
+              ))}
+              {roles.length === 0 && (
+                <>
+                  <option value="Employee">Employee</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Telecaller">Telecaller</option>
+                </>
+              )}
             </select>
           </div>
 

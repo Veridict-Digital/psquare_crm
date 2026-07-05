@@ -1,11 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import FlavourViewSet, PackingUnitViewSet, ResidualViewSet, UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, UnitViewSet, CustomerTypeViewSet, BrandViewSet, BrandCategoryViewSet,BrandCategory1ViewSet, ProductPricingViewSet, PhoneViewSet, OldOrderHistoryViewSet
+from .views import FlavourViewSet, PackingUnitViewSet, ResidualViewSet, UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, UnitViewSet, CustomerTypeViewSet, BrandViewSet, BrandCategoryViewSet,BrandCategory1ViewSet, ProductPricingViewSet, PhoneViewSet, OldOrderHistoryViewSet, RoleViewSet, RolePermissionViewSet
 from .auth_views import send_registration_otp, verify_registration_otp, send_password_reset_otp, verify_password_reset_otp
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
+router.register(r'roles', RoleViewSet, basename='role')
+router.register(r'role-permissions', RolePermissionViewSet, basename='rolepermission')
 router.register(r'customers', CustomerViewSet)
 router.register(r'products', ProductViewSet)
 router.register(r'orders', OrderViewSet)

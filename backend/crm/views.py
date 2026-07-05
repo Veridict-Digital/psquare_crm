@@ -16,14 +16,29 @@ import io
 from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory
-from .serializers import BrandCategory1Serializer, FlavourSerializer, OldOrderHistorySerializer, ResidualSerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
+from .serializers import BrandCategory1Serializer, FlavourSerializer, OldOrderHistorySerializer, ResidualSerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer, RoleSerializer, RoleFeaturePermissionSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum, Count, Q
 from datetime import timedelta
 import datetime
+
+def check_feature_permission(user, feature_key):
+    if not user or not user.is_authenticated:
+        return False
+    if user.role == 'Admin':
+        return True
+    try:
+        role_obj = Role.objects.get(name=user.role)
+        return RoleFeaturePermission.objects.filter(role=role_obj, feature_key=feature_key, is_enabled=True).exists()
+    except Role.DoesNotExist:
+        if user.role == 'Telecaller':
+            return feature_key in ['view_dashboard', 'view_customers', 'create_customer', 'edit_customer', 'make_calls', 'view_call_history', 'view_orders', 'create_order', 'view_products']
+        elif user.role == 'Employee':
+            return feature_key in ['view_dashboard', 'view_customers', 'create_customer', 'edit_customer', 'manage_appointments', 'view_orders', 'create_order', 'edit_order', 'view_products']
+    return False
 
 # ========== PAGINATION CLASSES ==========
 class CustomerPagination(PageNumberPagination):
@@ -243,11 +258,49 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if self.action in ['me', 'permissions', 'employees']:
+            return
+        if not check_feature_permission(request.user, 'manage_users'):
+            self.permission_denied(request, message="You do not have permission to manage users.")
+
     @action(detail=False, methods=['get'])
     def employees(self, request):
-        employees = User.objects.filter(role__in=['Employee', 'Telecaller'])
+        employees = User.objects.exclude(role='Admin')
         serializer = self.get_serializer(employees, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def permissions(self, request):
+        user = request.user
+        role_name = user.role
+        permissions = []
+        try:
+            role_obj = Role.objects.get(name=role_name)
+            permissions = list(
+                RoleFeaturePermission.objects.filter(role=role_obj, is_enabled=True)
+                .values_list('feature_key', flat=True)
+            )
+        except Role.DoesNotExist:
+            if role_name == 'Admin':
+                permissions = [
+                    'view_dashboard',
+                    'view_customers', 'create_customer', 'edit_customer', 'delete_customer', 'reassign_customers', 'manage_appointments',
+                    'make_calls', 'view_call_history',
+                    'view_orders', 'create_order', 'edit_order', 'delete_order', 'update_payment', 'export_orders',
+                    'view_products', 'manage_products', 'manage_combos',
+                    'manage_users', 'manage_roles'
+                ]
+            elif role_name == 'Telecaller':
+                permissions = ['view_dashboard', 'view_customers', 'create_customer', 'edit_customer', 'make_calls', 'view_call_history', 'view_orders', 'create_order', 'view_products']
+            elif role_name == 'Employee':
+                permissions = ['view_dashboard', 'view_customers', 'create_customer', 'edit_customer', 'manage_appointments', 'view_orders', 'create_order', 'edit_order', 'view_products']
+
+        return Response({
+            'role': role_name,
+            'permissions': permissions
+        })
 
     @action(detail=False, methods=['get', 'put'])
     def me(self, request):
@@ -279,6 +332,46 @@ class UserViewSet(viewsets.ModelViewSet):
 # crm/views.py - Complete CustomerViewSet
 
 class CustomerViewSet(viewsets.ModelViewSet):
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if self.action in [
+            'unique_names', 'unique_surnames', 'unique_company_names', 'unique_areas', 
+            'unique_cities', 'unique_districts', 'unique_tahsils', 'unique_states', 
+            'unique_pincodes', 'unique_landmarks', 'unique_house_flat_nos', 
+            'unique_wing_lanes', 'unique_society_colonies', 'unique_phones', 'details'
+        ]:
+            return
+        if self.action == 'bulk_assign':
+            if not check_feature_permission(request.user, 'reassign_customers'):
+                self.permission_denied(request, message="You do not have permission to reassign customers.")
+            return
+        if self.action == 'create':
+            if not check_feature_permission(request.user, 'create_customer'):
+                self.permission_denied(request, message="You do not have permission to create customers.")
+            return
+        if self.action in ['update', 'partial_update']:
+            has_appt_fields = any(f in request.data for f in ['appointment_date', 'appointment_time'])
+            if has_appt_fields:
+                if not check_feature_permission(request.user, 'manage_appointments'):
+                    self.permission_denied(request, message="You do not have permission to book or manage appointments.")
+            has_other_fields = any(f not in ['appointment_date', 'appointment_time'] for f in request.data.keys())
+            if has_other_fields or not has_appt_fields:
+                if not check_feature_permission(request.user, 'edit_customer'):
+                    self.permission_denied(request, message="You do not have permission to edit customer details.")
+            return
+        if self.action in ['add_phone', 'set_primary_phone', 'delete_phone']:
+            if not check_feature_permission(request.user, 'edit_customer'):
+                self.permission_denied(request, message="You do not have permission to edit customer details.")
+            return
+        if self.action == 'destroy':
+            if not check_feature_permission(request.user, 'delete_customer'):
+                self.permission_denied(request, message="You do not have permission to delete customer accounts.")
+            return
+        if self.action in ['list', 'retrieve', 'export_excel']:
+            if not check_feature_permission(request.user, 'view_customers'):
+                self.permission_denied(request, message="You do not have permission to view customer directory.")
+            return
+
         # ========== UNIQUE FIELD VALUE ENDPOINTS FOR FILTER DROPDOWNS ==========
     @action(detail=False, methods=['get'], url_path='unique_names')
     def unique_names(self, request):
@@ -678,7 +771,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(customer_type__name__icontains=customer_type)
             
             if telecaller:
-                queryset = queryset.filter(agent__username__icontains=telecaller, agent__role='Telecaller')
+                queryset = queryset.filter(agent__username__icontains=telecaller)
             
             if time:
                 queryset = queryset.filter(appointment_time__icontains=time)
@@ -965,11 +1058,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def bulk_assign(self, request):
-        # ========== ONLY ADMINS CAN BULK ASSIGN ==========
-        user = request.user
-        if user.role != 'Admin':
+        # ========== DYNAMIC ACCESS CONTROL ==========
+        if not check_feature_permission(request.user, 'reassign_customers'):
             return Response(
-                {'error': 'Only admins can bulk assign customers'},
+                {'error': 'You do not have permission to bulk assign customers'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -983,7 +1075,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Agent ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            agent = User.objects.get(id=agent_id, role__in=['Employee', 'Telecaller'])
+            agent = User.objects.exclude(role='Admin').get(id=agent_id)
         except User.DoesNotExist:
             return Response({'error': 'Invalid agent ID'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2053,6 +2145,67 @@ class LoginView(APIView):
                 'user': UserSerializer(user).data
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+class RoleViewSet(viewsets.ModelViewSet):
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not check_feature_permission(request.user, 'manage_roles'):
+            self.permission_denied(request, message="You do not have permission to manage roles.")
+
+class RolePermissionViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not check_feature_permission(request.user, 'manage_roles'):
+            self.permission_denied(request, message="You do not have permission to manage roles.")
+
+    @action(detail=True, methods=['get'])
+    def permissions(self, request, pk=None):
+        """Get all features and whether they are enabled for a specific role ID"""
+        try:
+            role = Role.objects.get(pk=pk)
+        except Role.DoesNotExist:
+            return Response({'detail': 'Role not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get all enabled features for this role
+        enabled_features = RoleFeaturePermission.objects.filter(role=role, is_enabled=True).values_list('feature_key', flat=True)
+        
+        # Return list of feature keys enabled
+        return Response({
+            'role': role.name,
+            'enabled_features': list(enabled_features)
+        })
+
+    @action(detail=True, methods=['post'])
+    def toggle(self, request, pk=None):
+        """Toggle is_enabled for a given feature key on a role ID"""
+        try:
+            role = Role.objects.get(pk=pk)
+        except Role.DoesNotExist:
+            return Response({'detail': 'Role not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        feature_key = request.data.get('feature_key')
+        is_enabled = request.data.get('is_enabled', False)
+
+        if not feature_key:
+            return Response({'error': 'feature_key is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        perm, created = RoleFeaturePermission.objects.update_or_create(
+            role=role,
+            feature_key=feature_key,
+            defaults={'is_enabled': is_enabled}
+        )
+        return Response({
+            'role': role.name,
+            'feature_key': feature_key,
+            'is_enabled': perm.is_enabled
+        })
 
 
 

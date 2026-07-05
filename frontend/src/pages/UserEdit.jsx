@@ -33,6 +33,13 @@ const UserEdit = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [roles, setRoles] = useState([]);
+
+  useEffect(() => {
+    axios.get('/api/roles/')
+      .then(res => setRoles(res.data))
+      .catch(err => console.error('Error loading roles:', err));
+  }, []);
 
   useEffect(() => {
     console.log('User data loaded:', user);
@@ -72,7 +79,7 @@ const UserEdit = () => {
       newErrors.password = 'Password is required for new users';
     }
     
-    if (!['Admin', 'Employee', 'Telecaller'].includes(formData.role)) {
+    if (!formData.role || formData.role.trim() === '') {
       newErrors.role = 'Please select a valid role';
     }
     
@@ -373,9 +380,16 @@ const UserEdit = () => {
           } transition-all duration-200 outline-none bg-gray-50/50 appearance-none cursor-pointer`}
           required
         >
-          <option value="Employee">Employee</option>
-          <option value="Admin">Admin</option>
-          <option value="Telecaller">Telecaller</option>
+          {roles.map(r => (
+            <option key={r.id} value={r.name}>{r.name}</option>
+          ))}
+          {roles.length === 0 && (
+            <>
+              <option value="Employee">Employee</option>
+              <option value="Admin">Admin</option>
+              <option value="Telecaller">Telecaller</option>
+            </>
+          )}
         </select>
         <Shield size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
         <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
