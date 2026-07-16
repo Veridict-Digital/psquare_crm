@@ -38,6 +38,9 @@ import {
 import { toast } from 'react-hot-toast';
 
 const OrderDetail = () => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isAdmin = user.role === "Admin";
+
   // Fetch products for original price lookup
   const { data: products } = useQuery({
     queryKey: ['products'],
@@ -156,7 +159,10 @@ const OrderDetail = () => {
       comboId: ac.combo_id,
       combo_id: ac.combo_id,
       quantity: ac.quantity || 1,
-      name: ac.name || ""
+      name: ac.name || "",
+      items: ac.items || [],
+      rewards: ac.rewards || [],
+      gifts: ac.gifts || []
     }));
 
     // 5. Package it together
@@ -198,9 +204,7 @@ const OrderDetail = () => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric'
     });
   };
 
@@ -353,13 +357,32 @@ const OrderDetail = () => {
         setComboDetails([]);
         return;
       }
+      
+      // Check if order has pre-saved snapshots
+      const hasSnapshot = order.applied_combos.some(c => 
+        (c.items && c.items.length > 0) || 
+        (c.rewards && c.rewards.length > 0) || 
+        (c.gifts && c.gifts.length > 0)
+      );
+      if (hasSnapshot) {
+        const snapshots = order.applied_combos.map(c => ({
+          id: c.combo_id,
+          name: c.name,
+          items: c.items || [],
+          rewards: c.rewards || [],
+          gifts: c.gifts || []
+        }));
+        setComboDetails(snapshots);
+        return;
+      }
+
       setCombosLoading(true);
       try {
-        // Fetch all combos by their IDs
-        const comboIds = order.applied_combos.map(c => c.combo_id);
+        // Fetch all combos by their IDs (Fallback for old orders)
+        const comboIds = order.applied_combos.map(c => String(c.combo_id));
         const res = await axios.get('/api/productcombinations/');
         const allCombos = res.data || [];
-        const matchedCombos = allCombos.filter(c => comboIds.includes(c.id));
+        const matchedCombos = allCombos.filter(c => comboIds.includes(String(c.id)));
         setComboDetails(matchedCombos);
       } catch (err) {
         setComboDetails([]);
@@ -457,7 +480,7 @@ const OrderDetail = () => {
 
     if (order.applied_combos && order.applied_combos.length > 0 && comboDetails.length > 0) {
       comboDetails.forEach((combo) => {
-        const appliedCombo = order.applied_combos?.find(c => c.combo_id === combo.id);
+        const appliedCombo = order.applied_combos?.find(c => String(c.combo_id) === String(combo.id));
         const appliedQuantity = appliedCombo?.quantity || 1;
 
         (combo.items || []).forEach((item) => {
@@ -465,7 +488,7 @@ const OrderDetail = () => {
           const unitMrp = getOriginalPrice(item.product);
           const totalMrp = unitMrp * itemQty;
 
-          const orderItemObj = order.items?.find(oi => oi.product === item.product && !oi.is_free && !oi.is_gift);
+          const orderItemObj = order.items?.find(oi => String(oi.product) === String(item.product) && !oi.is_free && !oi.is_gift);
           const unitOffer = orderItemObj ? parseFloat(orderItemObj.unit_price) : (parseFloat(item.offer_price) || 0);
           const totalOffer = orderItemObj ? parseFloat(orderItemObj.total_price) : (unitOffer * itemQty);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(item.product);
@@ -495,7 +518,7 @@ const OrderDetail = () => {
           const unitMrp = getOriginalPrice(reward.product);
           const totalMrp = unitMrp * itemQty;
 
-          const orderItemObj = order.items?.find(oi => oi.product === reward.product && oi.is_free);
+          const orderItemObj = order.items?.find(oi => String(oi.product) === String(reward.product) && oi.is_free);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(reward.product);
 
           const taxableMrp = totalMrp / (1 + gstRate / 100);
@@ -524,7 +547,7 @@ const OrderDetail = () => {
           const unitMrp = getOriginalPrice(gift.product);
           const totalMrp = unitMrp * itemQty;
 
-          const orderItemObj = order.items?.find(oi => oi.product === gift.product && oi.is_gift);
+          const orderItemObj = order.items?.find(oi => String(oi.product) === String(gift.product) && oi.is_gift);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(gift.product);
 
           const taxableMrp = totalMrp / (1 + gstRate / 100);
@@ -633,7 +656,12 @@ const OrderDetail = () => {
 
   const { isMaharashtra, taxableValue, totalGst, cgstSgstValue, igstValue } = getGstBreakdown();
 
-  const invoiceItems = getRolledUpInvoiceItems();
+  const invoiceItems = getRolledUpInvoiceItems()
+    .sort((a, b) => (a.productName || "").localeCompare(b.productName || ""))
+    .map((item, idx) => ({
+      ...item,
+      sNo: idx + 1
+    }));
 
   const getInvoiceNumber = () => {
     const rawId = order.order_id || `ORD-${order.id}`;
@@ -734,10 +762,10 @@ const OrderDetail = () => {
               <Printer className="h-4 w-4 mr-2 text-blue-600" />
               Print Invoice
             </button>
-            <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center">
+            {/* <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center">
               <Download className="h-4 w-4 mr-2" />
               Export
-            </button>
+            </button> */}
             <Link
               to={`/customers/${order.customer}`}
               className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 flex items-center"
@@ -752,14 +780,16 @@ const OrderDetail = () => {
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleteMutation.isLoading}
-              className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isLoading}
+                className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </button>
+            )}
           </div>
         </div>
 
@@ -841,7 +871,7 @@ const OrderDetail = () => {
                 <div className="inv-cell inv-border-r inv-w-50 flex flex-col" style={{ padding: "5px 6px" }}>
                   <div className="inv-border-b pb-1.5 mb-1.5">
                     <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
-                      <span className="text-[11px] text-black uppercase font-bold">Consignee (Ship to)</span>
+                      <span className="text-[11px] text-black uppercase font-bold">Buyer (Ship to)</span>
                       {companyName && (
                         <Link to={`/customers/${order.customer}`} className="font-bold text-blue-600 hover:underline hover:text-blue-800 print:text-black print:no-underline">
                           {companyName}
@@ -910,12 +940,13 @@ const OrderDetail = () => {
                     <th rowSpan="2" className="text-center w-8">Sl No.</th>
                     <th rowSpan="2" className="text-left">Description of Goods</th>
                     <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
-                    <th colSpan="3" className="text-center w-36">Quantity</th>
+                    <th colSpan="4" className="text-center w-48">Quantity</th>
                     <th rowSpan="2" className="text-right w-20">Rate<br />(Incl. of Tax)</th>
                     <th rowSpan="2" className="text-right w-20">Rate</th>
                     <th rowSpan="2" className="text-right w-24">Amount</th>
                   </tr>
                   <tr>
+                    <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Total</th>
                     <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Billed</th>
                     <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Free</th>
                     <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Gift</th>
@@ -923,6 +954,7 @@ const OrderDetail = () => {
                 </thead>
                 <tbody>
                   {invoiceItems.map((item, idx) => {
+                    const itemTotalQty = (item.billedQty || 0) + (item.freeQty || 0) + (item.giftQty || 0);
                     return (
                       <tr key={idx} style={{ height: "24px" }}>
                         <td className="text-center">{item.sNo}</td>
@@ -930,6 +962,7 @@ const OrderDetail = () => {
                           {item.productName}
                         </td>
                         <td className="text-center">{item.hsn}</td>
+                        <td className="text-center font-bold">{itemTotalQty > 0 ? `${itemTotalQty} PCS` : ""}</td>
                         <td className="text-center font-bold">{item.billedQty > 0 ? `${item.billedQty} PCS` : ""}</td>
                         <td className="text-center font-bold">{item.freeQty > 0 ? `${item.freeQty} PCS` : ""}</td>
                         <td className="text-center font-bold">{item.giftQty > 0 ? `${item.giftQty} PCS` : ""}</td>
@@ -952,19 +985,19 @@ const OrderDetail = () => {
                     <>
                       <tr style={{ height: "20px" }}>
                         <td></td>
-                        <td className="text-right font-bold italic" colSpan="7">OUTPUT CGST</td>
+                        <td className="text-right font-bold italic" colSpan="8">OUTPUT CGST</td>
                         <td className="text-right font-bold">{formatCurrency(totalCgst)}</td>
                       </tr>
                       <tr style={{ height: "20px" }}>
                         <td></td>
-                        <td className="text-right font-bold italic" colSpan="7">OUTPUT SGST</td>
+                        <td className="text-right font-bold italic" colSpan="8">OUTPUT SGST</td>
                         <td className="text-right font-bold">{formatCurrency(totalSgst)}</td>
                       </tr>
                     </>
                   ) : (
                     <tr style={{ height: "20px" }}>
                       <td></td>
-                      <td className="text-right font-bold italic" colSpan="7">OUTPUT IGST</td>
+                      <td className="text-right font-bold italic" colSpan="8">OUTPUT IGST</td>
                       <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
                     </tr>
                   )}
@@ -973,7 +1006,7 @@ const OrderDetail = () => {
                   {Math.abs(roundOff) >= 0.005 && (
                     <tr style={{ height: "20px" }}>
                       <td></td>
-                      <td className="text-right italic" colSpan="7">
+                      <td className="text-right italic" colSpan="8">
                         <strong>Less:</strong> ROUND OFF
                       </td>
                       <td className="text-right font-bold">{formatRoundOff(roundOff)}</td>
@@ -985,6 +1018,7 @@ const OrderDetail = () => {
                     <td className="text-center"></td>
                     <td className="text-right">Total</td>
                     <td className="text-center"></td>
+                    <td className="text-center font-bold">{(totalBilledQty + totalFreeQty + totalGiftQty)} PCS</td>
                     <td className="text-center font-bold">{totalBilledQty} PCS</td>
                     <td className="text-center font-bold">{totalFreeQty} PCS</td>
                     <td className="text-center font-bold">{totalGiftQty} PCS</td>

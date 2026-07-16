@@ -46,7 +46,10 @@ const CallPopup = () => {
     assumptions3,
     currentDropdown,
     setCurrentDropdown,
-    isEditingLastCall
+    isEditingLastCall,
+    isEndingCall,
+    isMinimized,
+    setIsMinimized
   } = useCallPopup();
 
   if (!isVisible && !isEmbedded) return null;
@@ -56,7 +59,6 @@ const CallPopup = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [isMinimized, setIsMinimized] = useState(false);
   const popupRef = useRef(null);
   const embeddedNotesRef = useRef(null);
   const floatingNotesRef = useRef(null);
@@ -111,6 +113,19 @@ const CallPopup = () => {
       floatingNotesRef.current.style.height = `${floatingNotesRef.current.scrollHeight}px`;
     }
   }, [notes, isVisible, isEmbedded]);
+
+  useEffect(() => {
+    if (isVisible && !isMinimized) {
+      const focusTimer = setTimeout(() => {
+        if (isEmbedded && embeddedNotesRef.current) {
+          embeddedNotesRef.current.focus();
+        } else if (!isEmbedded && floatingNotesRef.current) {
+          floatingNotesRef.current.focus();
+        }
+      }, 100);
+      return () => clearTimeout(focusTimer);
+    }
+  }, [isVisible, isMinimized, isEmbedded]);
 
   const handleMouseDown = (e) => {
     if ((e.target.closest('.drag-handle') && !e.target.closest('button')) || e.target.closest('.minimized-icon')) {
@@ -274,7 +289,13 @@ const CallPopup = () => {
                 <button onClick={startTimer} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors flex-shrink-0">Start Call</button>
               ) : (
                 <>
-                  <button onClick={endCall} className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors flex-shrink-0">End Call</button>
+                  <button
+                    onClick={endCall}
+                    disabled={isEndingCall}
+                    className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isEndingCall ? "Ending..." : "End Call"}
+                  </button>
                 </>
               )}
               {isEditingLastCall && (
@@ -494,9 +515,10 @@ const CallPopup = () => {
                     ) : (
                       <button
                         onClick={endCall}
-                        className="inline-flex items-center gap-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-2 py-1.5 rounded text-[10px] font-bold transition-all duration-200 shadow-sm flex-shrink-0 uppercase"
+                        disabled={isEndingCall}
+                        className="inline-flex items-center gap-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-2 py-1.5 rounded text-[10px] font-bold transition-all duration-200 shadow-sm flex-shrink-0 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        End
+                        {isEndingCall ? "Ending..." : "End"}
                       </button>
                     )}
                   </>

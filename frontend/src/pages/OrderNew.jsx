@@ -27,6 +27,434 @@ import {
   Printer,
 } from "lucide-react";
 
+const ComboQuantityInput = ({ combo, initialQty, onUpdateQuantity, onRemove }) => {
+  const [localValue, setLocalValue] = useState(String(initialQty));
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setLocalValue(String(initialQty));
+  }, [initialQty]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setLocalValue(val);
+
+    if (val === '') return;
+    const parsed = parseInt(val, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      onUpdateQuantity(parsed);
+    }
+  };
+
+  const handleBlur = () => {
+    const parsed = parseInt(localValue, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      onRemove();
+    } else {
+      onUpdateQuantity(parsed);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      inputRef.current?.blur();
+    }
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      type="number"
+      min="0"
+      value={localValue}
+      onChange={handleInputChange}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      className="w-12 text-center text-xs font-medium border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 h-6 px-1 flex-shrink-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+    />
+  );
+};
+
+const ComboOffersTable = ({
+  combinations,
+  showActions = true,
+  showGrandTotals = false,
+  excludeApplied = false,
+  appliedCombos = [],
+  products = [],
+  comboSortOrder = 'desc',
+  setComboSortOrder,
+  calculateComboSavings,
+  applyCombo,
+  updateComboQuantity,
+  removeCombo,
+  getFilteredCombinations,
+}) => {
+  const filteredCombos = excludeApplied ? getFilteredCombinations(combinations) : combinations;
+
+  const displayCombos = excludeApplied
+    ? filteredCombos.filter(combo => !appliedCombos.some(ac => String(ac.comboId || ac.combo_id) === String(combo.id)))
+    : filteredCombos;
+
+  const getPaidQty = (combo) => {
+    return combo.items?.reduce((sum, item) => sum + (parseInt(item.quantity_required) || 0), 0) || 0;
+  };
+
+  const sortedDisplayCombos = [...displayCombos].sort((a, b) => {
+    const qtyA = getPaidQty(a);
+    const qtyB = getPaidQty(b);
+    if (qtyA !== qtyB) {
+      return comboSortOrder === 'desc' ? qtyB - qtyA : qtyA - qtyB;
+    }
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  // Calculate Grand Totals based on applied quantities of combinations in this table
+  let totalPurchaseQty = 0;
+  let totalPurchaseMrp = 0;
+  let totalPurchaseOffer = 0;
+
+  let totalFreeQty = 0;
+  let totalFreeMrp = 0;
+  let totalFreeSave = 0;
+
+  let totalGiftQty = 0;
+  let totalGiftMrp = 0;
+
+  let totalRegular = 0;
+  let totalCombo = 0;
+  let totalSavings = 0;
+
+  sortedDisplayCombos.forEach((combo) => {
+    const appliedQuantity = appliedCombos.find(c => {
+      const comboId = c.comboId || c.combo_id;
+      return String(comboId) === String(combo.id);
+    })?.quantity || 0;
+
+    if (appliedQuantity > 0) {
+      const firstRequiredItem = combo.items?.[0];
+      const firstFreeItem = combo.rewards?.[0];
+      const firstGiftItem = combo.gifts?.[0];
+
+      const requiredProduct = firstRequiredItem ? products?.find(p => p.id === firstRequiredItem.product) : null;
+      const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
+      const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
+
+      const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null
+        ? parseFloat(requiredProduct.pricing.mrp)
+        : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
+
+      const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null
+        ? parseFloat(freeProduct.pricing.mrp)
+        : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
+
+      const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null
+        ? parseFloat(giftProduct.pricing.mrp)
+        : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
+
+      // Purchase Products
+      if (firstRequiredItem) {
+        totalPurchaseQty += firstRequiredItem.quantity_required * appliedQuantity;
+        totalPurchaseMrp += requiredProductMrp * firstRequiredItem.quantity_required * appliedQuantity;
+        if (combo.manual_combo_price !== undefined && combo.manual_combo_price !== null && parseFloat(combo.manual_combo_price) > 0) {
+          totalPurchaseOffer += parseFloat(combo.manual_combo_price) * appliedQuantity;
+        } else {
+          const offerPrice = firstRequiredItem.offer_price
+            ? parseFloat(firstRequiredItem.offer_price)
+            : (requiredProduct?.pricing?.sale_rate !== undefined && requiredProduct?.pricing?.sale_rate !== null
+              ? parseFloat(requiredProduct.pricing.sale_rate)
+              : parseFloat(requiredProduct?.price || 0));
+          totalPurchaseOffer += offerPrice * firstRequiredItem.quantity_required * appliedQuantity;
+        }
+      }
+
+      // Free Products
+      if (firstFreeItem) {
+        totalFreeQty += firstFreeItem.quantity_free * appliedQuantity;
+        totalFreeMrp += freeProductMrp * firstFreeItem.quantity_free * appliedQuantity;
+        totalFreeSave += freeProductMrp * firstFreeItem.quantity_free * appliedQuantity;
+      }
+
+      // Gifts
+      if (giftProduct) {
+        const giftQty = firstGiftItem?.quantity || 1;
+        totalGiftQty += giftQty * appliedQuantity;
+        totalGiftMrp += giftProductMrp * giftQty * appliedQuantity;
+      }
+
+      // Savings & Totals
+      const savingsObj = calculateComboSavings(combo, appliedQuantity);
+      totalRegular += savingsObj.regularTotal;
+      totalCombo += savingsObj.offerTotal;
+      totalSavings += savingsObj.savings;
+    }
+  });
+
+  const totalSavingsPercentage = totalRegular > 0 ? ((totalRegular - totalCombo) / totalRegular * 100).toFixed(1) : 0;
+
+  return (
+    <table className="w-full border-collapse">
+      <thead>
+        <tr className="bg-[#1a2332]">
+          <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Combo</th>
+          <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="5">Purchase Product</th>
+          <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="5">Free Product</th>
+          <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="4">Gift Product</th>
+          <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Total</th>
+          <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Action</th>
+        </tr>
+        <tr className="bg-[#1a2332]">
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+          <th 
+            className="border border-gray-300 px-4 py-1 text-xs font-semibold text-white cursor-pointer hover:bg-gray-700 transition-colors select-none"
+            onClick={() => setComboSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            title="Click to sort by purchase product quantity"
+          >
+            <div className="flex items-center justify-center gap-0.5">
+              <span>Qty</span>
+              <span>{comboSortOrder === 'desc' ? '▼' : '▲'}</span>
+            </div>
+          </th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Offer Price</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total Offer</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">You Save</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total Save</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total MRP</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total Mrp</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">You pay</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">You Save</th>
+          <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {sortedDisplayCombos.map((combo) => {
+          const isApplied = appliedCombos.some(c => {
+            const comboId = c.comboId || c.combo_id;
+            return String(comboId) === String(combo.id);
+          });
+          const appliedQuantity = appliedCombos.find(c => {
+            const comboId = c.comboId || c.combo_id;
+            return String(comboId) === String(combo.id);
+          })?.quantity || 0;
+
+          const firstRequiredItem = combo.items?.[0];
+          const firstFreeItem = combo.rewards?.[0];
+          const firstGiftItem = combo.gifts?.[0];
+
+          const requiredProduct = firstRequiredItem ? products?.find(p => p.id === firstRequiredItem.product) : null;
+          const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
+          const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
+
+          const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null
+            ? parseFloat(requiredProduct.pricing.mrp)
+            : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
+
+          const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null
+            ? parseFloat(freeProduct.pricing.mrp)
+            : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
+
+          const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null
+            ? parseFloat(giftProduct.pricing.mrp)
+            : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
+
+          return (
+            <tr key={combo.id} className={`${isApplied ? 'bg-green-50' : ''} hover:bg-gray-50`}>
+              <td className="border border-gray-300 px-4 py-3">
+                <div className="font-medium text-gray-900">{combo.name}</div>
+                {isApplied && (
+                  <div className="text-xs text-green-600 mt-1">Quantity: {appliedQuantity}</div>
+                )}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm">
+                {requiredProduct?.title || '-'}
+                {combo.items?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.items.length - 1} more</span>}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                {firstRequiredItem?.quantity_required || '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                {requiredProduct ? `₹${requiredProductMrp.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
+                {firstRequiredItem?.offer_price ? `₹${parseFloat(firstRequiredItem.offer_price).toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-medium">
+                {firstRequiredItem ? (
+                  (() => {
+                    const qty = parseInt(firstRequiredItem.quantity_required) || 0;
+                    const offer = firstRequiredItem.offer_price 
+                      ? parseFloat(firstRequiredItem.offer_price)
+                      : (requiredProduct?.pricing?.sale_rate !== undefined && requiredProduct?.pricing?.sale_rate !== null
+                        ? parseFloat(requiredProduct.pricing.sale_rate)
+                        : parseFloat(requiredProduct?.price || 0));
+                    return `₹${(qty * offer).toFixed(2)}`;
+                  })()
+                ) : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm">
+                {freeProduct?.title || '-'}
+                {combo.rewards?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.rewards.length - 1} more</span>}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                {firstFreeItem?.quantity_free || '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
+                {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
+                {freeProduct ? (
+                  (() => {
+                    const qty = parseInt(firstFreeItem?.quantity_free) || 0;
+                    return `₹${(qty * freeProductMrp).toFixed(2)}`;
+                  })()
+                ) : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm">
+                {giftProduct?.title || '-'}
+                {combo.gifts?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.gifts.length - 1} more</span>}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+                {giftProduct ? (firstGiftItem?.quantity || 1) : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                {giftProduct ? `₹${giftProductMrp.toFixed(2)}` : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                {giftProduct ? (
+                  (() => {
+                    const qty = parseInt(firstGiftItem?.quantity || 1) || 0;
+                    return `₹${(qty * giftProductMrp).toFixed(2)}`;
+                  })()
+                ) : '-'}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right">
+                ₹{calculateComboSavings(combo, 1).regularTotal.toFixed(2)}
+              </td>
+              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-medium text-green-600">
+                ₹{calculateComboSavings(combo, 1).offerTotal.toFixed(2)}
+              </td>
+              <td className="border border-gray-300 px-4 py-3">
+                <div className="text-sm font-medium text-green-700 text-right">
+                  ₹{calculateComboSavings(combo, 1).savings.toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-500 text-right">
+                  ({calculateComboSavings(combo, 1).savingsPercentage}%)
+                </div>
+              </td>
+              <td className="border border-gray-300 px-4 py-3">
+                {showActions && !isApplied && (
+                  <button
+                    type="button"
+                    onClick={() => applyCombo(combo)}
+                    className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 whitespace-nowrap"
+                  >
+                    Apply
+                  </button>
+                )}
+                {showActions && isApplied && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => updateComboQuantity(combo.id, appliedQuantity - 1, combo)}
+                      className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300 flex-shrink-0"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <ComboQuantityInput
+                      combo={combo}
+                      initialQty={appliedQuantity}
+                      onUpdateQuantity={(newQty) => updateComboQuantity(combo.id, newQty, combo)}
+                      onRemove={() => removeCombo(combo.id)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updateComboQuantity(combo.id, appliedQuantity + 1, combo)}
+                      className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300 flex-shrink-0"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeCombo(combo.id)}
+                      className="ml-1 text-red-500 hover:text-red-700 flex-shrink-0"
+                      title="Remove combo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                   </div>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+        {showGrandTotals && totalRegular > 0 && (
+          <tr className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
+            <td className="border border-gray-300 px-4 py-3 text-gray-900 font-bold">
+              Grand Totals
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+              {totalPurchaseQty > 0 ? totalPurchaseQty : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
+              {totalPurchaseMrp > 0 ? `₹${totalPurchaseMrp.toFixed(2)}` : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-700 font-bold">
+              {totalPurchaseOffer > 0 ? `₹${totalPurchaseOffer.toFixed(2)}` : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+              {totalFreeQty > 0 ? totalFreeQty : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
+              {totalFreeMrp > 0 ? `₹${totalFreeMrp.toFixed(2)}` : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-700 font-bold">
+              {totalFreeSave > 0 ? `₹${totalFreeSave.toFixed(2)}` : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm"></td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-center">
+              {totalGiftQty > 0 ? totalGiftQty : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
+              {totalGiftMrp > 0 ? `₹${totalGiftMrp.toFixed(2)}` : '-'}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold text-gray-900">
+              ₹{totalRegular.toFixed(2)}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold text-green-700">
+              ₹{totalCombo.toFixed(2)}
+            </td>
+            <td className="border border-gray-300 px-4 py-3 font-bold">
+              <div className="text-sm font-bold text-green-700 text-right">
+                ₹{totalSavings.toFixed(2)}
+              </div>
+              <div className="text-xs text-gray-500 text-right">
+                ({totalSavingsPercentage}%)
+              </div>
+            </td>
+            <td className="border border-gray-300 px-4 py-3"></td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+};
+
 const OrderNew = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -100,7 +528,7 @@ const OrderNew = () => {
       customer: urlCustomerId || "",
       agent: "",
       status: "Placed",
-      payment_status: "Credit",
+      payment_status: "Advance",
       followup_date: "",
       partial_amount: 0,
       delivery_address: {
@@ -199,18 +627,18 @@ const OrderNew = () => {
   const [filterPaid, setFilterPaid] = useState(true);
   const [filterFree, setFilterFree] = useState(false);
   const [filterGift, setFilterGift] = useState(false);
+  const [comboSortOrder, setComboSortOrder] = useState('desc');
   const [showQuotationModal, setShowQuotationModal] = useState(false);
 
   // Helper to switch drafts between customers
   const loadDraftForCustomer = (custId) => {
     const targetId = custId ? custId.toString() : "";
     const savedForm = sessionStorage.getItem(`orderNewFormData_${targetId || 'anonymous'}`);
-    
     const defaultData = {
       customer: targetId,
       agent: "",
       status: "Placed",
-      payment_status: "Credit",
+      payment_status: "Advance",
       followup_date: "",
       partial_amount: 0,
       delivery_address: {
@@ -318,6 +746,11 @@ const OrderNew = () => {
     queryFn: () => axios.get("/api/products/").then((res) => res.data),
     staleTime: 5 * 60 * 1000,
   });
+
+  const selectedProductObj = useMemo(() => {
+    if (!selectedProduct) return null;
+    return products?.find(p => p.id === parseInt(selectedProduct));
+  }, [products, selectedProduct]);
 
   const { data: combinations } = useQuery({
     queryKey: ["combinations"],
@@ -674,13 +1107,16 @@ const OrderNew = () => {
     });
 
     setAppliedCombos((prev) => {
-      const existingComboIndex = prev.findIndex(c => (c.comboId === combo.id) || (c.combo_id === combo.id));
+      const existingComboIndex = prev.findIndex(c => String(c.comboId || c.combo_id) === String(combo.id));
 
       if (existingComboIndex !== -1) {
         const newCombos = [...prev];
         newCombos[existingComboIndex] = {
           ...newCombos[existingComboIndex],
-          quantity: (newCombos[existingComboIndex].quantity || 1) + 1
+          quantity: (newCombos[existingComboIndex].quantity || 1) + 1,
+          items: prev[existingComboIndex].items || combo.items,
+          rewards: prev[existingComboIndex].rewards || combo.rewards,
+          gifts: prev[existingComboIndex].gifts || combo.gifts
         };
         return newCombos;
       } else {
@@ -688,7 +1124,10 @@ const OrderNew = () => {
           comboId: combo.id,
           combo_id: combo.id,
           quantity: 1,
-          name: combo.name
+          name: combo.name,
+          items: combo.items,
+          rewards: combo.rewards,
+          gifts: combo.gifts
         }];
       }
     });
@@ -700,7 +1139,7 @@ const OrderNew = () => {
       return;
     }
 
-    const existingCombo = appliedCombos.find(c => (c.comboId === comboId) || (c.combo_id === comboId));
+    const existingCombo = appliedCombos.find(c => String(c.comboId || c.combo_id) === String(comboId));
     if (!existingCombo) return;
 
     const quantityDiff = newQuantity - existingCombo.quantity;
@@ -1225,7 +1664,7 @@ const OrderNew = () => {
           customer: "",
           agent: "",
           status: "Placed",
-          payment_status: "Credit",
+          payment_status: "Advance",
           followup_date: "",
           partial_amount: 0,
           delivery_address: {
@@ -1298,7 +1737,10 @@ const OrderNew = () => {
       applied_combos: appliedCombos.map(c => ({
         combo_id: c.comboId || c.combo_id,
         quantity: c.quantity,
-        name: c.name
+        name: c.name,
+        items: c.items || [],
+        rewards: c.rewards || [],
+        gifts: c.gifts || []
       })),
     };
 
@@ -1430,329 +1872,22 @@ const OrderNew = () => {
         isInGift = true;
       }
 
-      if (filterPaid && !isInPaid) return false;
-      if (filterFree && !isInFree) return false;
-      if (filterGift && !isInGift) return false;
+      // If at least one filter is active, the combo must match at least one active filter (OR logic)
+      const hasActiveFilter = filterPaid || filterFree || filterGift;
+      if (hasActiveFilter) {
+        const matchesPaid = filterPaid && isInPaid;
+        const matchesFree = filterFree && isInFree;
+        const matchesGift = filterGift && isInGift;
+        if (!matchesPaid && !matchesFree && !matchesGift) {
+          return false;
+        }
+      }
 
       return true;
     });
   }, [selectedProduct, filterPaid, filterFree, filterGift]);
 
-  // Combo Offers Table Component
-  const ComboOffersTable = ({ combinations, showActions = true, showGrandTotals = false, excludeApplied = false }) => {
-    const filteredCombos = excludeApplied ? getFilteredCombinations(combinations) : combinations;
 
-    const displayCombos = excludeApplied
-      ? filteredCombos.filter(combo => !appliedCombos.some(ac => (ac.comboId === combo.id) || (ac.combo_id === combo.id)))
-      : filteredCombos;
-
-    // Calculate Grand Totals based on applied quantities of combinations in this table
-    let totalPurchaseQty = 0;
-    let totalPurchaseMrp = 0;
-    let totalPurchaseOffer = 0;
-
-    let totalFreeQty = 0;
-    let totalFreeMrp = 0;
-    let totalFreeSave = 0;
-
-    let totalGiftQty = 0;
-    let totalGiftMrp = 0;
-
-    let totalRegular = 0;
-    let totalCombo = 0;
-    let totalSavings = 0;
-
-    displayCombos.forEach((combo) => {
-      const appliedQuantity = appliedCombos.find(c => {
-        const comboId = c.comboId || c.combo_id;
-        return comboId === combo.id;
-      })?.quantity || 0;
-
-      if (appliedQuantity > 0) {
-        const firstRequiredItem = combo.items?.[0];
-        const firstFreeItem = combo.rewards?.[0];
-        const firstGiftItem = combo.gifts?.[0];
-
-        const requiredProduct = firstRequiredItem ? products?.find(p => p.id === firstRequiredItem.product) : null;
-        const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
-        const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
-
-        const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null
-          ? parseFloat(requiredProduct.pricing.mrp)
-          : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
-
-        const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null
-          ? parseFloat(freeProduct.pricing.mrp)
-          : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
-
-        const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null
-          ? parseFloat(giftProduct.pricing.mrp)
-          : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
-
-        // Purchase Products
-        if (firstRequiredItem) {
-          totalPurchaseQty += firstRequiredItem.quantity_required * appliedQuantity;
-          totalPurchaseMrp += requiredProductMrp * firstRequiredItem.quantity_required * appliedQuantity;
-          if (combo.manual_combo_price !== undefined && combo.manual_combo_price !== null && parseFloat(combo.manual_combo_price) > 0) {
-            totalPurchaseOffer += parseFloat(combo.manual_combo_price) * appliedQuantity;
-          } else {
-            const offerPrice = firstRequiredItem.offer_price
-              ? parseFloat(firstRequiredItem.offer_price)
-              : (requiredProduct?.pricing?.sale_rate !== undefined && requiredProduct?.pricing?.sale_rate !== null
-                ? parseFloat(requiredProduct.pricing.sale_rate)
-                : parseFloat(requiredProduct?.price || 0));
-            totalPurchaseOffer += offerPrice * firstRequiredItem.quantity_required * appliedQuantity;
-          }
-        }
-
-        // Free Products
-        if (firstFreeItem) {
-          totalFreeQty += firstFreeItem.quantity_free * appliedQuantity;
-          totalFreeMrp += freeProductMrp * firstFreeItem.quantity_free * appliedQuantity;
-          totalFreeSave += freeProductMrp * firstFreeItem.quantity_free * appliedQuantity;
-        }
-
-        // Gifts
-        if (giftProduct) {
-          const giftQty = firstGiftItem?.quantity || 1;
-          totalGiftQty += giftQty * appliedQuantity;
-          totalGiftMrp += giftProductMrp * giftQty * appliedQuantity;
-        }
-
-        // Savings & Totals
-        const savingsObj = calculateComboSavings(combo, appliedQuantity);
-        totalRegular += savingsObj.regularTotal;
-        totalCombo += savingsObj.offerTotal;
-        totalSavings += savingsObj.savings;
-      }
-    });
-
-    const totalSavingsPercentage = totalRegular > 0 ? ((totalRegular - totalCombo) / totalRegular * 100).toFixed(1) : 0;
-
-    return (
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-[#1a2332]">
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Combo</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="4">Purchase Product</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="4">Free Product</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Gift Product</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white" colSpan="3">Total</th>
-            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-white">Action</th>
-          </tr>
-          <tr className="bg-[#1a2332]">
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Offer Price</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">You Save</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Qty</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">MRP</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Total Mrp</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Combo Total</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">You Save</th>
-            <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {displayCombos.map((combo) => {
-            const isApplied = appliedCombos.some(c => {
-              const comboId = c.comboId || c.combo_id;
-              return comboId === combo.id;
-            });
-            const appliedQuantity = appliedCombos.find(c => {
-              const comboId = c.comboId || c.combo_id;
-              return comboId === combo.id;
-            })?.quantity || 0;
-
-            const firstRequiredItem = combo.items?.[0];
-            const firstFreeItem = combo.rewards?.[0];
-            const firstGiftItem = combo.gifts?.[0];
-
-            const requiredProduct = firstRequiredItem ? products?.find(p => p.id === firstRequiredItem.product) : null;
-            const freeProduct = firstFreeItem ? products?.find(p => p.id === firstFreeItem.product) : null;
-            const giftProduct = firstGiftItem ? products?.find(p => p.id === firstGiftItem.product) : null;
-
-            const requiredProductMrp = requiredProduct?.pricing?.mrp !== undefined && requiredProduct?.pricing?.mrp !== null
-              ? parseFloat(requiredProduct.pricing.mrp)
-              : parseFloat(requiredProduct?.mrp || requiredProduct?.price || 0);
-
-            const freeProductMrp = freeProduct?.pricing?.mrp !== undefined && freeProduct?.pricing?.mrp !== null
-              ? parseFloat(freeProduct.pricing.mrp)
-              : parseFloat(freeProduct?.mrp || freeProduct?.price || 0);
-
-            const giftProductMrp = giftProduct?.pricing?.mrp !== undefined && giftProduct?.pricing?.mrp !== null
-              ? parseFloat(giftProduct.pricing.mrp)
-              : parseFloat(giftProduct?.mrp || giftProduct?.price || 0);
-
-            return (
-              <tr key={combo.id} className={`${isApplied ? 'bg-green-50' : ''} hover:bg-gray-50`}>
-                <td className="border border-gray-300 px-4 py-3">
-                  <div className="font-medium text-gray-900">{combo.name}</div>
-                  {isApplied && (
-                    <div className="text-xs text-green-600 mt-1">Quantity: {appliedQuantity}</div>
-                  )}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm">
-                  {requiredProduct?.title || '-'}
-                  {combo.items?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.items.length - 1} more</span>}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                  {firstRequiredItem?.quantity_required || '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                  {requiredProduct ? `₹${requiredProductMrp.toFixed(2)}` : '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
-                  {firstRequiredItem?.offer_price ? `₹${parseFloat(firstRequiredItem.offer_price).toFixed(2)}` : '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm">
-                  {freeProduct?.title || '-'}
-                  {combo.rewards?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.rewards.length - 1} more</span>}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                  {firstFreeItem?.quantity_free || '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                  {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-600 font-medium">
-                  {freeProduct ? `₹${freeProductMrp.toFixed(2)}` : '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm">
-                  {giftProduct?.title || '-'}
-                  {combo.gifts?.length > 1 && <span className="ml-1 text-xs text-gray-500">+{combo.gifts.length - 1} more</span>}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                  {giftProduct ? (firstGiftItem?.quantity || 1) : '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                  {giftProduct ? `₹${giftProductMrp.toFixed(2)}` : '-'}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-right">
-                  ₹{calculateComboSavings(combo, 1).regularTotal.toFixed(2)}
-                </td>
-                <td className="border border-gray-300 px-4 py-3 text-sm text-right font-medium text-green-600">
-                  ₹{calculateComboSavings(combo, 1).offerTotal.toFixed(2)}
-                </td>
-                <td className="border border-gray-300 px-4 py-3">
-                  <div className="text-sm font-medium text-green-700 text-right">
-                    ₹{calculateComboSavings(combo, 1).savings.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-gray-500 text-right">
-                    ({calculateComboSavings(combo, 1).savingsPercentage}%)
-                  </div>
-                </td>
-                <td className="border border-gray-300 px-4 py-3">
-                  {showActions && !isApplied && (
-                    <button
-                      type="button"
-                      onClick={() => applyCombo(combo)}
-                      className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 whitespace-nowrap"
-                    >
-                      Apply
-                    </button>
-                  )}
-                  {showActions && isApplied && (
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => updateComboQuantity(combo.id, appliedQuantity - 1, combo)}
-                        className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300 flex-shrink-0"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="w-8 text-center text-xs font-medium flex-shrink-0">{appliedQuantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => updateComboQuantity(combo.id, appliedQuantity + 1, combo)}
-                        className="w-6 h-6 bg-white rounded-full text-green-700 hover:bg-green-100 flex items-center justify-center border border-green-300 flex-shrink-0"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeCombo(combo.id)}
-                        className="ml-1 text-red-500 hover:text-red-700 flex-shrink-0"
-                        title="Remove combo"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                     </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-          {showGrandTotals && totalRegular > 0 && (
-            <tr className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
-              <td className="border border-gray-300 px-4 py-3 text-gray-900 font-bold">
-                Grand Totals
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm"></td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                {totalPurchaseQty > 0 ? totalPurchaseQty : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
-                {totalPurchaseMrp > 0 ? `₹${totalPurchaseMrp.toFixed(2)}` : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-700 font-bold">
-                {totalPurchaseOffer > 0 ? `₹${totalPurchaseOffer.toFixed(2)}` : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm"></td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                {totalFreeQty > 0 ? totalFreeQty : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
-                {totalFreeMrp > 0 ? `₹${totalFreeMrp.toFixed(2)}` : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-right text-green-700 font-bold">
-                {totalFreeSave > 0 ? `₹${totalFreeSave.toFixed(2)}` : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm"></td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-center">
-                {totalGiftQty > 0 ? totalGiftQty : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
-                {totalGiftMrp > 0 ? `₹${totalGiftMrp.toFixed(2)}` : '-'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold">
-                ₹{totalRegular.toFixed(2)}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-right font-bold text-green-700">
-                ₹{totalCombo.toFixed(2)}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-right font-bold">
-                <div className="text-sm font-bold text-green-800">
-                  ₹{totalSavings.toFixed(2)}
-                </div>
-                <div className="text-xs text-gray-600 font-medium">
-                  ({totalSavingsPercentage}%)
-                </div>
-              </td>
-              <td className="border border-gray-300 px-4 py-3"></td>
-            </tr>
-          )}
-          {displayCombos.length === 0 && (
-            <tr>
-              <td colSpan="16" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                {selectedProduct
-                  ? "No combo offers match the selected filters for this product"
-                  : (excludeApplied
-                    ? "All available combo offers applied or none match the selected filters"
-                    : "No combo offers available")}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    );
-  };
 
   const getOriginalPrice = (productId) => {
     const productObj = products?.find(p => p.id === productId);
@@ -1796,7 +1931,7 @@ const OrderNew = () => {
     let sNo = 1;
 
     appliedCombos.forEach((ac) => {
-      const combo = combinations?.find(c => c.id === (ac.comboId || ac.combo_id));
+      const combo = combinations?.find(c => String(c.id) === String(ac.comboId || ac.combo_id));
       if (!combo) return;
       const quantity = ac.quantity || 1;
 
@@ -1933,7 +2068,12 @@ const OrderNew = () => {
       }));
     };
 
-    const invoiceItems = getRolledUpInvoiceItems();
+    const invoiceItems = getRolledUpInvoiceItems()
+      .sort((a, b) => (a.productName || "").localeCompare(b.productName || ""))
+      .map((item, idx) => ({
+        ...item,
+        sNo: idx + 1
+      }));
 
     const selectedState = selectedCustomerObj?.state ? selectedCustomerObj.state.toLowerCase() : "";
     const isMaharashtra = selectedState.includes("maharashtra") || !selectedState;
@@ -2035,7 +2175,7 @@ const OrderNew = () => {
 
     const renderInvoiceContent = (isPrint = false) => (
       <div className={isPrint ? "inv-box" : ""}>
-        {isPrint && <div className="inv-header">Quotation Invoice</div>}
+        {isPrint && <div className="inv-header">Quotation</div>}
 
         {isPrint && (
           <div className="inv-row inv-border-b">
@@ -2044,7 +2184,7 @@ const OrderNew = () => {
               <div style={{ width: "50%" }} className="pr-2 text-[10px]">
                 <div className="font-bold" style={{ fontSize: "11px" }}>PARU ENTERPRISES</div>
                 <div className="text-[11px] mt-0.5 whitespace-pre-wrap leading-normal text-gray-800">
-                  A SQUARE PLAZA GR FLR OPP{"\n"}NARMADA GARDEN SANGVI PUNE{"\n"}State Name: Maharashtra, Code: 27
+                  A SQUARE PLAZA GR FLR OPP{"\n"}NARMADA GARDEN SANGVI PUNE
                 </div>
               </div>
               <div style={{ width: "50%" }} className="pl-2 text-[11px] text-gray-800 self-start mt-0.5">
@@ -2109,7 +2249,7 @@ const OrderNew = () => {
             <div className="inv-cell inv-border-r inv-w-50 flex flex-col" style={{ padding: "5px 6px" }}>
               <div className="inv-border-b pb-1.5 mb-1.5">
                 <div className="flex flex-row flex-wrap items-baseline gap-x-4 mb-1 text-[11px]">
-                  <span className="text-[11px] text-gray-500 uppercase font-bold">Consignee (Ship to)</span>
+                  <span className="text-[11px] text-gray-500 uppercase font-bold">Buyer (Ship to)</span>
                   {companyName && <span className="font-bold text-black">{companyName}</span>}
                   <span className={companyName ? "text-gray-800 font-normal" : "font-bold text-black"}>
                     {customerFullName || "Walk-In Customer"}
@@ -2172,12 +2312,13 @@ const OrderNew = () => {
               <th rowSpan="2" className="text-center w-8">Sl No.</th>
               <th rowSpan="2" className="text-left">Description of Goods</th>
               <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
-              <th colSpan="3" className="text-center w-36">Quantity</th>
+              <th colSpan="4" className="text-center w-48">Quantity</th>
               <th rowSpan="2" className="text-right w-20">Rate<br/>(Incl. of Tax)</th>
               <th rowSpan="2" className="text-right w-20">Rate</th>
               <th rowSpan="2" className="text-right w-24">Amount</th>
             </tr>
             <tr>
+              <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Total</th>
               <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Billed</th>
               <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Free</th>
               <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Gift</th>
@@ -2185,11 +2326,13 @@ const OrderNew = () => {
           </thead>
           <tbody>
             {invoiceItems.map((item, idx) => {
+              const itemTotalQty = (item.billedQty || 0) + (item.freeQty || 0) + (item.giftQty || 0);
               return (
                 <tr key={idx} style={{ height: "24px" }} className="text-[10px]">
                   <td className="text-center">{item.sNo}</td>
                   <td className="text-left font-bold">{item.productName}</td>
                   <td className="text-center">{item.hsn}</td>
+                  <td className="text-center font-bold">{itemTotalQty > 0 ? `${itemTotalQty} PCS` : ""}</td>
                   <td className="text-center font-bold">{item.billedQty > 0 ? `${item.billedQty} PCS` : ""}</td>
                   <td className="text-center font-bold">{item.freeQty > 0 ? `${item.freeQty} PCS` : ""}</td>
                   <td className="text-center font-bold">{item.giftQty > 0 ? `${item.giftQty} PCS` : ""}</td>
@@ -2211,19 +2354,19 @@ const OrderNew = () => {
               <>
                 <tr style={{ height: "20px" }}>
                   <td></td>
-                  <td className="text-right font-bold italic" colSpan="7">OUTPUT CGST</td>
+                  <td className="text-right font-bold italic" colSpan="8">OUTPUT CGST</td>
                   <td className="text-right font-bold">{formatCurrency(totalCgst)}</td>
                 </tr>
                 <tr style={{ height: "20px" }}>
                   <td></td>
-                  <td className="text-right font-bold italic" colSpan="7">OUTPUT SGST</td>
+                  <td className="text-right font-bold italic" colSpan="8">OUTPUT SGST</td>
                   <td className="text-right font-bold">{formatCurrency(totalSgst)}</td>
                 </tr>
               </>
             ) : (
               <tr style={{ height: "20px" }}>
                 <td></td>
-                <td className="text-right font-bold italic" colSpan="7">OUTPUT IGST</td>
+                <td className="text-right font-bold italic" colSpan="8">OUTPUT IGST</td>
                 <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
               </tr>
             )}
@@ -2232,7 +2375,7 @@ const OrderNew = () => {
             {Math.abs(roundOff) >= 0.005 && (
               <tr style={{ height: "20px" }}>
                 <td></td>
-                <td className="text-right italic" colSpan="7">
+                <td className="text-right italic" colSpan="8">
                   <strong>Less:</strong> ROUND OFF
                 </td>
                 <td className="text-right font-bold">{formatRoundOff(roundOff)}</td>
@@ -2244,6 +2387,7 @@ const OrderNew = () => {
               <td className="text-center"></td>
               <td className="text-right">Total</td>
               <td className="text-center"></td>
+              <td className="text-center font-bold">{(totalBilledQty + totalFreeQty + totalGiftQty)} PCS</td>
               <td className="text-center font-bold">{totalBilledQty} PCS</td>
               <td className="text-center font-bold">{totalFreeQty} PCS</td>
               <td className="text-center font-bold">{totalGiftQty} PCS</td>
@@ -2764,6 +2908,7 @@ const OrderNew = () => {
                     <option value="Paid">Paid</option>
                     <option value="Partial">Partial</option>
                     <option value="Advance">Advance</option>
+                    <option value="COD">COD</option>
                   </select>
                 </div>
               </div>
@@ -3063,6 +3208,17 @@ const OrderNew = () => {
                         />
                         <span className="text-gray-700">Gift Product</span>
                       </label>
+                      <div className="flex items-center space-x-1.5 ml-auto">
+                        <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Sort Qty:</span>
+                        <select
+                          value={comboSortOrder}
+                          onChange={(e) => setComboSortOrder(e.target.value)}
+                          className="text-[11px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                        >
+                          <option value="desc">High to Low</option>
+                          <option value="asc">Low to High</option>
+                        </select>
+                      </div>
                       {(filterPaid || filterFree || filterGift) && (
                         <button
                           type="button"
@@ -3071,7 +3227,7 @@ const OrderNew = () => {
                             setFilterFree(false);
                             setFilterGift(false);
                           }}
-                          className="text-[10px] text-red-600 hover:text-red-800 font-semibold underline ml-auto"
+                          className="text-[10px] text-red-600 hover:text-red-800 font-semibold underline"
                         >
                           Clear
                         </button>
@@ -3088,7 +3244,7 @@ const OrderNew = () => {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                     <Gift className="w-5 h-5 mr-2 text-yellow-600" />
-                    Combo Offers
+                    Combo Offers {selectedProductObj ? `for ${selectedProductObj.title}` : ''}
                   </h3>
                   <button
                     type="button"
@@ -3101,7 +3257,20 @@ const OrderNew = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <ComboOffersTable combinations={relevantCombinations} showActions={true} excludeApplied={true} />
+                  <ComboOffersTable
+                    combinations={relevantCombinations}
+                    showActions={true}
+                    excludeApplied={true}
+                    appliedCombos={appliedCombos}
+                    products={products}
+                    comboSortOrder={comboSortOrder}
+                    setComboSortOrder={setComboSortOrder}
+                    calculateComboSavings={calculateComboSavings}
+                    applyCombo={applyCombo}
+                    updateComboQuantity={updateComboQuantity}
+                    removeCombo={removeCombo}
+                    getFilteredCombinations={getFilteredCombinations}
+                  />
                 </div>
               </div>
             )}
@@ -3141,10 +3310,19 @@ const OrderNew = () => {
                 <div className="overflow-x-auto">
                   <ComboOffersTable
                     combinations={combinations?.filter(c =>
-                      appliedCombos.some(ac => (ac.comboId === c.id) || (ac.combo_id === c.id))
+                      appliedCombos.some(ac => String(ac.comboId || ac.combo_id) === String(c.id))
                     ) || []}
                     showActions={true}
                     showGrandTotals={true}
+                    appliedCombos={appliedCombos}
+                    products={products}
+                    comboSortOrder={comboSortOrder}
+                    setComboSortOrder={setComboSortOrder}
+                    calculateComboSavings={calculateComboSavings}
+                    applyCombo={applyCombo}
+                    updateComboQuantity={updateComboQuantity}
+                    removeCombo={removeCombo}
+                    getFilteredCombinations={getFilteredCombinations}
                   />
                 </div>
               </div>
@@ -3219,7 +3397,7 @@ const OrderNew = () => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900 flex items-center">
                 <Gift className="w-6 h-6 mr-2 text-yellow-600" />
-                Combo Offers - Full View
+                Combo Offers - Full View {selectedProductObj ? `for ${selectedProductObj.title}` : ''}
               </h3>
               <button
                 type="button"
@@ -3261,25 +3439,49 @@ const OrderNew = () => {
                     />
                     <span className="text-sm text-gray-700">Gifts</span>
                   </label>
-                  {(filterPaid || filterFree || filterGift) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilterPaid(false);
-                        setFilterFree(false);
-                        setFilterGift(false);
-                      }}
-                      className="text-xs text-red-600 hover:text-red-800 underline"
-                    >
-                      Clear all
-                    </button>
-                  )}
+                      <div className="flex items-center space-x-2 ml-auto">
+                        <span className="text-xs text-gray-500 font-medium">Sort Qty:</span>
+                        <select
+                          value={comboSortOrder}
+                          onChange={(e) => setComboSortOrder(e.target.value)}
+                          className="text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                        >
+                          <option value="desc">Descending (High to Low)</option>
+                          <option value="asc">Ascending (Low to High)</option>
+                        </select>
+                      </div>
+                      {(filterPaid || filterFree || filterGift) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterPaid(false);
+                            setFilterFree(false);
+                            setFilterGift(false);
+                          }}
+                          className="text-xs text-red-600 hover:text-red-800 underline"
+                        >
+                          Clear all
+                        </button>
+                      )}
                 </div>
               </div>
             )}
 
             <div className="p-6 overflow-auto max-h-[calc(90vh-180px)]">
-              <ComboOffersTable combinations={relevantCombinations} showActions={true} excludeApplied={true} />
+              <ComboOffersTable
+                combinations={relevantCombinations}
+                showActions={true}
+                excludeApplied={true}
+                appliedCombos={appliedCombos}
+                products={products}
+                comboSortOrder={comboSortOrder}
+                setComboSortOrder={setComboSortOrder}
+                calculateComboSavings={calculateComboSavings}
+                applyCombo={applyCombo}
+                updateComboQuantity={updateComboQuantity}
+                removeCombo={removeCombo}
+                getFilteredCombinations={getFilteredCombinations}
+              />
             </div>
           </div>
         </div>
@@ -3312,10 +3514,19 @@ const OrderNew = () => {
             <div className="p-6 overflow-auto max-h-[calc(90vh-100px)]">
               <ComboOffersTable
                 combinations={combinations?.filter(c =>
-                  appliedCombos.some(ac => (ac.comboId === c.id) || (ac.combo_id === c.id))
+                  appliedCombos.some(ac => String(ac.comboId || ac.combo_id) === String(c.id))
                 ) || []}
                 showActions={true}
                 showGrandTotals={true}
+                appliedCombos={appliedCombos}
+                products={products}
+                comboSortOrder={comboSortOrder}
+                setComboSortOrder={setComboSortOrder}
+                calculateComboSavings={calculateComboSavings}
+                applyCombo={applyCombo}
+                updateComboQuantity={updateComboQuantity}
+                removeCombo={removeCombo}
+                getFilteredCombinations={getFilteredCombinations}
               />
             </div>
           </div>
@@ -3331,9 +3542,7 @@ const OrderNew = () => {
           className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
           onClick={() => {
             setShowSuccessModal(false);
-            if (editMode) {
-              navigate(`/orders/${savedDbOrderId || editOrderId}`);
-            }
+            navigate(`/orders/${savedDbOrderId || editOrderId}`);
           }}
         >
           <div
@@ -3365,17 +3574,17 @@ const OrderNew = () => {
                         if (navigator.clipboard && navigator.clipboard.writeText) {
                           await navigator.clipboard.writeText(generatedOrderId);
                         } else {
-                          const textArea = document.createElement("textarea");
-                          textArea.value = generatedOrderId;
-                          textArea.style.top = "0";
-                          textArea.style.left = "0";
-                          textArea.style.position = "fixed";
-                          textArea.style.opacity = "0";
-                          document.body.appendChild(textArea);
-                          textArea.focus();
-                          textArea.select();
+                          const text = document.createElement("textarea");
+                          text.value = generatedOrderId;
+                          text.style.top = "0";
+                          text.style.left = "0";
+                          text.style.position = "fixed";
+                          text.style.opacity = "0";
+                          document.body.appendChild(text);
+                          text.focus();
+                          text.select();
                           document.execCommand("copy");
-                          document.body.removeChild(textArea);
+                          document.body.removeChild(text);
                         }
                       } catch (err) {
                         console.error("Failed to copy order ID:", err);
@@ -3391,11 +3600,11 @@ const OrderNew = () => {
               <button
                 onClick={() => {
                   setShowSuccessModal(false);
-                  navigate(editMode ? `/orders/${savedDbOrderId || editOrderId}` : "/orders");
+                  navigate(`/orders/${savedDbOrderId || editOrderId}`);
                 }}
                 className="bg-gray-900 text-white px-6 py-2 rounded-lg hover:bg-gray-800"
               >
-                {editMode ? "View Order Details" : "View Orders"}
+                View Order Details
               </button>
             </div>
           </div>

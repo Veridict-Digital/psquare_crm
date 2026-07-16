@@ -70,7 +70,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     def get_outstanding_amount(self, obj):
         # Calculate outstanding amount from orders with partial or credit payment status
         outstanding = obj.order_set.filter(
-            models.Q(payment_status='Partial') | models.Q(payment_status='Credit')
+            models.Q(payment_status='Partial') | models.Q(payment_status='Credit') | models.Q(payment_status='COD')
         ).aggregate(
             outstanding=models.Sum(models.F('total_amount') - models.F('paid_amount'))
         )['outstanding'] or 0
@@ -301,6 +301,7 @@ class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     customer_details = CustomerSerializer(source='customer', read_only=True)
     agent_name = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
     delivery_address = serializers.JSONField(required=False, allow_null=True)
 
     def __init__(self, *args, **kwargs):
@@ -312,6 +313,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_agent_name(self, obj):
         return obj.agent.username if obj.agent else 'Unknown'
+
+    def get_created_by_name(self, obj):
+        return obj.created_by.username if obj.created_by else 'Unknown'
 
     def create(self, validated_data):
         from django.db import transaction
@@ -356,6 +360,12 @@ class OrderSerializer(serializers.ModelSerializer):
         # Set order_date to today if not provided
         if not validated_data.get('order_date'):
             validated_data['order_date'] = datetime.date.today()
+
+        # Populate created_by from request context
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+
         with transaction.atomic():
             order = Order.objects.create(**validated_data, applied_combos=applied_combos)
             for item_data in items_data:
@@ -444,7 +454,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['id', 'order_id', 'customer', 'customer_details', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'delivery_house_flat_no', 'delivery_wing_lane', 'delivery_society_colony', 'delivery_landmark', 'delivery_area', 'delivery_pincode', 'delivery_state', 'delivery_district', 'delivery_tahsil', 'delivery_city', 'order_date', 'created_at', 'customer_name', 'agent_name', 'items', 'applied_combos']
+        fields = ['id', 'order_id', 'customer', 'customer_details', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'delivery_house_flat_no', 'delivery_wing_lane', 'delivery_society_colony', 'delivery_landmark', 'delivery_area', 'delivery_pincode', 'delivery_state', 'delivery_district', 'delivery_tahsil', 'delivery_city', 'order_date', 'created_at', 'customer_name', 'agent_name', 'created_by', 'created_by_name', 'items', 'applied_combos']
+        read_only_fields = ['created_by', 'created_by_name']
         extra_kwargs = {
             'agent': {'required': False},
             'applied_combos': {'required': False}
@@ -479,6 +490,7 @@ class LeadSerializer(serializers.ModelSerializer):
 
 class CallLogSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
+    customer_phone = serializers.SerializerMethodField()
     employee_name = serializers.CharField(source='employee.username', read_only=True)
     duration_minutes = serializers.SerializerMethodField()
     order_placed = serializers.SerializerMethodField()
@@ -494,6 +506,13 @@ class CallLogSerializer(serializers.ModelSerializer):
         elif obj.lead:
             return obj.lead.name or 'Unknown Lead'
         return 'Unknown'
+
+    def get_customer_phone(self, obj):
+        if obj.customer:
+            return obj.customer.phone
+        elif obj.lead:
+            return obj.lead.phone
+        return '—'
 
     def get_duration_minutes(self, obj):
         if obj.duration:
@@ -520,7 +539,7 @@ class CallLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CallLog
-        fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'saved_at', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_names', 'assumption2', 'assumption2_names', 'assumption3', 'assumption3_names']
+        fields = ['id', 'call_id', 'customer', 'lead', 'customer_name', 'customer_phone', 'employee', 'employee_name', 'duration', 'duration_minutes', 'note', 'status', 'date', 'saved_at', 'order_placed', 'order_id', 'order_pk', 'assumption', 'assumption_names', 'assumption2', 'assumption2_names', 'assumption3', 'assumption3_names']
 
 class CategorySerializer(serializers.ModelSerializer):
     children_count = serializers.SerializerMethodField()

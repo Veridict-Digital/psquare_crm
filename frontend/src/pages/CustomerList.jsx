@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -176,6 +177,8 @@ const CustomerList = () => {
 
   // Refs
   const phoneSearchInputRef = useRef(null);
+  const orgTypeInputRef = useRef(null);
+  const customerTypeInputRef = useRef(null);
   const nameSearchInputRef = useRef(null);
   const surnameSearchInputRef = useRef(null);
   const phoneInputRef = useRef(null);
@@ -189,6 +192,19 @@ const CustomerList = () => {
   const { openPopup } = useCallPopup();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Auto-focus organization type and customer type inputs when they are displayed
+  useEffect(() => {
+    if (showNewOrgTypeInput && orgTypeInputRef.current) {
+      orgTypeInputRef.current.focus();
+    }
+  }, [showNewOrgTypeInput]);
+
+  useEffect(() => {
+    if (showNewCustomerTypeInput && customerTypeInputRef.current) {
+      customerTypeInputRef.current.focus();
+    }
+  }, [showNewCustomerTypeInput]);
 
   // Function to update URL with current filters
   const updateURLParams = useCallback(() => {
@@ -239,7 +255,7 @@ const CustomerList = () => {
     dateFrom, dateTo, viewType, currentPage, pageSize, updateURLParams
   ]);
 
-  // Reusable async searchable dropdown for filter fields
+  // Reusable async searchable dropdown for filter fields using React Portal
   const SearchableDropdown = ({
     value,
     onChange,
@@ -248,6 +264,7 @@ const CustomerList = () => {
     minLength = 1,
     disabled = false,
     className = "",
+    maxLength,
   }) => {
     const [inputValue, setInputValue] = useState(value || "");
     const [options, setOptions] = useState([]);
@@ -258,10 +275,34 @@ const CustomerList = () => {
     const containerRef = useRef(null);
     const inputRef = useRef(null);
     const fetchTimeoutRef = useRef(null);
+    const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
     useEffect(() => {
       setInputValue(value || "");
     }, [value]);
+
+    const updateCoords = useCallback(() => {
+      if (inputRef.current) {
+        const rect = inputRef.current.getBoundingClientRect();
+        setCoords({
+          top: rect.bottom + window.scrollY,
+          left: rect.left + window.scrollX,
+          width: rect.width
+        });
+      }
+    }, []);
+
+    useEffect(() => {
+      if (showDropdown) {
+        updateCoords();
+        window.addEventListener("scroll", updateCoords, true);
+        window.addEventListener("resize", updateCoords, true);
+      }
+      return () => {
+        window.removeEventListener("scroll", updateCoords, true);
+        window.removeEventListener("resize", updateCoords, true);
+      };
+    }, [showDropdown, updateCoords]);
 
     useEffect(() => {
       if (fetchTimeoutRef.current) {
@@ -323,6 +364,7 @@ const CustomerList = () => {
         setHighlighted((prev) => Math.max(prev - 1, 0));
       } else if (e.key === "Enter" && highlighted >= 0) {
         e.preventDefault();
+        e.stopPropagation();
         handleSelect(options[highlighted]);
       } else if (e.key === "Escape") {
         setShowDropdown(false);
@@ -347,6 +389,10 @@ const CustomerList = () => {
     useEffect(() => {
       const handleClickOutside = (event) => {
         if (containerRef.current && !containerRef.current.contains(event.target)) {
+          const portalDropdown = document.getElementById("portal-searchable-dropdown-menu");
+          if (portalDropdown && portalDropdown.contains(event.target)) {
+            return;
+          }
           setShowDropdown(false);
           setIsTyping(false);
           setHighlighted(-1);
@@ -385,22 +431,29 @@ const CustomerList = () => {
           className={`w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm ${className}`}
           disabled={disabled}
           autoComplete="off"
+          maxLength={maxLength}
         />
         {loading && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
             <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
           </div>
         )}
-        {showDropdown && options.length > 0 && (
+        {showDropdown && options.length > 0 && createPortal(
           <ul
-            className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
-            style={{ zIndex: 9999 }}
+            id="portal-searchable-dropdown-menu"
+            className="absolute z-[9999] bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+            style={{
+              top: `${coords.top}px`,
+              left: `${coords.left}px`,
+              width: `${coords.width}px`,
+            }}
           >
             {options.map((option, idx) => (
               <li
                 key={idx}
-                className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${idx === highlighted ? "bg-blue-100" : ""
-                  }`}
+                className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
+                  idx === highlighted ? "bg-blue-100" : ""
+                }`}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleSelect(option);
@@ -410,7 +463,8 @@ const CustomerList = () => {
                 {option}
               </li>
             ))}
-          </ul>
+          </ul>,
+          document.body
         )}
       </div>
     );
@@ -941,6 +995,7 @@ const CustomerList = () => {
         return;
       } else if (e.key === "Enter" && phoneHighlighted >= 0) {
         e.preventDefault();
+        e.stopPropagation();
         handlePhoneSelect(phoneSuggestions[phoneHighlighted], true);
         return;
       } else if (e.key === "Escape") {
@@ -1366,6 +1421,11 @@ const CustomerList = () => {
 
     // Reset page
     setCurrentPage(1);
+
+    // Focus on phone search field
+    if (phoneSearchInputRef.current) {
+      phoneSearchInputRef.current.focus();
+    }
   }, []);
 
   // Excel export handler
@@ -1480,7 +1540,14 @@ const CustomerList = () => {
 
       {/* Search and Filter Section */}
       <div className="flex-none bg-gray-50 pb-2">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleApplyFilters();
+            }
+          }}
+          className="bg-white rounded-xl shadow-sm border border-gray-100 p-5"
+        >
           {/* Row 1: Quick Search - Phone, Name, Surname, Organization, Org Type, Customer Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3.5">
             {/* Phone search */}
@@ -1609,12 +1676,11 @@ const CustomerList = () => {
             {/* Organization */}
             <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Organization</label>
-              <input
-                type="text"
-                placeholder="Organization"
+              <SearchableDropdown
                 value={pendingFilterOrgName}
-                onChange={(e) => setPendingFilterOrgName(e.target.value)}
-                className="w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                onChange={setPendingFilterOrgName}
+                fetchUrl="/api/customers/unique_company_names/"
+                placeholder="Organization"
               />
             </div>
 
@@ -1659,112 +1725,102 @@ const CustomerList = () => {
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
               {/* Pincode */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="Pincode"
+                <SearchableDropdown
                   value={pendingFilterPincode}
-                  onChange={(e) => setPendingFilterPincode(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterPincode}
+                  fetchUrl="/api/customers/unique_pincodes/"
+                  placeholder="Pincode"
                   maxLength="6"
                 />
               </div>
 
               {/* State */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="State"
+                <SearchableDropdown
                   value={pendingFilterState}
-                  onChange={(e) => setPendingFilterState(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterState}
+                  fetchUrl="/api/customers/unique_states/"
+                  placeholder="State"
                 />
               </div>
 
               {/* Tahsil */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="Tahsil"
+                <SearchableDropdown
                   value={pendingFilterTahsil}
-                  onChange={(e) => setPendingFilterTahsil(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterTahsil}
+                  fetchUrl="/api/customers/unique_tahsils/"
+                  placeholder="Tahsil"
                 />
               </div>
 
               {/* District */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="District"
+                <SearchableDropdown
                   value={pendingFilterDistrict}
-                  onChange={(e) => setPendingFilterDistrict(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterDistrict}
+                  fetchUrl="/api/customers/unique_districts/"
+                  placeholder="District"
                 />
               </div>
 
               {/* City */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="City"
+                <SearchableDropdown
                   value={pendingFilterCity}
-                  onChange={(e) => setPendingFilterCity(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterCity}
+                  fetchUrl="/api/customers/unique_cities/"
+                  placeholder="City"
                 />
               </div>
 
               {/* Area */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="Area"
+                <SearchableDropdown
                   value={pendingFilterArea}
-                  onChange={(e) => setPendingFilterArea(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterArea}
+                  fetchUrl="/api/customers/unique_areas/"
+                  placeholder="Area"
                 />
               </div>
 
               {/* Landmark */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="Landmark"
+                <SearchableDropdown
                   value={pendingFilterLandmark}
-                  onChange={(e) => setPendingFilterLandmark(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterLandmark}
+                  fetchUrl="/api/customers/unique_landmarks/"
+                  placeholder="Landmark"
                 />
               </div>
 
               {/* Society/Colony */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="Society/Colony"
+                <SearchableDropdown
                   value={pendingFilterSocietyColony}
-                  onChange={(e) => setPendingFilterSocietyColony(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterSocietyColony}
+                  fetchUrl="/api/customers/unique_society_colonies/"
+                  placeholder="Society/Colony"
                 />
               </div>
 
               {/* Wing/Lane */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="Wing/Lane"
+                <SearchableDropdown
                   value={pendingFilterWingLane}
-                  onChange={(e) => setPendingFilterWingLane(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterWingLane}
+                  fetchUrl="/api/customers/unique_wing_lanes/"
+                  placeholder="Wing/Lane"
                 />
               </div>
 
               {/* House/Flat */}
               <div className="min-w-[110px] flex-1">
-                <input
-                  type="text"
-                  placeholder="Flat/House No"
+                <SearchableDropdown
                   value={pendingFilterHouseFlatNo}
-                  onChange={(e) => setPendingFilterHouseFlatNo(e.target.value)}
-                  className="px-3 text-sm border border-gray-200 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white h-10 shadow-sm"
+                  onChange={setPendingFilterHouseFlatNo}
+                  fetchUrl="/api/customers/unique_house_flat_nos/"
+                  placeholder="Flat/House No"
                 />
               </div>
             </div>
@@ -2060,6 +2116,7 @@ const CustomerList = () => {
               {showNewOrgTypeInput && (
                 <div className="mt-2 flex gap-2">
                   <input
+                    ref={orgTypeInputRef}
                     type="text"
                     value={newOrgType}
                     onChange={(e) => setNewOrgType(e.target.value)}
@@ -2126,6 +2183,7 @@ const CustomerList = () => {
               {showNewCustomerTypeInput && (
                 <div className="mt-2 flex gap-2">
                   <input
+                    ref={customerTypeInputRef}
                     type="text"
                     value={newCustomerType}
                     onChange={(e) => setNewCustomerType(e.target.value)}

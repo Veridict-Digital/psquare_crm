@@ -1101,7 +1101,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             outstanding_amt=Coalesce(
                 Sum(
                     F('order__total_amount') - F('order__paid_amount'),
-                    filter=Q(order__payment_status__in=['Partial', 'Credit'])
+                    filter=Q(order__payment_status__in=['Partial', 'Credit', 'COD'])
                 ),
                 0,
                 output_field=DecimalField()
@@ -1489,13 +1489,19 @@ class BrandCategory1ViewSet(viewsets.ModelViewSet):
 
 # ========== ORDER VIEWSET ==========
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
+    queryset = Order.objects.select_related('customer', 'agent', 'created_by').all().order_by('-id')
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = OrderPagination
 
     def get_queryset(self):
-        queryset = Order.objects.select_related('customer', 'agent').all().order_by('-id')
+        user = self.request.user
+        queryset = Order.objects.select_related('customer', 'agent', 'created_by').all().order_by('-id')
+        
+        # Enforce role-based visibility for orders
+        if user and hasattr(user, 'role') and user.role != 'Admin':
+            from django.db.models import Q
+            queryset = queryset.filter(Q(created_by=user) | Q(agent=user))
         # Get filter params
         agent = self.request.query_params.get('agent')
         status = self.request.query_params.get('status')
@@ -1654,7 +1660,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(queryset)
         
         # Prefetch customer and items for performance
-        queryset = queryset.select_related('customer', 'agent').prefetch_related('items__product')
+        queryset = queryset.select_related('customer', 'agent', 'created_by').prefetch_related('items__product')
         
         orders_data = []
         for order in queryset:
@@ -1764,6 +1770,9 @@ class CallLogViewSet(viewsets.ModelViewSet):
         status = self.request.query_params.get('status')
         employee = self.request.query_params.get('employee')
         order_placed = self.request.query_params.get('order_placed')
+        order_status = self.request.query_params.get('order_status')
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
         search = self.request.query_params.get('search')
         
         # Apply filters
@@ -1778,6 +1787,14 @@ class CallLogViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(order__isnull=False)
             elif order_placed == 'No':
                 queryset = queryset.filter(order__isnull=True)
+
+        if order_status:
+            queryset = queryset.filter(order__status=order_status)
+
+        if date_from:
+            queryset = queryset.filter(date__date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(date__date__lte=date_to)
         
         if search:
             from django.db.models import Q
@@ -1785,7 +1802,10 @@ class CallLogViewSet(viewsets.ModelViewSet):
                 Q(customer__name__icontains=search) |
                 Q(lead__name__icontains=search) |
                 Q(call_id__icontains=search) |
-                Q(note__icontains=search)
+                Q(note__icontains=search) |
+                Q(customer__phone__icontains=search) |
+                Q(lead__phone__icontains=search) |
+                Q(order__order_id__icontains=search)
             )
         
         # Default ordering by date descending
@@ -1801,6 +1821,9 @@ class CallLogViewSet(viewsets.ModelViewSet):
         status = request.query_params.get('status')
         employee = request.query_params.get('employee')
         order_placed = request.query_params.get('order_placed')
+        order_status = request.query_params.get('order_status')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
         search = request.query_params.get('search')
         
         # Apply same filters as get_queryset
@@ -1813,13 +1836,22 @@ class CallLogViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(order__isnull=False)
             elif order_placed == 'No':
                 queryset = queryset.filter(order__isnull=True)
+        if order_status:
+            queryset = queryset.filter(order__status=order_status)
+        if date_from:
+            queryset = queryset.filter(date__date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(date__date__lte=date_to)
         if search:
             from django.db.models import Q
             queryset = queryset.filter(
                 Q(customer__name__icontains=search) |
                 Q(lead__name__icontains=search) |
                 Q(call_id__icontains=search) |
-                Q(note__icontains=search)
+                Q(note__icontains=search) |
+                Q(customer__phone__icontains=search) |
+                Q(lead__phone__icontains=search) |
+                Q(order__order_id__icontains=search)
             )
         
         # Get total count

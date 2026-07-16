@@ -2940,7 +2940,14 @@ const ProductCombinations = () => {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
         {/* Filter Bar with Replicated Product Filters */}
-        <div className="mb-2 w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleApplyFilters();
+            }
+          }}
+          className="mb-2 w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+        >
           {/* Row 1: Combo Search and SKU/Title/HSN */}
           <div className="grid grid-cols-12 gap-3 mb-4">
             <div className="col-span-4 relative">
@@ -2987,6 +2994,7 @@ const ProductCombinations = () => {
                       comboNameSuggestions[comboSuggestionIndex]
                     ) {
                       e.preventDefault();
+                      e.stopPropagation();
                       setFilterName(
                         comboNameSuggestions[comboSuggestionIndex],
                       );
@@ -3069,6 +3077,7 @@ const ProductCombinations = () => {
                       productSkuSuggestions[skuSuggestionIndex]
                     ) {
                       e.preventDefault();
+                      e.stopPropagation();
                       setFilterSKU(
                         productSkuSuggestions[skuSuggestionIndex],
                       );
@@ -3151,6 +3160,7 @@ const ProductCombinations = () => {
                       productTitleSuggestions[titleSuggestionIndex]
                     ) {
                       e.preventDefault();
+                      e.stopPropagation();
                       setFilterTitle(
                         productTitleSuggestions[titleSuggestionIndex],
                       );

@@ -8,6 +8,8 @@ import * as XLSX from 'xlsx';
 
 const OrderList = () => {
   const { hasPermission } = useAuth();
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isAdmin = user.role === "Admin";
   // Filter States - Draft/Pending
   const [search, setSearch] = useState('');
   const [filterAgent, setFilterAgent] = useState('');
@@ -344,9 +346,9 @@ const OrderList = () => {
   const totalPages = Math.ceil(totalOrders / pageSize);
 
   // Calculate KPIs
-  const totalRevenue = orders?.total_amount !== undefined 
+  const totalRevenue = Math.round(orders?.total_amount !== undefined 
     ? parseFloat(orders.total_amount) 
-    : (ordersData?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0);
+    : (ordersData?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0));
 
   // Track all telecallers seen so the list doesn't shrink when filtered
   useEffect(() => {
@@ -539,7 +541,14 @@ const OrderList = () => {
     <div className="h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex flex-col overflow-hidden">
       <div className="container mx-auto px-4 py-2 max-w-full flex-1 flex flex-col min-h-0">
         {/* Filters and Search - Static Top Section */}
-        <div className="flex-none bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3">
+        <div
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleApplyFilters();
+            }
+          }}
+          className="flex-none bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3"
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-2">
             {/* ================= ROW 1 (Order Basic Filters) ================= */}
             {/* Search - Increased width */}
@@ -1042,14 +1051,14 @@ const OrderList = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{order.agent_name}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-semibold text-green-600">₹{parseFloat(order.total_amount || 0).toLocaleString()}</span>
+                          <span className="text-sm font-semibold text-blue-600">₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}</span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-medium text-blue-600">₹{parseFloat(order.paid_amount || 0).toLocaleString()}</span>
+                          <span className="text-sm font-medium text-green-600">₹{Math.round(parseFloat(order.paid_amount || 0)).toLocaleString()}</span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="text-sm font-medium text-red-600">
-                            ₹{(parseFloat(order.total_amount || 0) - parseFloat(order.paid_amount || 0)).toLocaleString()}
+                            ₹{Math.round(parseFloat(order.total_amount || 0) - parseFloat(order.paid_amount || 0)).toLocaleString()}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -1073,6 +1082,10 @@ const OrderList = () => {
                               ? 'bg-yellow-100 text-yellow-800'
                               : order.payment_status === 'Credit'
                               ? 'bg-orange-100 text-orange-800'
+                              : order.payment_status === 'Advance'
+                              ? 'bg-blue-100 text-blue-800'
+                              : order.payment_status === 'COD'
+                              ? 'bg-purple-100 text-purple-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
                             {order.payment_status}
@@ -1097,17 +1110,19 @@ const OrderList = () => {
                             >
                               Edit
                             </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this order?')) {
-                                  deleteMutation.mutate(order.id);
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                              title="Delete"
-                            >
-                              Delete
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to delete this order?')) {
+                                    deleteMutation.mutate(order.id);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                title="Delete"
+                              >
+                                Delete
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1258,9 +1273,15 @@ const OrderList = () => {
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           order.payment_status === 'Paid'
                             ? 'bg-green-100 text-green-800'
-                            : order.payment_status === 'Failed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
+                            : order.payment_status === 'Partial'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : order.payment_status === 'Credit'
+                            ? 'bg-orange-100 text-orange-800'
+                            : order.payment_status === 'Advance'
+                            ? 'bg-blue-100 text-blue-800'
+                            : order.payment_status === 'COD'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-red-100 text-red-800'
                         }`}>
                           {order.payment_status}
                         </span>
@@ -1288,7 +1309,7 @@ const OrderList = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Amount:</span>
-                        <span className="text-sm font-semibold text-green-600">₹{parseFloat(order.total_amount).toLocaleString()}</span>
+                        <span className="text-sm font-semibold text-blue-600">₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -1308,17 +1329,19 @@ const OrderList = () => {
                         >
                           Edit
                         </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this order?')) {
-                              deleteMutation.mutate(order.id);
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                          title="Delete"
-                        >
-                          Delete
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this order?')) {
+                                deleteMutation.mutate(order.id);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                            title="Delete"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -1424,7 +1424,14 @@ const ProductPricing = () => {
       <div className="max-w-full mx-auto">
         <div className="mb-2 flex flex-col gap-2">
           {/* FILTER BAR WITH DEPENDENT CATEGORY DROPDOWNS */}
-          <div className="w-full bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleApplyFilters();
+              }
+            }}
+            className="w-full bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+          >
             {/* Row 1: Basic Product Info */}
             <div className="grid grid-cols-12 gap-2 mb-4">
               <div className="col-span-2">
@@ -1484,6 +1491,7 @@ const ProductPricing = () => {
                         productTitleSuggestions[titleSuggestionIndex]
                       ) {
                         e.preventDefault();
+                        e.stopPropagation();
                         setFilterTitle(
                           productTitleSuggestions[titleSuggestionIndex],
                         );

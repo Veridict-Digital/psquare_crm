@@ -9,6 +9,9 @@ const CallLogList = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterOrderPlaced, setFilterOrderPlaced] = useState('');
+  const [filterOrderStatus, setFilterOrderStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedCallLog, setSelectedCallLog] = useState(null);
@@ -16,8 +19,14 @@ const CallLogList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Fetch employees list
+  const { data: employees } = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => axios.get('/api/users/employees/').then((res) => res.data),
+  });
+
   const { data: callLogsData, isLoading, error, refetch, isError } = useQuery({
-    queryKey: ['callLogs', filterStatus, filterEmployee, filterOrderPlaced, search, currentPage],
+    queryKey: ['callLogs', filterStatus, filterEmployee, filterOrderPlaced, filterOrderStatus, dateFrom, dateTo, search, currentPage],
     queryFn: async () => {
       const params = {
         page: currentPage,
@@ -26,6 +35,9 @@ const CallLogList = () => {
       if (filterStatus) params.status = filterStatus;
       if (filterEmployee) params.employee = filterEmployee;
       if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
+      if (filterOrderStatus) params.order_status = filterOrderStatus;
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
 
       console.log('Fetching call logs with params:', params); // Debug log
       const response = await axios.get('/api/calllogs/', { params });
@@ -37,12 +49,15 @@ const CallLogList = () => {
 
   // Fetch statistics from server for KPIs (uses all data, not paginated)
   const { data: statisticsData } = useQuery({
-    queryKey: ['callLogsStatistics', filterStatus, filterEmployee, filterOrderPlaced, search],
+    queryKey: ['callLogsStatistics', filterStatus, filterEmployee, filterOrderPlaced, filterOrderStatus, dateFrom, dateTo, search],
     queryFn: async () => {
       const params = {};
       if (filterStatus) params.status = filterStatus;
       if (filterEmployee) params.employee = filterEmployee;
       if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
+      if (filterOrderStatus) params.order_status = filterOrderStatus;
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
       if (search) params.search = search;
 
       const response = await axios.get('/api/calllogs/statistics/', { params });
@@ -63,10 +78,6 @@ const CallLogList = () => {
       queryClient.invalidateQueries(['callLogs']);
     },
   });
-
-  const filteredCallLogs = callLogs?.filter(callLog =>
-    callLog.customer_name?.toLowerCase().includes(search.toLowerCase())
-  );
 
   // Handle 500 error specifically
   if (isError) {
@@ -137,15 +148,7 @@ const CallLogList = () => {
     return `${min} min${sec > 0 ? ` ${sec} sec` : ''}`;
   };
 
-  // Get unique employees for filter
-  const uniqueEmployees = [...new Set(callLogs?.map(call => call.employee_name).filter(Boolean))];
-
-  // Apply all filters
-  const finalFilteredCallLogs = filteredCallLogs?.filter(callLog => {
-    if (filterEmployee && callLog.employee_name !== filterEmployee) return false;
-    if (filterOrderPlaced && callLog.order_placed !== filterOrderPlaced) return false;
-    return true;
-  });
+  const finalFilteredCallLogs = callLogs;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -205,13 +208,13 @@ const CallLogList = () => {
         {/* Filters and Search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-            <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex flex-wrap gap-4 items-center w-full lg:w-auto">
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search customers..."
+                  placeholder="Search customers, phone, order ID..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64 transition-all duration-200"
@@ -224,11 +227,13 @@ const CallLogList = () => {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white transition-all duration-200"
+                  className="pl-10 pr-8 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all duration-200"
                 >
                   <option value="">All Statuses</option>
                   <option value="Completed">Completed</option>
                   <option value="Pending">Pending</option>
+                  <option value="Follow-up">Follow-up</option>
+                  <option value="In Progress">In Progress</option>
                 </select>
               </div>
 
@@ -236,11 +241,11 @@ const CallLogList = () => {
               <select
                 value={filterEmployee}
                 onChange={(e) => setFilterEmployee(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white transition-all duration-200"
+                className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all duration-200"
               >
-                <option value="">All Employees</option>
-                {uniqueEmployees.map(employee => (
-                  <option key={employee} value={employee}>{employee}</option>
+                <option value="">All Telecallers</option>
+                {employees?.map(emp => (
+                  <option key={emp.id} value={emp.username}>{emp.username}</option>
                 ))}
               </select>
 
@@ -248,12 +253,49 @@ const CallLogList = () => {
               <select
                 value={filterOrderPlaced}
                 onChange={(e) => setFilterOrderPlaced(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white transition-all duration-200"
+                className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all duration-200"
               >
                 <option value="">All Orders</option>
                 <option value="Yes">Order Placed</option>
                 <option value="No">No Order</option>
               </select>
+
+              {/* Order Status Filter */}
+              <select
+                value={filterOrderStatus}
+                onChange={(e) => setFilterOrderStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all duration-200"
+              >
+                <option value="">All Order Statuses</option>
+                <option value="ordered">Ordered</option>
+                <option value="Preparing">Preparing</option>
+                <option value="Placed">Placed</option>
+                <option value="Dispatched">Dispatched</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+
+              {/* Date From */}
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500 font-medium">From:</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all duration-200"
+                />
+              </div>
+
+              {/* Date To */}
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500 font-medium">To:</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all duration-200"
+                />
+              </div>
             </div>
 
             {/* View Toggle */}
@@ -291,6 +333,7 @@ const CallLogList = () => {
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Call ID</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -309,8 +352,20 @@ const CallLogList = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <User className="w-4 h-4 text-gray-400 mr-2" />
-                            <span className="text-sm font-medium text-gray-900">{callLog.customer_name}</span>
+                            {callLog.customer ? (
+                              <Link
+                                to={`/customers/${callLog.customer}`}
+                                className="text-sm font-medium text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                              >
+                                {callLog.customer_name}
+                              </Link>
+                            ) : (
+                              <span className="text-sm font-medium text-gray-900">{callLog.customer_name}</span>
+                            )}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                          {callLog.customer_phone}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{callLog.employee_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -375,7 +430,7 @@ const CallLogList = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8" className="px-6 py-12 text-center">
+                      <td colSpan="9" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center">
                           <PhoneCall className="w-12 h-12 text-gray-400 mb-4" />
                           <h3 className="text-lg font-medium text-gray-900 mb-2">No call logs found</h3>
@@ -399,7 +454,16 @@ const CallLogList = () => {
                         <PhoneCall className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{callLog.customer_name}</h3>
+                        {callLog.customer ? (
+                          <Link
+                            to={`/customers/${callLog.customer}`}
+                            className="font-semibold text-blue-600 hover:text-blue-900 transition-colors duration-200 block text-base"
+                          >
+                            {callLog.customer_name}
+                          </Link>
+                        ) : (
+                          <h3 className="font-semibold text-gray-900">{callLog.customer_name}</h3>
+                        )}
                         <p className="text-sm text-gray-500 font-mono">{callLog.call_id}</p>
                       </div>
                     </div>
@@ -412,6 +476,10 @@ const CallLogList = () => {
                   </div>
 
                   <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Phone:</span>
+                      <span className="text-sm font-medium text-gray-900 font-mono">{callLog.customer_phone}</span>
+                    </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Employee:</span>
                       <span className="text-sm font-medium text-gray-900">{callLog.employee_name}</span>

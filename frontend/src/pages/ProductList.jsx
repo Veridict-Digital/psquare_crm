@@ -676,7 +676,14 @@ const ProductList = () => {
         {/* Header Section */}
         <div className="mb-2">
           {/* FILTER BAR WITH DEPENDENT CATEGORY DROPDOWNS */}
-          <div className="w-full bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleApplyFilters();
+              }
+            }}
+            className="w-full bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8"
+          >
             {/* Row 1: Basic Product Info & Weight Range */}
             <div className="grid grid-cols-12 gap-3 mb-4">
               <div className="col-span-2 relative">
@@ -723,6 +730,7 @@ const ProductList = () => {
                         productSkuSuggestions[skuSuggestionIndex]
                       ) {
                         e.preventDefault();
+                        e.stopPropagation();
                         setFilterSKU(
                           productSkuSuggestions[skuSuggestionIndex]
                         );
@@ -805,6 +813,7 @@ const ProductList = () => {
                         productTitleSuggestions[titleSuggestionIndex]
                       ) {
                         e.preventDefault();
+                        e.stopPropagation();
                         setFilterTitle(
                           productTitleSuggestions[titleSuggestionIndex]
                         );

@@ -440,6 +440,8 @@ const OrderEdit = () => {
                 <option value="Credit">Credit</option>
                 <option value="Paid">Paid</option>
                 <option value="Partial">Partial</option>
+                <option value="Advance">Advance</option>
+                <option value="COD">COD</option>
               </select>
             </div>
 

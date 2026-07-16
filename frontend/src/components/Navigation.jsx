@@ -91,21 +91,31 @@ const Navigation = () => {
 
         <nav>
           <ul className="space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              
-              return (
-                <li key={item.path}>
-                  <Link
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 group ${
-                      isActive
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                        : 'text-gray-300 hover:bg-white/10 hover:text-white'
-                    } ${!isOpen ? 'justify-center' : ''}`}
-                    title={!isOpen ? item.label : ''}
-                  >
+            {(() => {
+              const isPathActive = (itemPath) => {
+                const current = location.pathname;
+                if (current === itemPath) return true;
+                if (itemPath === '/products') {
+                  return current.startsWith('/products') && !current.startsWith('/products/pricing');
+                }
+                return current.startsWith(itemPath + '/');
+              };
+
+              return navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = isPathActive(item.path);
+                
+                return (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 group ${
+                        isActive
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                          : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                      } ${!isOpen ? 'justify-center' : ''}`}
+                      title={!isOpen ? item.label : ''}
+                    >
                     <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
                     {isOpen && (
                       <span className="text-sm font-medium transition-opacity duration-200">
@@ -118,7 +128,8 @@ const Navigation = () => {
                   </Link>
                 </li>
               );
-            })}
+            });
+          })()}
             
             {/* Divider */}
             <li className="my-4">

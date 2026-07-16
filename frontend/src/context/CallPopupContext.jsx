@@ -12,6 +12,7 @@ export const CallPopupProvider = ({ children }) => {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
   const [isEmbedded, setIsEmbedded] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [customer, setCustomer] = useState(null);
   const [lead, setLead] = useState(null);
   const [timer, setTimer] = useState(0);
@@ -31,6 +32,7 @@ export const CallPopupProvider = ({ children }) => {
   const [currentDropdown, setCurrentDropdown] = useState('');
   const [externalSaveFn, setExternalSaveFn] = useState(null);
   const [isEditingLastCall, setIsEditingLastCall] = useState(false);
+  const [isEndingCall, setIsEndingCall] = useState(false);
 
   // Separate assumption lists
   const { data: assumptions, refetch: refetchAssumptions } = useQuery({
@@ -73,6 +75,8 @@ export const CallPopupProvider = ({ children }) => {
     setCallIdString(null);
     setIsVisible(false);
     setIsEmbedded(false);
+    setIsEndingCall(false);
+    setIsMinimized(false);
   };
 
   const openPopup = (data, saveFn = null) => {
@@ -94,11 +98,28 @@ export const CallPopupProvider = ({ children }) => {
             leadData = null;
         }
     }
+
+    // Check if another call is already active
+    if (isRunning) {
+        const isSameTarget = 
+            (customer && customerData && customer.id === customerData.id) || 
+            (lead && leadData && lead.id === leadData.id);
+            
+        if (isSameTarget) {
+            setIsVisible(true);
+            setIsMinimized(false);
+            return;
+        } else {
+            alert('A call is already active. Please end the current call first.');
+            return;
+        }
+    }
     
     setCustomer(customerData);
     setLead(leadData);
     setIsVisible(true);
     setIsEmbedded(false);
+    setIsMinimized(false);
     
     // Set editing mode based on isEditing flag
     const isEditMode = !!data.isEditing;
@@ -155,9 +176,36 @@ export const CallPopupProvider = ({ children }) => {
     console.log('Is editing:', isEditMode);
     console.log('Call ID (db):', callId);
     console.log('Call ID (string):', callIdString);
-};
+  };
 
   const startEmbeddedCall = (data) => {
+    let customerData = null;
+    let leadData = null;
+    
+    if (data.phone) {
+      if (data.status) {
+        leadData = data;
+      } else {
+        customerData = data;
+      }
+    }
+
+    if (isRunning) {
+      const isSameTarget = 
+          (customer && customerData && customer.id === customerData.id) || 
+          (lead && leadData && lead.id === leadData.id);
+          
+      if (isSameTarget) {
+          setIsVisible(true);
+          setIsMinimized(false);
+          setIsEmbedded(true);
+          return;
+      } else {
+          alert('A call is already active. Please end the current call first.');
+          return;
+      }
+    }
+
     if (data.phone) {
       if (data.status) {
         setLead(data);
@@ -169,6 +217,7 @@ export const CallPopupProvider = ({ children }) => {
     }
     setIsEmbedded(true);
     setIsVisible(true);
+    setIsMinimized(false);
     if (!isRunning) {
       setTimer(0);
       setNotes('');
@@ -182,8 +231,7 @@ export const CallPopupProvider = ({ children }) => {
   };
 
   const hidePopup = () => {
-    setIsVisible(false);
-    setIsEmbedded(false);
+    resetCallState();
   };
 
   const startTimer = () => {
@@ -323,6 +371,9 @@ export const CallPopupProvider = ({ children }) => {
   };
 
   const endCall = async () => {
+    if (isEndingCall) return;
+    setIsEndingCall(true);
+    setIsRunning(false);
     let latestCallId = callId;
     
     // If info is not saved (no callId but timer > 0), save it directly as 'Completed' in a single request!
@@ -331,8 +382,10 @@ export const CallPopupProvider = ({ children }) => {
         if (newId) {
             latestCallId = newId;
             setCallId(newId);
+            resetCallState();
+        } else {
+            setIsEndingCall(false); // Let them retry if saveInfo failed
         }
-        resetCallState();
         return;
     }
 
@@ -369,14 +422,16 @@ export const CallPopupProvider = ({ children }) => {
             await axios.put(`/api/calllogs/${latestCallId}/`, callLogData);
             queryClient.invalidateQueries(['call-logs']);
             queryClient.invalidateQueries(['customer-details']);
+            resetCallState();
         } catch (error) {
             console.error('Error ending call:', error.response?.data || error.message);
             alert(`Failed to end call: ${error.response?.data?.error || error.message}`);
+            setIsEndingCall(false); // Let them retry!
         }
+    } else {
+        // Fallback: if no latestCallId and timer is 0, just reset
+        resetCallState();
     }
-
-    // Reset all call state
-    resetCallState();
   };
 
   // Create, edit, delete for each assumption type
@@ -504,7 +559,8 @@ export const CallPopupProvider = ({ children }) => {
       editAssumption, deleteAssumption, startEditingAssumption, cancelEditing, 
       editingAssumption, editAssumptionName, setEditAssumptionName, 
       callId, currentDropdown, setCurrentDropdown, 
-      isEditingLastCall
+      isEditingLastCall, isEndingCall,
+      isMinimized, setIsMinimized
     }}>
       {children}
       <CallPopup />
