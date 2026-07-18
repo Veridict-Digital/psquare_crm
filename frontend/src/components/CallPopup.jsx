@@ -54,8 +54,8 @@ const CallPopup = () => {
 
   if (!isVisible && !isEmbedded) return null;
 
-  const [position, setPosition] = useState({ x: 1400, y: 200 });
-  const [size, setSize] = useState({ width: 400, height: 500 });
+  const [position, setPosition] = useState({ x: 1400, y: 350 });
+  const [size, setSize] = useState({ width: 600, height: 600 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -78,8 +78,8 @@ const CallPopup = () => {
           y: e.clientY - dragOffset.y,
         });
       } else if (isResizing) {
-        const newWidth = Math.max(300, e.clientX - position.x);
-        const newHeight = Math.max(400, e.clientY - position.y);
+        const newWidth = Math.max(400, e.clientX - position.x);
+        const newHeight = Math.max(450, e.clientY - position.y);
         setSize({ width: newWidth, height: newHeight });
       }
     };
@@ -285,7 +285,7 @@ const CallPopup = () => {
               />
             </div>
             <div className="flex flex-wrap items-center gap-3 mb-4">
-              {!isRunning ? (
+              {(!isRunning && !isEndingCall) ? (
                 <button onClick={startTimer} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors flex-shrink-0">Start Call</button>
               ) : (
                 <>
@@ -502,10 +502,10 @@ const CallPopup = () => {
               </div>
 
               {/* Middle: Controls (Start/End/Save, Order, Order ID input) */}
-              <div className="flex items-center gap-1.5 flex-1 max-w-md min-w-0">
+              <div className="flex items-center gap-1.5 flex-1 max-w-xl min-w-0">
                 {!isEditingLastCall && (
                   <>
-                    {!isRunning ? (
+                     {(!isRunning && !isEndingCall) ? (
                       <button
                         onClick={startTimer}
                         className="inline-flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-2 py-1.5 rounded text-[10px] font-bold transition-all duration-200 shadow-sm flex-shrink-0 uppercase"

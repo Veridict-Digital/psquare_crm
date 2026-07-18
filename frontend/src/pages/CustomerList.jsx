@@ -1840,12 +1840,16 @@ const CustomerList = () => {
                 >
                   <option value="">All Telecallers</option>
                   {employees
-                    ?.filter((emp) => emp.role !== "Admin")
-                    .map((emp) => (
-                      <option key={emp.id} value={emp.username}>
-                        {emp.username} ({emp.role})
-                      </option>
-                    ))}
+                    ?.filter((emp) => emp.role === "Telecaller")
+                    .map((emp) => {
+                      const fullName = `${emp.first_name || ""} ${emp.last_name || ""}`.trim();
+                      const displayName = fullName || emp.username;
+                      return (
+                        <option key={emp.id} value={emp.username}>
+                          {displayName}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
 
@@ -2255,12 +2259,16 @@ const CustomerList = () => {
               >
                 <option value="">Select Telecaller</option>
                 {employees
-                  ?.filter((emp) => emp.role !== "Admin")
-                  .map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.username} - {emp.role})
-                    </option>
-                  ))}
+                  ?.filter((emp) => emp.role === "Telecaller")
+                  .map((emp) => {
+                    const fullName = `${emp.first_name || ""} ${emp.last_name || ""}`.trim();
+                    const displayName = fullName || emp.username;
+                    return (
+                      <option key={emp.id} value={emp.id}>
+                        {displayName}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
             <div>
@@ -2448,7 +2456,12 @@ const CustomerList = () => {
               {existingCustomerId ? (
                 <button
                   onClick={async () => {
-                    let submitContact = { ...newContact };
+                    let submitContact = {};
+                    Object.keys(newContact).forEach((key) => {
+                      if (newContact[key] !== "") {
+                        submitContact[key] = newContact[key];
+                      }
+                    });
                     if (
                       typeof submitContact.company_type === "string" &&
                       organizationTypes
@@ -2495,10 +2508,11 @@ const CustomerList = () => {
                       setErrorMessage("Failed to update customer");
                     }
                   }}
+                  disabled={phoneCheckLoading}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
                 >
                   <Edit className="h-4 w-4" />
-                  Update
+                  {phoneCheckLoading ? "Checking..." : "Update"}
                 </button>
               ) : (
                 <button
@@ -3171,12 +3185,16 @@ const CustomerList = () => {
               >
                 <option value="">Choose an agent...</option>
                 {employees
-                  ?.filter((emp) => emp.role !== "Admin")
-                  .map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.username} - {emp.role})
-                    </option>
-                  ))}
+                  ?.filter((emp) => emp.role === "Telecaller")
+                  .map((emp) => {
+                    const fullName = `${emp.first_name || ""} ${emp.last_name || ""}`.trim();
+                    const displayName = fullName || emp.username;
+                    return (
+                      <option key={emp.id} value={emp.id}>
+                        {displayName}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
             <div className="flex justify-end gap-2">

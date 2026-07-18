@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import FlavourViewSet, PackingUnitViewSet, ResidualViewSet, UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, UnitViewSet, CustomerTypeViewSet, BrandViewSet, BrandCategoryViewSet,BrandCategory1ViewSet, ProductPricingViewSet, PhoneViewSet, OldOrderHistoryViewSet, RoleViewSet, RolePermissionViewSet
+from .views import FlavourViewSet, PackingUnitViewSet, ResidualViewSet, UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, UnitViewSet, CustomerTypeViewSet, BrandViewSet, BrandCategoryViewSet,BrandCategory1ViewSet, ProductPricingViewSet, PhoneViewSet, OldOrderHistoryViewSet, RoleViewSet, RolePermissionViewSet, LanguageViewSet, CommunityViewSet
 from .auth_views import send_registration_otp, verify_registration_otp, send_password_reset_otp, verify_password_reset_otp
 
 router = DefaultRouter()
@@ -30,6 +30,8 @@ router.register(r'productcombinations', ProductCombinationViewSet)
 router.register(r'units', UnitViewSet , basename='unit')
 router.register(r'packing-units', PackingUnitViewSet , basename='packing-unit')
 router.register(r'customertypes', CustomerTypeViewSet)
+router.register(r'languages', LanguageViewSet)
+router.register(r'communities', CommunityViewSet)
 router.register(r'productpricings', ProductPricingViewSet)
 router.register(r'phones', PhoneViewSet)
 

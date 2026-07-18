@@ -19,6 +19,8 @@ import {
   MapPin,
   Copy,
   Check,
+  Globe,
+  Users,
 } from "lucide-react";
 import { fetchCustomerTypes } from "../api/customerTypes";
 import {
@@ -49,6 +51,16 @@ const CustomerDetail = () => {
   const [showOrgTypeDropdown, setShowOrgTypeDropdown] = useState(false);
   const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] =
     useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showCommunityDropdown, setShowCommunityDropdown] = useState(false);
+  const [showNewLanguageInput, setShowNewLanguageInput] = useState(false);
+  const [newLanguage, setNewLanguage] = useState("");
+  const [showNewCommunityInput, setShowNewCommunityInput] = useState(false);
+  const [newCommunity, setNewCommunity] = useState("");
+  const [showNewOrgTypeInput, setShowNewOrgTypeInput] = useState(false);
+  const [newOrgType, setNewOrgType] = useState("");
+  const [showNewCustomerTypeInput, setShowNewCustomerTypeInput] = useState(false);
+  const [newCustomerType, setNewCustomerType] = useState("");
   const [editingAddress, setEditingAddress] = useState(false);
   const [tempAddress, setTempAddress] = useState({});
   const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false);
@@ -73,6 +85,12 @@ const CustomerDetail = () => {
   const itemsPerPage = 6;
   const dateInputRef = useRef(null);
   const timeInputRef = useRef(null);
+  const agentDropdownRef = useRef(null);
+  const orgTypeDropdownRef = useRef(null);
+  const customerTypeDropdownRef = useRef(null);
+  const languageDropdownRef = useRef(null);
+  const communityDropdownRef = useRef(null);
+  const phoneDropdownRef = useRef(null);
   const lastSyncedDateRef = useRef(null);
   const lastSyncedTimeRef = useRef(null);
   const [appointmentDate, setAppointmentDate] = useState("");
@@ -93,6 +111,38 @@ const CustomerDetail = () => {
     // Get user from localStorage or your auth context
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     setIsAdmin(user.role === "Admin");
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (agentDropdownRef.current && !agentDropdownRef.current.contains(event.target)) {
+        setShowAgentDropdown(false);
+      }
+      if (orgTypeDropdownRef.current && !orgTypeDropdownRef.current.contains(event.target)) {
+        setShowOrgTypeDropdown(false);
+        setShowNewOrgTypeInput(false);
+      }
+      if (customerTypeDropdownRef.current && !customerTypeDropdownRef.current.contains(event.target)) {
+        setShowCustomerTypeDropdown(false);
+        setShowNewCustomerTypeInput(false);
+      }
+      if (languageDropdownRef.current && !languageDropdownRef.current.contains(event.target)) {
+        setShowLanguageDropdown(false);
+        setShowNewLanguageInput(false);
+      }
+      if (communityDropdownRef.current && !communityDropdownRef.current.contains(event.target)) {
+        setShowCommunityDropdown(false);
+        setShowNewCommunityInput(false);
+      }
+      if (phoneDropdownRef.current && !phoneDropdownRef.current.contains(event.target)) {
+        setShowPrimaryDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   // Fetch old order histories
@@ -216,6 +266,86 @@ const CustomerDetail = () => {
     queryFn: () => axios.get("/api/organizationtypes/").then((res) => res.data),
   });
 
+  // Fetch languages
+  const { data: languages, refetch: refetchLanguages } = useQuery({
+    queryKey: ["languages"],
+    queryFn: () => axios.get("/api/languages/").then((res) => res.data),
+  });
+
+  // Fetch communities
+  const { data: communities, refetch: refetchCommunities } = useQuery({
+    queryKey: ["communities"],
+    queryFn: () => axios.get("/api/communities/").then((res) => res.data),
+  });
+
+  // Mutation for adding new language
+  const addLanguageMutation = useMutation({
+    mutationFn: async (langData) => {
+      const response = await axios.post("/api/languages/", langData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      refetchLanguages();
+      updateMutation.mutate({ language: data.id });
+      setNewLanguage("");
+      setShowNewLanguageInput(false);
+    },
+    onError: (error) => {
+      console.error("Error adding language:", error);
+    },
+  });
+
+  // Mutation for adding new community
+  const addCommunityMutation = useMutation({
+    mutationFn: async (commData) => {
+      const response = await axios.post("/api/communities/", commData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      refetchCommunities();
+      updateMutation.mutate({ community: data.id });
+      setNewCommunity("");
+      setShowNewCommunityInput(false);
+    },
+    onError: (error) => {
+      console.error("Error adding community:", error);
+    },
+  });
+
+  // Mutation for adding new organization type
+  const addOrgTypeMutation = useMutation({
+    mutationFn: async (orgTypeData) => {
+      const response = await axios.post("/api/organizationtypes/", orgTypeData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["organization-types"] });
+      updateMutation.mutate({ company_type: data.id });
+      setNewOrgType("");
+      setShowNewOrgTypeInput(false);
+    },
+    onError: (error) => {
+      console.error("Error adding organization type:", error);
+    },
+  });
+
+  // Mutation for adding new customer type
+  const addCustomerTypeMutation = useMutation({
+    mutationFn: async (customerTypeData) => {
+      const response = await axios.post("/api/customertypes/", customerTypeData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      fetchCustomerTypes().then(setCustomerTypes); // Refetch customer types
+      updateMutation.mutate({ customer_type: data.id });
+      setNewCustomerType("");
+      setShowNewCustomerTypeInput(false);
+    },
+    onError: (error) => {
+      console.error("Error adding customer type:", error);
+    },
+  });
+
   // Fetch customer types
   useEffect(() => {
     fetchCustomerTypes()
@@ -264,16 +394,43 @@ const CustomerDetail = () => {
   // Update customer mutation
   const updateMutation = useMutation({
     mutationFn: (data) => axios.put(`/api/customers/${id}/`, data),
+    onMutate: async (newData) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["customer-details", id] });
+
+      // Snapshot the previous value
+      const previousDetails = queryClient.getQueryData(["customer-details", id]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["customer-details", id], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          customer: {
+            ...old.customer,
+            ...newData,
+          },
+        };
+      });
+
+      // Return context with previousDetails
+      return { previousDetails };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(["customer-details", id]);
       setEditingField(null);
       setEditingAddress(false);
       setShowNameEditDropdown(false);
       toast.success("Customer details updated successfully");
     },
-    onError: (err) => {
+    onError: (err, newData, context) => {
       console.error("Failed to update customer:", err);
       toast.error(err.response?.data?.error || err.message || "Failed to update customer");
+      
+      // Rollback to previous details
+      if (context?.previousDetails) {
+        queryClient.setQueryData(["customer-details", id], context.previousDetails);
+      }
+      
       // Reset local states to query cache values on failure
       if (customer) {
         setAppointmentDate(customer.appointment_date || "");
@@ -281,7 +438,11 @@ const CustomerDetail = () => {
         lastSyncedDateRef.current = customer.appointment_date;
         lastSyncedTimeRef.current = customer.appointment_time;
       }
-    }
+    },
+    onSettled: () => {
+      // Always refetch to sync cache with server
+      queryClient.invalidateQueries({ queryKey: ["customer-details", id] });
+    },
   });
 
   // Delete customer mutation
@@ -503,6 +664,16 @@ const CustomerDetail = () => {
     setShowCustomerTypeDropdown(false);
   };
 
+  const handleLanguageSelect = (languageId) => {
+    updateMutation.mutate({ language: languageId });
+    setShowLanguageDropdown(false);
+  };
+
+  const handleCommunitySelect = (communityId) => {
+    updateMutation.mutate({ community: communityId });
+    setShowCommunityDropdown(false);
+  };
+
   const startEditingAddress = () => {
     setEditingAddress(true);
     setTempAddress({
@@ -663,7 +834,7 @@ const CustomerDetail = () => {
                   {/* Primary Phone number under Name inputs */}
                   {primaryPhoneObj && (
                     <div className="mt-2.5 space-y-1.5">
-                      <div key={primaryPhoneObj.id} className="relative">
+                      <div ref={phoneDropdownRef} key={primaryPhoneObj.id} className="relative">
                         <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-2 py-1 shadow-sm transition-all duration-150 gap-2">
                           <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
 
@@ -677,7 +848,7 @@ const CustomerDetail = () => {
                                 onChange={(e) =>
                                   setTempValue(e.target.value)
                                 }
-                                className="px-2 py-0.5 border border-slate-200 focus:border-blue-500 rounded text-xs w-28 focus:outline-none"
+                                className="px-2 py-0.5 border border-slate-200 focus:border-blue-500 rounded text-sm w-28 focus:outline-none"
                                 autoFocus
                               />
                               <button
@@ -765,7 +936,7 @@ const CustomerDetail = () => {
                                 }
                               }}
                               placeholder="Name"
-                              className="px-2 py-0.5 bg-white border border-blue-400 rounded-md text-xs w-28 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                              className="px-2 py-0.5 bg-white border border-blue-400 rounded-md text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-100"
                               autoFocus
                             />
                           ) : (
@@ -776,7 +947,7 @@ const CustomerDetail = () => {
                                   primaryPhoneObj.contact_person || "",
                                 );
                               }}
-                              className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md truncate max-w-[110px] inline-block align-middle transition-all duration-150"
+                              className="text-sm text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md truncate max-w-[110px] inline-block align-middle transition-all duration-150"
                               title={primaryPhoneObj.contact_person || "Click to add/edit contact"}
                             >
                               {primaryPhoneObj.contact_person || "+ Contact"}
@@ -818,7 +989,7 @@ const CustomerDetail = () => {
                         {showPrimaryDropdown && (
                           <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                             <div className="p-2 max-h-40 overflow-y-auto">
-                              <div className="text-xs text-gray-500 mb-1 px-1">
+                              <div className="text-sm text-gray-500 mb-1 px-1">
                                 Set as primary:
                               </div>
                               {customer.all_phones
@@ -869,7 +1040,7 @@ const CustomerDetail = () => {
                                     onChange={(e) =>
                                       setTempValue(e.target.value)
                                     }
-                                    className="px-2 py-0.5 border border-slate-200 focus:border-blue-500 rounded text-xs w-28 focus:outline-none"
+                                    className="px-2 py-0.5 border border-slate-200 focus:border-blue-500 rounded text-sm w-28 focus:outline-none"
                                     autoFocus
                                   />
                                   <button
@@ -956,7 +1127,7 @@ const CustomerDetail = () => {
                                     }
                                   }}
                                   placeholder="Name"
-                                  className="px-2 py-0.5 bg-white border border-blue-400 rounded-md text-xs w-28 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                  className="px-2 py-0.5 bg-white border border-blue-400 rounded-md text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-100"
                                   autoFocus
                                 />
                               ) : (
@@ -967,7 +1138,7 @@ const CustomerDetail = () => {
                                       phoneObj.contact_person || "",
                                     );
                                   }}
-                                  className="text-xs text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md truncate max-w-[110px] inline-block align-middle transition-all duration-150"
+                                  className="text-sm text-slate-500 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 border border-slate-200 hover:border-blue-100 rounded-md truncate max-w-[110px] inline-block align-middle transition-all duration-150"
                                   title={phoneObj.contact_person || "Click to add/edit contact"}
                                 >
                                   {phoneObj.contact_person || "+ Contact"}
@@ -1012,7 +1183,7 @@ const CustomerDetail = () => {
                         {showAllPhones && (
                           <div className="absolute top-full left-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[400px]">
                             <div className="p-2 max-h-48 overflow-y-auto">
-                              <div className="text-xs text-gray-500 mb-2 px-2">
+                              <div className="text-sm text-gray-500 mb-2 px-2">
                                 All phone numbers:
                               </div>
                               {secondaryPhones
@@ -1155,22 +1326,30 @@ const CustomerDetail = () => {
                   key={idx}
                   className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl flex flex-col justify-between shadow-sm transition-all duration-200 hover:shadow-md"
                 >
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{item.label}</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider truncate">{item.label}</p>
                   <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
                     {item.value}
                   </p>
                 </div>
               ))}
 
-              <div className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl min-w-[120px] relative transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md">
+              <div ref={agentDropdownRef} className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl min-w-[120px] relative transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md">
                 <div
                   className="flex items-center justify-between h-full"
                   onClick={() => setShowAgentDropdown(!showAgentDropdown)}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Telecaller</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider truncate">Telecaller</p>
                     <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
-                      {customer?.agent_name || "Not assigned"}
+                      {(() => {
+                        if (!customer?.agent) return "Not assigned";
+                        const agentObj = employees?.find(emp => emp.id === customer.agent || emp.id === Number(customer.agent));
+                        if (agentObj) {
+                          const fullName = `${agentObj.first_name || ""} ${agentObj.last_name || ""}`.trim();
+                          return fullName || agentObj.username;
+                        }
+                        return customer.agent_name || "Not assigned";
+                      })()}
                     </p>
                   </div>
                   <ChevronDown
@@ -1187,16 +1366,22 @@ const CustomerDetail = () => {
                       >
                         Not assigned
                       </button>
-                      {employees?.map((employee) => (
-                        <button
-                          key={employee.id}
-                          onClick={() => handleAgentSelect(employee.id)}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 hover:text-slate-900 text-slate-600 transition-colors truncate"
-                          title={employee.username}
-                        >
-                          {employee.username} ({employee.role})
-                        </button>
-                      ))}
+                      {employees
+                        ?.filter((employee) => employee.role === "Telecaller")
+                        ?.map((employee) => {
+                          const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+                          const displayName = fullName || employee.username;
+                          return (
+                            <button
+                              key={employee.id}
+                              onClick={() => handleAgentSelect(employee.id)}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 hover:text-slate-900 text-slate-600 transition-colors truncate"
+                              title={displayName}
+                            >
+                              {displayName} ({employee.role})
+                            </button>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -1333,16 +1518,16 @@ const CustomerDetail = () => {
                   </div>
 
                   {isCheckingPhone && (
-                    <div className="text-xs text-blue-500 ml-7">Verifying duplicate phone number...</div>
+                    <div className="text-sm text-blue-500 ml-7">Verifying duplicate phone number...</div>
                   )}
 
                   {addPhoneMutation.isPending && (
-                    <div className="text-xs text-blue-500 ml-7">Adding phone number...</div>
+                    <div className="text-sm text-blue-500 ml-7">Adding phone number...</div>
                   )}
 
                   {/* Show error message */}
                   {phoneError && (
-                    <div className="text-xs text-red-500 mt-1 ml-7">
+                    <div className="text-sm text-red-500 mt-1 ml-7">
                       {phoneError}
                     </div>
                   )}
@@ -1423,7 +1608,7 @@ const CustomerDetail = () => {
               />
             </div>
 
-            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
+            <div ref={orgTypeDropdownRef} className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
               <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
                 Org Type:
@@ -1440,7 +1625,7 @@ const CustomerDetail = () => {
                 />
               </div>
               {showOrgTypeDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto w-auto min-w-full">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
                   <div className="p-1">
                     <button
                       onClick={() => handleOrgTypeSelect(null)}
@@ -1457,12 +1642,53 @@ const CustomerDetail = () => {
                         {orgType.name}
                       </button>
                     ))}
+                    <div className="border-t border-slate-100 my-1"></div>
+                    {!showNewOrgTypeInput ? (
+                      <button
+                        onClick={() => setShowNewOrgTypeInput(true)}
+                        className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        + Add New
+                      </button>
+                    ) : (
+                      <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md">
+                        <input
+                          type="text"
+                          value={newOrgType}
+                          onChange={(e) => setNewOrgType(e.target.value)}
+                          placeholder="New Org Type..."
+                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <button
+                            onClick={() => {
+                              setShowNewOrgTypeInput(false);
+                              setNewOrgType("");
+                            }}
+                            className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (newOrgType.trim()) {
+                                addOrgTypeMutation.mutate({ name: newOrgType.trim() });
+                              }
+                            }}
+                            disabled={!newOrgType.trim() || addOrgTypeMutation.isLoading}
+                            className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {addOrgTypeMutation.isLoading ? "..." : "Add"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
+            <div ref={customerTypeDropdownRef} className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
               <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 <User className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
                 Cust Type:
@@ -1481,7 +1707,7 @@ const CustomerDetail = () => {
                 />
               </div>
               {showCustomerTypeDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-100 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto w-auto min-w-full">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-100 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
                   <div className="p-1">
                     <button
                       onClick={() => handleCustomerTypeSelect("")}
@@ -1498,6 +1724,209 @@ const CustomerDetail = () => {
                         {type.name}
                       </button>
                     ))}
+                    <div className="border-t border-slate-100 my-1"></div>
+                    {!showNewCustomerTypeInput ? (
+                      <button
+                        onClick={() => setShowNewCustomerTypeInput(true)}
+                        className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        + Add New
+                      </button>
+                    ) : (
+                      <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md">
+                        <input
+                          type="text"
+                          value={newCustomerType}
+                          onChange={(e) => setNewCustomerType(e.target.value)}
+                          placeholder="New Cust Type..."
+                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <button
+                            onClick={() => {
+                              setShowNewCustomerTypeInput(false);
+                              setNewCustomerType("");
+                            }}
+                            className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (newCustomerType.trim()) {
+                                addCustomerTypeMutation.mutate({ name: newCustomerType.trim() });
+                              }
+                            }}
+                            disabled={!newCustomerType.trim() || addCustomerTypeMutation.isLoading}
+                            className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {addCustomerTypeMutation.isLoading ? "..." : "Add"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Language Dropdown */}
+            <div ref={languageDropdownRef} className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                <Globe className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
+                Language:
+              </div>
+              <div
+                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all"
+                onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+              >
+                <span className="truncate">
+                  {customer?.language_display || "Not set"}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0 transform transition-transform ${showLanguageDropdown ? "rotate-180" : ""}`}
+                />
+              </div>
+              {showLanguageDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
+                  <div className="p-1">
+                    <button
+                      onClick={() => handleLanguageSelect(null)}
+                      className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
+                    >
+                      Not set
+                    </button>
+                    {languages?.map((lang) => (
+                      <button
+                        key={lang.id}
+                        onClick={() => handleLanguageSelect(lang.id)}
+                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
+                      >
+                        {lang.name}
+                      </button>
+                    ))}
+                    <div className="border-t border-slate-100 my-1"></div>
+                    {!showNewLanguageInput ? (
+                      <button
+                        onClick={() => setShowNewLanguageInput(true)}
+                        className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        + Add New
+                      </button>
+                    ) : (
+                      <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md">
+                        <input
+                          type="text"
+                          value={newLanguage}
+                          onChange={(e) => setNewLanguage(e.target.value)}
+                          placeholder="New Language..."
+                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <button
+                            onClick={() => {
+                              setShowNewLanguageInput(false);
+                              setNewLanguage("");
+                            }}
+                            className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (newLanguage.trim()) {
+                                addLanguageMutation.mutate({ name: newLanguage.trim() });
+                              }
+                            }}
+                            disabled={!newLanguage.trim() || addLanguageMutation.isLoading}
+                            className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {addLanguageMutation.isLoading ? "..." : "Add"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Community Dropdown */}
+            <div ref={communityDropdownRef} className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
+              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                <Users className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
+                Community:
+              </div>
+              <div
+                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all"
+                onClick={() => setShowCommunityDropdown(!showCommunityDropdown)}
+              >
+                <span className="truncate">
+                  {customer?.community_display || "Not set"}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0 transform transition-transform ${showCommunityDropdown ? "rotate-180" : ""}`}
+                />
+              </div>
+              {showCommunityDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
+                  <div className="p-1">
+                    <button
+                      onClick={() => handleCommunitySelect(null)}
+                      className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
+                    >
+                      Not set
+                    </button>
+                    {communities?.map((comm) => (
+                      <button
+                        key={comm.id}
+                        onClick={() => handleCommunitySelect(comm.id)}
+                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
+                      >
+                        {comm.name}
+                      </button>
+                    ))}
+                    <div className="border-t border-slate-100 my-1"></div>
+                    {!showNewCommunityInput ? (
+                      <button
+                        onClick={() => setShowNewCommunityInput(true)}
+                        className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        + Add New
+                      </button>
+                    ) : (
+                      <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md">
+                        <input
+                          type="text"
+                          value={newCommunity}
+                          onChange={(e) => setNewCommunity(e.target.value)}
+                          placeholder="New Community..."
+                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <button
+                            onClick={() => {
+                              setShowNewCommunityInput(false);
+                              setNewCommunity("");
+                            }}
+                            className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (newCommunity.trim()) {
+                                addCommunityMutation.mutate({ name: newCommunity.trim() });
+                              }
+                            }}
+                            disabled={!newCommunity.trim() || addCommunityMutation.isLoading}
+                            className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {addCommunityMutation.isLoading ? "..." : "Add"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1733,7 +2162,7 @@ const CustomerDetail = () => {
             <div className="grid grid-cols-10 gap-2">
               {/* House No */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   House No
                 </label>
                 <input
@@ -1762,7 +2191,7 @@ const CustomerDetail = () => {
 
               {/* Wing/Lane */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Wing/Lane
                 </label>
                 <input
@@ -1791,7 +2220,7 @@ const CustomerDetail = () => {
 
               {/* Society/Colony */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Society/Colony
                 </label>
                 <input
@@ -1820,7 +2249,7 @@ const CustomerDetail = () => {
 
               {/* Landmark */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Landmark
                 </label>
                 <input
@@ -1849,7 +2278,7 @@ const CustomerDetail = () => {
 
               {/* Area */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Area
                 </label>
                 <input
@@ -1878,7 +2307,7 @@ const CustomerDetail = () => {
 
               {/* Pincode */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Pincode
                 </label>
                 <input
@@ -1917,7 +2346,7 @@ const CustomerDetail = () => {
 
               {/* City */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   City
                 </label>
                 <input
@@ -1944,38 +2373,9 @@ const CustomerDetail = () => {
                 />
               </div>
 
-              {/* District */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  District
-                </label>
-                <input
-                  type="text"
-                  defaultValue={customer?.district || ""}
-                  title={customer?.district || ""}
-                  onChange={handleCapitalizeInput}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.target.blur();
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const capitalizedValue = capitalizeWords(e.target.value);
-                    e.target.value = capitalizedValue;
-                    if (capitalizedValue !== (customer?.district || "")) {
-                      updateMutation.mutate({
-                        district: capitalizedValue || null,
-                      });
-                    }
-                  }}
-                  placeholder="-"
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
-                />
-              </div>
-
               {/* Tahsil */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Tahsil
                 </label>
                 <input
@@ -2002,9 +2402,38 @@ const CustomerDetail = () => {
                 />
               </div>
 
+              {/* District */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  District
+                </label>
+                <input
+                  type="text"
+                  defaultValue={customer?.district || ""}
+                  title={customer?.district || ""}
+                  onChange={handleCapitalizeInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.target.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const capitalizedValue = capitalizeWords(e.target.value);
+                    e.target.value = capitalizedValue;
+                    if (capitalizedValue !== (customer?.district || "")) {
+                      updateMutation.mutate({
+                        district: capitalizedValue || null,
+                      });
+                    }
+                  }}
+                  placeholder="-"
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 rounded-lg text-sm font-semibold text-slate-700 w-full transition-all duration-200 focus:outline-none"
+                />
+              </div>
+
               {/* State */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   State
                 </label>
                 <input
@@ -2068,7 +2497,7 @@ const CustomerDetail = () => {
                 24 * 60 * 60 * 1000 && (
                   <button
                     onClick={handleEditLastCall}
-                    className="inline-flex items-center px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md shadow-blue-500/20 text-xs"
+                    className="inline-flex items-center px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md shadow-blue-500/20 text-sm"
                   >
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Last Call
@@ -2228,7 +2657,7 @@ const CustomerDetail = () => {
                     Order History
                   </h2>
                 </div>
-                <div className="text-xs text-gray-500 font-medium">
+                <div className="text-sm text-gray-500 font-medium">
                   {orders.length} order{orders.length !== 1 ? "s" : ""}
                 </div>
               </div>
@@ -2258,28 +2687,28 @@ const CustomerDetail = () => {
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Order ID
                       </th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Notes
                       </th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         PayStatus
                       </th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Total
                       </th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Paid
                       </th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Due
                       </th>
                     </tr>
@@ -2295,17 +2724,17 @@ const CustomerDetail = () => {
                           <td className="px-2 py-1 whitespace-nowrap">
                             <Link
                               to={`/orders/${order.id}`}
-                              className="text-blue-600 hover:text-blue-900 font-medium text-xs"
+                              className="text-blue-600 hover:text-blue-900 font-medium text-sm"
                             >
                               {order.order_id || `ORD-${order.id}`}
                             </Link>
                           </td>
-                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-sm">
                             {new Date(order.order_date).toLocaleDateString()}
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap">
                             <span
-                              className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${order.status === "Delivered"
+                              className={`inline-flex px-1.5 py-0.5 text-sm font-semibold rounded-full ${order.status === "Delivered"
                                 ? "bg-green-100 text-green-800"
                                 : order.status === "Dispatched"
                                   ? "bg-blue-100 text-blue-800"
@@ -2315,7 +2744,7 @@ const CustomerDetail = () => {
                               {order.status}
                             </span>
                           </td>
-                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-sm">
                             {(() => {
                               const matchingCall = callLogs.find(
                                 (call) =>
@@ -2334,16 +2763,16 @@ const CustomerDetail = () => {
                               return "-";
                             })()}
                           </td>
-                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
                             {order.payment_status}
                           </td>
-                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
                             ₹{order.total_amount}
                           </td>
-                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
                             ₹{order.paid_amount}
                           </td>
-                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-xs">
+                          <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
                             ₹{order.total_amount - order.paid_amount}
                           </td>
                         </tr>
@@ -2357,11 +2786,11 @@ const CustomerDetail = () => {
                     <button
                       onClick={() => setOrdersPage(Math.max(1, ordersPage - 1))}
                       disabled={ordersPage === 1}
-                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
-                    <span className="text-xs text-gray-600">
+                    <span className="text-sm text-gray-600">
                       Page {ordersPage} of{" "}
                       {Math.ceil(orders.length / itemsPerPage)}
                     </span>
@@ -2377,7 +2806,7 @@ const CustomerDetail = () => {
                       disabled={
                         ordersPage === Math.ceil(orders.length / itemsPerPage)
                       }
-                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Next
                     </button>
@@ -2544,18 +2973,18 @@ const CustomerDetail = () => {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50 sticky top-0">
                           <tr>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                               Date
                             </th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                               Notes
                             </th>
-                            <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-1 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">
                               Amount
                             </th>
                             {/* Only show Actions column for admin */}
                             {isAdmin && (
-                              <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th className="px-2 py-1 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
                               </th>
                             )}
@@ -2671,16 +3100,16 @@ const CustomerDetail = () => {
                       <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50 sticky top-0">
                           <tr>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                               Date
                             </th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                               Employee
                             </th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                               Duration
                             </th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-1 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                               Status
                             </th>
                           </tr>
@@ -2693,10 +3122,10 @@ const CustomerDetail = () => {
                             )
                             .map((call) => (
                               <tr key={call.id} className="hover:bg-gray-50">
-                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-sm">
                                   {new Date(call.date).toLocaleDateString()}
                                   <br />
-                                  <span className="text-gray-500 text-xs">
+                                  <span className="text-gray-500 text-sm">
                                     {new Date(call.date).toLocaleTimeString(
                                       [],
                                       {
@@ -2706,15 +3135,15 @@ const CustomerDetail = () => {
                                     )}
                                   </span>
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-sm">
                                   {call.employee_name || "Unknown"}
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-xs">
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-900 text-sm">
                                   {formatDuration(call.duration_minutes)}
                                 </td>
                                 <td className="px-2 py-1 whitespace-nowrap">
                                   <span
-                                    className={`inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full ${call.status === "Completed"
+                                    className={`inline-flex px-1.5 py-0.5 text-sm font-semibold rounded-full ${call.status === "Completed"
                                       ? "bg-green-100 text-green-800"
                                       : call.status === "Follow-up"
                                         ? "bg-yellow-100 text-yellow-800"

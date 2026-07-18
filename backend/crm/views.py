@@ -1,7 +1,7 @@
 
 # crm/views.py - Complete file
 
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -16,8 +16,8 @@ import io
 from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
-from .serializers import BrandCategory1Serializer, FlavourSerializer, OldOrderHistorySerializer, ResidualSerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer, RoleSerializer, RoleFeaturePermissionSerializer
+from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Language, Community, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
+from .serializers import BrandCategory1Serializer, FlavourSerializer, OldOrderHistorySerializer, ResidualSerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, LanguageSerializer, CommunitySerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer, RoleSerializer, RoleFeaturePermissionSerializer
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -1170,7 +1170,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     ).prefetch_related('pricings').all().order_by('-id')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @action(detail=False, methods=['post'], url_path='bulk-import', parser_classes=[MultiPartParser, FormParser])
     def bulk_import(self, request):
@@ -2126,6 +2126,18 @@ class ProductPricingViewSet(viewsets.ModelViewSet):
 class CustomerTypeViewSet(viewsets.ModelViewSet):
     queryset = CustomerType.objects.filter(is_active=True)
     serializer_class = CustomerTypeSerializer
+    permission_classes = [IsAuthenticated]
+
+# ========== LANGUAGE VIEWSET ==========
+class LanguageViewSet(viewsets.ModelViewSet):
+    queryset = Language.objects.all()
+    serializer_class = LanguageSerializer
+    permission_classes = [IsAuthenticated]
+
+# ========== COMMUNITY VIEWSET ==========
+class CommunityViewSet(viewsets.ModelViewSet):
+    queryset = Community.objects.all()
+    serializer_class = CommunitySerializer
     permission_classes = [IsAuthenticated]
 
 from rest_framework.decorators import api_view, permission_classes

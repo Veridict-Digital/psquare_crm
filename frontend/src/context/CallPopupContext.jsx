@@ -244,6 +244,68 @@ export const CallPopupProvider = ({ children }) => {
     setIsRunning(false);
   };
 
+  const performOptimisticUpdate = (statusToSave = 'Completed') => {
+    if (customer && customer.id) {
+      try {
+        const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const employeeName = loggedInUser.username || loggedInUser.name || 'You';
+
+        const getAssumptionNames = (selectedIds, list) => {
+          if (!selectedIds || !list) return [];
+          return selectedIds
+            .map((id) => {
+              const item = list.find((a) => a.id === id || String(a.id) === String(id));
+              return item ? item.name : null;
+            })
+            .filter(Boolean);
+        };
+
+        const tempCallLog = {
+          id: callId || Date.now(), // DB ID or temp ID
+          call_id: callIdString,
+          date: new Date().toISOString(),
+          employee_name: employeeName,
+          duration_minutes: timer / 60,
+          status: statusToSave,
+          order_placed: orderId && orderId.trim() ? 'Yes' : 'No',
+          order_id: orderId || null,
+          assumption_names: getAssumptionNames(selectedAssumption, assumptions),
+          assumption2_names: getAssumptionNames(selectedAssumption2, assumptions2),
+          assumption3_names: getAssumptionNames(selectedAssumption3, assumptions3),
+          note: notes,
+        };
+
+        const customerId = String(customer.id);
+        queryClient.setQueryData(['customer-details', customerId], (oldData) => {
+          if (!oldData) return oldData;
+
+          const callLogs = oldData.call_logs || [];
+
+          const existsIdx = callLogs.findIndex(
+            (log) => log.id === tempCallLog.id || log.call_id === tempCallLog.call_id
+          );
+
+          let newCallLogs = [...callLogs];
+          if (existsIdx >= 0) {
+            newCallLogs[existsIdx] = {
+              ...newCallLogs[existsIdx],
+              ...tempCallLog,
+            };
+          } else {
+            newCallLogs.unshift(tempCallLog);
+          }
+
+          return {
+            ...oldData,
+            call_logs: newCallLogs,
+          };
+        });
+      } catch (err) {
+        console.error('Failed to perform optimistic update:', err);
+      }
+    }
+  };
+
   const saveInfo = async (isEditing = false, statusToSave = 'In Progress') => {
     // If editing and externalSaveFn is provided, use it for instant update
     if (externalSaveFn && callId) {
@@ -258,6 +320,7 @@ export const CallPopupProvider = ({ children }) => {
             assumption3: selectedAssumption3,
         };
         try {
+            performOptimisticUpdate(statusToSave);
             await externalSaveFn(payload);
             resetCallState();
             return callId;
@@ -299,6 +362,7 @@ export const CallPopupProvider = ({ children }) => {
     }
 
     try {
+        performOptimisticUpdate(statusToSave);
         const callLogData = {
             duration: timer,
             note: notes,
@@ -374,6 +438,15 @@ export const CallPopupProvider = ({ children }) => {
     if (isEndingCall) return;
     setIsEndingCall(true);
     setIsRunning(false);
+    
+    // Close the popup visually immediately for an instant response!
+    setIsVisible(false);
+    setIsEmbedded(false);
+    setIsMinimized(false);
+
+    // Optimistically update the list/notes in history
+    performOptimisticUpdate('Completed');
+
     let latestCallId = callId;
     
     // If info is not saved (no callId but timer > 0), save it directly as 'Completed' in a single request!
@@ -385,6 +458,7 @@ export const CallPopupProvider = ({ children }) => {
             resetCallState();
         } else {
             setIsEndingCall(false); // Let them retry if saveInfo failed
+            resetCallState();
         }
         return;
     }
@@ -425,8 +499,7 @@ export const CallPopupProvider = ({ children }) => {
             resetCallState();
         } catch (error) {
             console.error('Error ending call:', error.response?.data || error.message);
-            alert(`Failed to end call: ${error.response?.data?.error || error.message}`);
-            setIsEndingCall(false); // Let them retry!
+            resetCallState();
         }
     } else {
         // Fallback: if no latestCallId and timer is 0, just reset

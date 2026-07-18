@@ -140,12 +140,32 @@ const CallLogList = () => {
 
   // Helper to format duration
   const formatDuration = (durationMinutes) => {
-    if (!durationMinutes && durationMinutes !== 0) return '-';
+    if (!durationMinutes && durationMinutes !== 0) return '0 sec';
     const totalSec = Math.round(durationMinutes * 60);
     if (totalSec < 60) return `${totalSec} sec`;
     const min = Math.floor(totalSec / 60);
     const sec = totalSec % 60;
     return `${min} min${sec > 0 ? ` ${sec} sec` : ''}`;
+  };
+
+  // Helper to format Date, Time, and Duration combined (e.g. 17/07/2026 | 13:13 | 12 sec)
+  const formatCallDateTimeDuration = (callLog) => {
+    if (!callLog?.date) return '-';
+    const dateObj = new Date(callLog.date);
+    if (isNaN(dateObj.getTime())) return callLog.date;
+
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    const formattedDate = `${day}/${month}/${year}`;
+
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    const formattedTime = `${hours}:${minutes}`;
+
+    const formattedDuration = formatDuration(callLog.duration_minutes);
+
+    return `${formattedDate} | ${formattedTime} | ${formattedDuration}`;
   };
 
   const finalFilteredCallLogs = callLogs;
@@ -335,9 +355,7 @@ const CallLogList = () => {
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -368,19 +386,8 @@ const CallLogList = () => {
                           {callLog.customer_phone}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{callLog.employee_name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDuration(callLog.duration_minutes)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(callLog.date).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${callLog.status === 'Completed'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                            {callLog.status}
-                          </span>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                          {formatCallDateTimeDuration(callLog)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {callLog.order_id ? (
@@ -430,7 +437,7 @@ const CallLogList = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="9" className="px-6 py-12 text-center">
+                      <td colSpan="7" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center">
                           <PhoneCall className="w-12 h-12 text-gray-400 mb-4" />
                           <h3 className="text-lg font-medium text-gray-900 mb-2">No call logs found</h3>

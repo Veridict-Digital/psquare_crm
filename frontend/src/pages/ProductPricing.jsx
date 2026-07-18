@@ -87,6 +87,7 @@ const EDITABLE_FIELDS = [
     type: "currency",
   },
   { key: "mrp", group: "productDetails", label: "MRP", type: "currency" },
+  { key: "stock_qty", group: "productDetails", label: "Stock", type: "integer" },
   { key: "batch_no", group: "productDetails", label: "Batch No", type: "text" },
   { key: "mfg_date", group: "productDetails", label: "MFG Date", type: "date" },
   {
@@ -152,7 +153,7 @@ const GROUP_CONFIG = {
     label: "Pricing Details",
   },
   productDetails: {
-    fields: ["mrp", "batch_no", "mfg_date"],
+    fields: ["mrp", "stock_qty", "batch_no", "mfg_date"],
     position: STICKY_POSITIONS.PRODUCT_DETAILS,
     label: "Product Details",
   },
@@ -527,6 +528,7 @@ const ProductPricing = () => {
           calculated_rate: pricing?.calculated_rate ?? 0,
           sale_rate: pricing?.sale_rate ?? 0,
           mrp: pricing?.mrp ?? 0,
+          stock_qty: product.stock_qty || 0,
           mfg_date: pricing?.mfg_date ?? null,
           batch_no: pricing?.batch_no ?? "",
           isNew: !pricing?.id,
@@ -920,11 +922,19 @@ const ProductPricing = () => {
           batch_no: item.batch_no || "",
         };
 
-        if (item.isNew) {
-          return axios.post("/api/productpricings/", dataToSend);
-        } else {
-          return axios.put(`/api/productpricings/${item.id}/`, dataToSend);
+        const pricingPromise = item.isNew
+          ? axios.post("/api/productpricings/", dataToSend)
+          : axios.put(`/api/productpricings/${item.id}/`, dataToSend);
+
+        const stockKey = `${item.product}_stock_qty`;
+        if (editedValues[stockKey] !== undefined) {
+          const productPromise = axios.patch(`/api/products/${item.product}/`, {
+            stock_qty: parseInt(editedValues[stockKey]) || 0
+          });
+          return Promise.all([pricingPromise, productPromise]);
         }
+
+        return pricingPromise;
       });
       return Promise.all(promises);
     },
@@ -957,6 +967,11 @@ const ProductPricing = () => {
       if (isNaN(numValue)) return "Must be a valid number";
       if (numValue < 0) return "Must be greater than or equal to 0";
       if (numValue > 999999999) return "Value too large";
+    }
+    if (type === "integer") {
+      const numValue = parseInt(value);
+      if (isNaN(numValue)) return "Must be a valid integer";
+      if (numValue < 0) return "Must be greater than or equal to 0";
     }
     if (type === "date" && value) {
       const date = new Date(value);
@@ -1138,6 +1153,7 @@ const ProductPricing = () => {
       "company_margin_type",
       "sale_rate",
       "mrp",
+      "stock_qty",
       "mfg_date",
       "batch_no",
     ];

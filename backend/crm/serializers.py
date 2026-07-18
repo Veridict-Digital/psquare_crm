@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import BrandCategory1, Flavour, Residual, User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
+from .models import BrandCategory1, Flavour, Residual, User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, CombinationGift, Phone, OrganizationType, CustomerType, Language, Community, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -47,6 +47,8 @@ class CustomerSerializer(serializers.ModelSerializer):
     phones = PhoneSerializer(many=True, read_only=True)
     company_type_display = serializers.CharField(source='company_type.name', read_only=True)
     customer_type_display = serializers.CharField(source='customer_type.name', read_only=True)
+    language_display = serializers.CharField(source='language.name', read_only=True, allow_null=True)
+    community_display = serializers.CharField(source='community.name', read_only=True, allow_null=True)
 
     # ADD THIS FIELD
     telecaller_id = serializers.PrimaryKeyRelatedField(
@@ -284,7 +286,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['product', 'quantity', 'unit_price', 'gst_rate', 'total_price', 'product_title', 'product_sku', 'gst_rate_display', 'is_free', 'is_gift', 'combo', 'combo_name', 'combo_id']
+        fields = ['product', 'quantity', 'unit_price', 'gst_rate', 'total_price', 'product_title', 'product_sku', 'gst_rate_display', 'is_free', 'is_gift', 'combo', 'combo_name', 'combo_id', 'mrp']
         extra_kwargs = {
             'total_price': {'read_only': True},
             'product_title': {'read_only': True},
@@ -729,5 +731,15 @@ class UnitSerializer(serializers.ModelSerializer):
 class CustomerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerType
+        fields = '__all__'
+
+class LanguageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Language
+        fields = '__all__'
+
+class CommunitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Community
         fields = '__all__'
 

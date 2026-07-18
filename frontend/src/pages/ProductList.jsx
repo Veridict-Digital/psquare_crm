@@ -1679,9 +1679,6 @@ const ProductList = () => {
                     Category & GST
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Stock & Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
                     Pricing Details
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
@@ -1766,55 +1763,7 @@ const ProductList = () => {
                     </td>
 
 
-                    {/* Stock & Status */}
-                    <td className="px-6 py-4">
-                      <div className="space-y-2">
-                        {editingStock === product.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={stockValue}
-                              onChange={(e) => setStockValue(e.target.value)}
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                              autoFocus
-                            />
-                            <button
-                              onClick={handleStockSave}
-                              disabled={updateStockMutation.isLoading}
-                              className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
-                            >
-                              <Check className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={handleStockCancel}
-                              className="p-1 text-red-600 hover:text-red-800"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <span className={`text-sm font-medium ${product.stock_qty < 10 ? 'text-red-600' : product.stock_qty < 50 ? 'text-yellow-600' : 'text-gray-900'}`}>
-                                {product.stock_qty} units
-                              </span>
-                              {product.stock_qty < 10 && (
-                                <AlertCircle className="h-4 w-4 text-red-500 ml-1" />
-                              )}
-                              {product.stock_qty >= 10 && product.stock_qty < 50 && (
-                                <AlertCircle className="h-4 w-4 text-yellow-500 ml-1" />
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleStockEdit(product.id, product.stock_qty)}
-                              className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition duration-200"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
+
 
                     {/* Pricing Details */}
                     <td className="px-6 py-4">

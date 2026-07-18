@@ -484,11 +484,13 @@ const OrderDetail = () => {
         const appliedQuantity = appliedCombo?.quantity || 1;
 
         (combo.items || []).forEach((item) => {
+          const orderItemObj = order.items?.find(oi => String(oi.product) === String(item.product) && !oi.is_free && !oi.is_gift);
+          const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
+            ? parseFloat(orderItemObj.mrp)
+            : getOriginalPrice(item.product);
           const itemQty = item.quantity_required * appliedQuantity;
-          const unitMrp = getOriginalPrice(item.product);
           const totalMrp = unitMrp * itemQty;
 
-          const orderItemObj = order.items?.find(oi => String(oi.product) === String(item.product) && !oi.is_free && !oi.is_gift);
           const unitOffer = orderItemObj ? parseFloat(orderItemObj.unit_price) : (parseFloat(item.offer_price) || 0);
           const totalOffer = orderItemObj ? parseFloat(orderItemObj.total_price) : (unitOffer * itemQty);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(item.product);
@@ -514,11 +516,13 @@ const OrderDetail = () => {
         });
 
         (combo.rewards || []).forEach((reward) => {
+          const orderItemObj = order.items?.find(oi => String(oi.product) === String(reward.product) && oi.is_free);
+          const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
+            ? parseFloat(orderItemObj.mrp)
+            : getOriginalPrice(reward.product);
           const itemQty = reward.quantity_free * appliedQuantity;
-          const unitMrp = getOriginalPrice(reward.product);
           const totalMrp = unitMrp * itemQty;
 
-          const orderItemObj = order.items?.find(oi => String(oi.product) === String(reward.product) && oi.is_free);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(reward.product);
 
           const taxableMrp = totalMrp / (1 + gstRate / 100);
@@ -542,12 +546,14 @@ const OrderDetail = () => {
         });
 
         (combo.gifts || []).forEach((gift) => {
+          const orderItemObj = order.items?.find(oi => String(oi.product) === String(gift.product) && oi.is_gift);
+          const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
+            ? parseFloat(orderItemObj.mrp)
+            : getOriginalPrice(gift.product);
           const giftQtyVal = gift.quantity_free || gift.quantity || 1;
           const itemQty = giftQtyVal * appliedQuantity;
-          const unitMrp = getOriginalPrice(gift.product);
           const totalMrp = unitMrp * itemQty;
 
-          const orderItemObj = order.items?.find(oi => String(oi.product) === String(gift.product) && oi.is_gift);
           const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(gift.product);
 
           const taxableMrp = totalMrp / (1 + gstRate / 100);
@@ -576,7 +582,9 @@ const OrderDetail = () => {
         if (item.is_free) type = 'Free';
         if (item.is_gift) type = 'Gift';
 
-        const originalPrice = getOriginalPrice(item.product);
+        const originalPrice = item.mrp !== undefined && item.mrp !== null && parseFloat(item.mrp) > 0
+          ? parseFloat(item.mrp)
+          : getOriginalPrice(item.product);
         const gstRate = parseFloat(item.gst_rate_display) || getProductGstRate(item.product);
         const totalMrp = originalPrice * item.quantity;
         const totalOffer = type === 'Paid' ? (parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0) : 0;
@@ -940,10 +948,11 @@ const OrderDetail = () => {
                     <th rowSpan="2" className="text-center w-8">Sl No.</th>
                     <th rowSpan="2" className="text-left">Description of Goods</th>
                     <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
+                    <th rowSpan="2" className="text-right w-12">MRP</th>
                     <th colSpan="4" className="text-center w-48">Quantity</th>
-                    <th rowSpan="2" className="text-right w-20">Rate<br />(Incl. of Tax)</th>
-                    <th rowSpan="2" className="text-right w-20">Rate</th>
-                    <th rowSpan="2" className="text-right w-24">Amount</th>
+                    <th rowSpan="2" className="text-right w-16">Rate<br />(Incl. of Tax)</th>
+                    <th rowSpan="2" className="text-right w-16">Rate</th>
+                    <th rowSpan="2" className="text-right w-20">Amount</th>
                   </tr>
                   <tr>
                     <th className="text-center w-12" style={{ borderTop: "1.2px solid #000" }}>Total</th>
@@ -962,6 +971,7 @@ const OrderDetail = () => {
                           {item.productName}
                         </td>
                         <td className="text-center">{item.hsn}</td>
+                        <td className="text-right">{formatCurrency(item.unitMrp)}</td>
                         <td className="text-center font-bold">{itemTotalQty > 0 ? `${itemTotalQty} PCS` : ""}</td>
                         <td className="text-center font-bold">{item.billedQty > 0 ? `${item.billedQty} PCS` : ""}</td>
                         <td className="text-center font-bold">{item.freeQty > 0 ? `${item.freeQty} PCS` : ""}</td>
@@ -985,19 +995,19 @@ const OrderDetail = () => {
                     <>
                       <tr style={{ height: "20px" }}>
                         <td></td>
-                        <td className="text-right font-bold italic" colSpan="8">OUTPUT CGST</td>
+                        <td className="text-right font-bold italic" colSpan="9">OUTPUT CGST</td>
                         <td className="text-right font-bold">{formatCurrency(totalCgst)}</td>
                       </tr>
                       <tr style={{ height: "20px" }}>
                         <td></td>
-                        <td className="text-right font-bold italic" colSpan="8">OUTPUT SGST</td>
+                        <td className="text-right font-bold italic" colSpan="9">OUTPUT SGST</td>
                         <td className="text-right font-bold">{formatCurrency(totalSgst)}</td>
                       </tr>
                     </>
                   ) : (
                     <tr style={{ height: "20px" }}>
                       <td></td>
-                      <td className="text-right font-bold italic" colSpan="8">OUTPUT IGST</td>
+                      <td className="text-right font-bold italic" colSpan="9">OUTPUT IGST</td>
                       <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
                     </tr>
                   )}
@@ -1006,7 +1016,7 @@ const OrderDetail = () => {
                   {Math.abs(roundOff) >= 0.005 && (
                     <tr style={{ height: "20px" }}>
                       <td></td>
-                      <td className="text-right italic" colSpan="8">
+                      <td className="text-right italic" colSpan="9">
                         <strong>Less:</strong> ROUND OFF
                       </td>
                       <td className="text-right font-bold">{formatRoundOff(roundOff)}</td>
@@ -1017,6 +1027,7 @@ const OrderDetail = () => {
                   <tr className="font-bold" style={{ borderTop: "1.5px solid #000", height: "22px" }}>
                     <td className="text-center"></td>
                     <td className="text-right">Total</td>
+                    <td className="text-center"></td>
                     <td className="text-center"></td>
                     <td className="text-center font-bold">{(totalBilledQty + totalFreeQty + totalGiftQty)} PCS</td>
                     <td className="text-center font-bold">{totalBilledQty} PCS</td>
