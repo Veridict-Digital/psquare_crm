@@ -571,11 +571,11 @@ class OrderItem(models.Model):
         gst_amount = (self.unit_price * self.quantity * self.gst_rate) / (100 + self.gst_rate)
         self.total_price = self.unit_price * self.quantity
         
-        # Populate mrp from current ProductPricing or Product model if not already set
-        if not self.mrp:
+        # Populate mrp from current ProductPricing or Product model if not already set or 0
+        if not self.mrp or float(self.mrp) == 0:
             from .models import ProductPricing
             pricing = ProductPricing.objects.filter(product=self.product).first()
-            if pricing and pricing.mrp is not None:
+            if pricing and pricing.mrp is not None and float(pricing.mrp) > 0:
                 self.mrp = pricing.mrp
             else:
                 self.mrp = self.product.mrp or self.product.price or 0

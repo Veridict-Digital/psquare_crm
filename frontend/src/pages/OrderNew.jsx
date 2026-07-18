@@ -1725,15 +1725,20 @@ const OrderNew = () => {
       total_amount: totals.total,
       paid_amount: formData.payment_status === "Paid" ? totals.total :
         formData.payment_status === "Partial" ? parseFloat(formData.partial_amount) : 0,
-      items: pricedOrderItems.map((item) => ({
-        product: item.product,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        gst_rate: item.gst_rate_value || 0,
-        is_free: item.is_free || false,
-        is_gift: item.is_gift || false,
-        combo: item.combo_id || null,
-      })),
+      items: pricedOrderItems.map((item) => {
+        const product = products?.find((p) => p.id === item.product);
+        const itemMrp = item.mrp || item.original_price || (product?.pricing?.mrp !== undefined && product?.pricing?.mrp !== null ? parseFloat(product.pricing.mrp) : parseFloat(product?.mrp || product?.price || 0));
+        return {
+          product: item.product,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          gst_rate: item.gst_rate_value || 0,
+          is_free: item.is_free || false,
+          is_gift: item.is_gift || false,
+          combo: item.combo_id || null,
+          mrp: itemMrp,
+        };
+      }),
       applied_combos: appliedCombos.map(c => ({
         combo_id: c.comboId || c.combo_id,
         quantity: c.quantity,
@@ -3538,17 +3543,17 @@ const OrderNew = () => {
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
-          onClick={() => {
-            setShowSuccessModal(false);
-            navigate(`/orders/${savedDbOrderId || editOrderId}`);
-          }}
-        >
-          <div
-            className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative">
+            <button
+              type="button"
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
             <div className="text-center">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-10 h-10 text-green-600" />
@@ -3558,14 +3563,14 @@ const OrderNew = () => {
                 {editMode ? 'Order Updated Successfully!' : 'Order Placed Successfully!'}
               </h2>
 
-              <div className="mb-2">
+              <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-600 mb-2">Order ID</label>
                 <div className="flex items-center justify-center space-x-2">
                   <input
                     type="text"
                     value={generatedOrderId}
                     readOnly
-                    className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-center"
+                    className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-center font-bold text-gray-800"
                   />
                   <button
                     type="button"
@@ -3586,11 +3591,12 @@ const OrderNew = () => {
                           document.execCommand("copy");
                           document.body.removeChild(text);
                         }
+                        toast.success("Order ID copied to clipboard!");
                       } catch (err) {
                         console.error("Failed to copy order ID:", err);
                       }
                     }}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors"
                   >
                     Copy
                   </button>
@@ -3598,11 +3604,12 @@ const OrderNew = () => {
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   setShowSuccessModal(false);
                   navigate(`/orders/${savedDbOrderId || editOrderId}`);
                 }}
-                className="bg-gray-900 text-white px-6 py-2 rounded-lg hover:bg-gray-800"
+                className="bg-gray-900 text-white px-6 py-2.5 rounded-xl hover:bg-gray-800 font-semibold shadow-md transition-all"
               >
                 View Order Details
               </button>

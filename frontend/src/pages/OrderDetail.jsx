@@ -443,8 +443,15 @@ const OrderDetail = () => {
     const invoiceItems = [];
     let sNo = 1;
 
-    // Helper: Get original price (MRP) from products list (supporting ProductPricing)
+    // Helper: Get original price (MRP) from order items first (to preserve historical price), falling back to product list
     const getOriginalPrice = (productId) => {
+      const orderItemObj = order?.items?.find(oi => String(oi.product) === String(productId));
+      if (orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0) {
+        return parseFloat(orderItemObj.mrp);
+      }
+      if (orderItemObj && orderItemObj.unit_price !== undefined && orderItemObj.unit_price !== null && parseFloat(orderItemObj.unit_price) > 0) {
+        return parseFloat(orderItemObj.unit_price);
+      }
       const productObj = products && products.find(p => p.id === productId);
       if (productObj) {
         if (productObj.pricing?.mrp !== undefined && productObj.pricing?.mrp !== null) {
