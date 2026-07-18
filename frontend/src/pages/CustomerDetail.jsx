@@ -1308,31 +1308,195 @@ const CustomerDetail = () => {
               </div>
             </div>
 
-            {/* Middle: Summary Cards - Flexible but with min-width */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 flex-1 min-w-[300px]">
-              {[
-                { label: "Total Calls", value: summary?.total_calls || 0 },
-                { label: "Total Orders", value: summary?.total_orders || 0 },
-                {
-                  label: "Total Paid",
-                  value: `₹${summary?.total_paid?.toFixed(2) || "0.00"}`,
-                },
-                {
-                  label: "Pending",
-                  value: `₹${summary?.total_pending?.toFixed(2) || "0.00"}`,
-                },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl flex flex-col justify-between shadow-sm transition-all duration-200 hover:shadow-md"
-                >
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider truncate">{item.label}</p>
-                  <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
-                    {item.value}
-                  </p>
+            {/* Middle: Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 min-w-[300px]">
+              {/* 4-in-1 Combined KPI Card */}
+              <div className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl flex flex-col justify-between shadow-sm transition-all duration-200 hover:shadow-md min-w-[130px]">
+                <div className="flex justify-between items-center text-[11px] leading-tight">
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider">Calls:</span>
+                  <span className="font-extrabold text-slate-800">{summary?.total_calls || 0}</span>
                 </div>
-              ))}
+                <div className="flex justify-between items-center text-[11px] leading-tight">
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider">Orders:</span>
+                  <span className="font-extrabold text-slate-800">{summary?.total_orders || 0}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] leading-tight">
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider">Paid:</span>
+                  <span className="font-extrabold text-emerald-600">₹{summary?.total_paid?.toFixed(2) || "0.00"}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] leading-tight">
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider">Pending:</span>
+                  <span className="font-extrabold text-amber-600">₹{summary?.total_pending?.toFixed(2) || "0.00"}</span>
+                </div>
+              </div>
 
+              {/* Language Card */}
+              <div ref={languageDropdownRef} className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl min-w-[120px] relative transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md">
+                <div
+                  className="flex items-center justify-between h-full"
+                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider truncate">Language</p>
+                    <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
+                      {customer?.language_display || "Not set"}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1 transform transition-transform duration-200 ${showLanguageDropdown ? "rotate-180" : ""}`}
+                  />
+                </div>
+                {showLanguageDropdown && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
+                    <div className="p-1">
+                      <button
+                        onClick={() => handleLanguageSelect(null)}
+                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
+                      >
+                        Not set
+                      </button>
+                      {languages?.map((lang) => (
+                        <button
+                          key={lang.id}
+                          onClick={() => handleLanguageSelect(lang.id)}
+                          className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
+                        >
+                          {lang.name}
+                        </button>
+                      ))}
+                      <div className="border-t border-slate-100 my-1"></div>
+                      {!showNewLanguageInput ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowNewLanguageInput(true);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        >
+                          + Add New
+                        </button>
+                      ) : (
+                        <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={newLanguage}
+                            onChange={(e) => setNewLanguage(e.target.value)}
+                            placeholder="New Language..."
+                            className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
+                          />
+                          <div className="flex gap-1 justify-end">
+                            <button
+                              onClick={() => {
+                                setShowNewLanguageInput(false);
+                                setNewLanguage("");
+                              }}
+                              className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (newLanguage.trim()) {
+                                  addLanguageMutation.mutate({ name: newLanguage.trim() });
+                                }
+                              }}
+                              disabled={!newLanguage.trim() || addLanguageMutation.isLoading}
+                              className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {addLanguageMutation.isLoading ? "..." : "Add"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Community Card */}
+              <div ref={communityDropdownRef} className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl min-w-[120px] relative transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md">
+                <div
+                  className="flex items-center justify-between h-full"
+                  onClick={() => setShowCommunityDropdown(!showCommunityDropdown)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider truncate">Community</p>
+                    <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
+                      {customer?.community_display || "Not set"}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1 transform transition-transform duration-200 ${showCommunityDropdown ? "rotate-180" : ""}`}
+                  />
+                </div>
+                {showCommunityDropdown && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
+                    <div className="p-1">
+                      <button
+                        onClick={() => handleCommunitySelect(null)}
+                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
+                      >
+                        Not set
+                      </button>
+                      {communities?.map((comm) => (
+                        <button
+                          key={comm.id}
+                          onClick={() => handleCommunitySelect(comm.id)}
+                          className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
+                        >
+                          {comm.name}
+                        </button>
+                      ))}
+                      <div className="border-t border-slate-100 my-1"></div>
+                      {!showNewCommunityInput ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowNewCommunityInput(true);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        >
+                          + Add New
+                        </button>
+                      ) : (
+                        <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={newCommunity}
+                            onChange={(e) => setNewCommunity(e.target.value)}
+                            placeholder="New Community..."
+                            className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
+                          />
+                          <div className="flex gap-1 justify-end">
+                            <button
+                              onClick={() => {
+                                setShowNewCommunityInput(false);
+                                setNewCommunity("");
+                              }}
+                              className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (newCommunity.trim()) {
+                                  addCommunityMutation.mutate({ name: newCommunity.trim() });
+                                }
+                              }}
+                              disabled={!newCommunity.trim() || addCommunityMutation.isLoading}
+                              className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {addCommunityMutation.isLoading ? "..." : "Add"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Telecaller Card */}
               <div ref={agentDropdownRef} className="bg-white border border-slate-200 hover:border-slate-300 p-2 rounded-xl min-w-[120px] relative transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md">
                 <div
                   className="flex items-center justify-between h-full"
@@ -1770,167 +1934,7 @@ const CustomerDetail = () => {
               )}
             </div>
 
-            {/* Language Dropdown */}
-            <div ref={languageDropdownRef} className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
-              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-                <Globe className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
-                Language:
-              </div>
-              <div
-                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all"
-                onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              >
-                <span className="truncate">
-                  {customer?.language_display || "Not set"}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0 transform transition-transform ${showLanguageDropdown ? "rotate-180" : ""}`}
-                />
-              </div>
-              {showLanguageDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
-                  <div className="p-1">
-                    <button
-                      onClick={() => handleLanguageSelect(null)}
-                      className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
-                    >
-                      Not set
-                    </button>
-                    {languages?.map((lang) => (
-                      <button
-                        key={lang.id}
-                        onClick={() => handleLanguageSelect(lang.id)}
-                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
-                      >
-                        {lang.name}
-                      </button>
-                    ))}
-                    <div className="border-t border-slate-100 my-1"></div>
-                    {!showNewLanguageInput ? (
-                      <button
-                        onClick={() => setShowNewLanguageInput(true)}
-                        className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      >
-                        + Add New
-                      </button>
-                    ) : (
-                      <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md">
-                        <input
-                          type="text"
-                          value={newLanguage}
-                          onChange={(e) => setNewLanguage(e.target.value)}
-                          placeholder="New Language..."
-                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
-                        />
-                        <div className="flex gap-1 justify-end">
-                          <button
-                            onClick={() => {
-                              setShowNewLanguageInput(false);
-                              setNewLanguage("");
-                            }}
-                            className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (newLanguage.trim()) {
-                                addLanguageMutation.mutate({ name: newLanguage.trim() });
-                              }
-                            }}
-                            disabled={!newLanguage.trim() || addLanguageMutation.isLoading}
-                            className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {addLanguageMutation.isLoading ? "..." : "Add"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
 
-            {/* Community Dropdown */}
-            <div ref={communityDropdownRef} className="flex items-center bg-white border border-slate-200 hover:border-slate-300 p-1.5 px-2.5 rounded-xl shadow-sm transition-all duration-200 relative min-w-0 gap-2">
-              <div className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-                <Users className="h-3.5 w-3.5 mr-1 text-slate-400 flex-shrink-0" />
-                Community:
-              </div>
-              <div
-                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all"
-                onClick={() => setShowCommunityDropdown(!showCommunityDropdown)}
-              >
-                <span className="truncate">
-                  {customer?.community_display || "Not set"}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0 transform transition-transform ${showCommunityDropdown ? "rotate-180" : ""}`}
-                />
-              </div>
-              {showCommunityDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-56 overflow-y-auto w-auto min-w-full">
-                  <div className="p-1">
-                    <button
-                      onClick={() => handleCommunitySelect(null)}
-                      className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors"
-                    >
-                      Not set
-                    </button>
-                    {communities?.map((comm) => (
-                      <button
-                        key={comm.id}
-                        onClick={() => handleCommunitySelect(comm.id)}
-                        className="w-full text-left px-2.5 py-1.5 text-sm hover:bg-slate-50 rounded text-slate-600 transition-colors truncate"
-                      >
-                        {comm.name}
-                      </button>
-                    ))}
-                    <div className="border-t border-slate-100 my-1"></div>
-                    {!showNewCommunityInput ? (
-                      <button
-                        onClick={() => setShowNewCommunityInput(true)}
-                        className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      >
-                        + Add New
-                      </button>
-                    ) : (
-                      <div className="p-1.5 flex flex-col gap-1.5 bg-slate-50 rounded-md">
-                        <input
-                          type="text"
-                          value={newCommunity}
-                          onChange={(e) => setNewCommunity(e.target.value)}
-                          placeholder="New Community..."
-                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-slate-800"
-                        />
-                        <div className="flex gap-1 justify-end">
-                          <button
-                            onClick={() => {
-                              setShowNewCommunityInput(false);
-                              setNewCommunity("");
-                            }}
-                            className="px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-150 rounded"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (newCommunity.trim()) {
-                                addCommunityMutation.mutate({ name: newCommunity.trim() });
-                              }
-                            }}
-                            disabled={!newCommunity.trim() || addCommunityMutation.isLoading}
-                            className="px-2.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {addCommunityMutation.isLoading ? "..." : "Add"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
 
             <div
               onClick={() => {
