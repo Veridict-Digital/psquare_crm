@@ -691,15 +691,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(contact_type=contact_type)
             
             if phone:
+                phone_clean = "".join(c for c in phone if c.isdigit())
                 queryset = queryset.filter(
-                    models.Q(phone__icontains=phone) |
-                    models.Q(phones__phone__icontains=phone)
+                    models.Q(phone__icontains=phone_clean) |
+                    models.Q(phones__phone__icontains=phone_clean)
                 )
             
             if phone_search:
+                phone_clean = "".join(c for c in phone_search if c.isdigit())
                 queryset = queryset.filter(
-                    models.Q(phone__icontains=phone_search) |
-                    models.Q(phones__phone__icontains=phone_search)
+                    models.Q(phone__icontains=phone_clean) |
+                    models.Q(phones__phone__icontains=phone_clean)
                 )
             
             if gstin_no:
@@ -1570,7 +1572,8 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Apply customer-specific filters
         if customer_phone:
-            queryset = queryset.filter(customer__phone__icontains=customer_phone)
+            customer_phone_clean = "".join(c for c in customer_phone if c.isdigit())
+            queryset = queryset.filter(customer__phone__icontains=customer_phone_clean)
         if customer_name:
             queryset = queryset.filter(customer__name__icontains=customer_name)
         if customer_surname:
@@ -1798,15 +1801,19 @@ class CallLogViewSet(viewsets.ModelViewSet):
         
         if search:
             from django.db.models import Q
-            queryset = queryset.filter(
+            search_clean = "".join(c for c in search if c.isdigit())
+            q_filter = (
                 Q(customer__name__icontains=search) |
                 Q(lead__name__icontains=search) |
                 Q(call_id__icontains=search) |
                 Q(note__icontains=search) |
-                Q(customer__phone__icontains=search) |
-                Q(lead__phone__icontains=search) |
                 Q(order__order_id__icontains=search)
             )
+            if search_clean:
+                q_filter = q_filter | Q(customer__phone__icontains=search_clean) | Q(lead__phone__icontains=search_clean)
+            else:
+                q_filter = q_filter | Q(customer__phone__icontains=search) | Q(lead__phone__icontains=search)
+            queryset = queryset.filter(q_filter)
         
         # Default ordering by date descending
         return queryset.order_by('-date', '-id')
@@ -1844,15 +1851,19 @@ class CallLogViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(date__date__lte=date_to)
         if search:
             from django.db.models import Q
-            queryset = queryset.filter(
+            search_clean = "".join(c for c in search if c.isdigit())
+            q_filter = (
                 Q(customer__name__icontains=search) |
                 Q(lead__name__icontains=search) |
                 Q(call_id__icontains=search) |
                 Q(note__icontains=search) |
-                Q(customer__phone__icontains=search) |
-                Q(lead__phone__icontains=search) |
                 Q(order__order_id__icontains=search)
             )
+            if search_clean:
+                q_filter = q_filter | Q(customer__phone__icontains=search_clean) | Q(lead__phone__icontains=search_clean)
+            else:
+                q_filter = q_filter | Q(customer__phone__icontains=search) | Q(lead__phone__icontains=search)
+            queryset = queryset.filter(q_filter)
         
         # Get total count
         total_calls = queryset.count()
@@ -2019,8 +2030,8 @@ class LeadViewSet(viewsets.ModelViewSet):
             'name': lead.name or 'Unknown',
             'phone': lead.phone,
             'email': lead.email,
-            'pincode': '000000',  # Default pincode, can be updated later
-            'address': 'Address to be updated',  # Default address
+            'pincode': None,
+            'address': None,
             'agent': lead.agent
         }
 

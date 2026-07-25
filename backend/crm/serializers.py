@@ -64,6 +64,11 @@ class CustomerSerializer(serializers.ModelSerializer):
             return None
         return value
 
+    def validate_pincode(self, value):
+        if not value or str(value).strip() == "" or str(value).strip() == "000000":
+            return None
+        return value
+
     def get_total_order_value(self, obj):
         # Calculate total order value from all orders for this customer
         total = obj.order_set.aggregate(total=models.Sum('total_amount'))['total'] or 0
@@ -311,7 +316,9 @@ class OrderSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         view = self.context.get('view')
         if request and (request.method in ['PUT', 'PATCH'] or (view and getattr(view, 'action', None) == 'list')):
-            self.fields['items'].read_only = True
+            data = getattr(request, 'data', None)
+            if not (isinstance(data, dict) and 'items' in data):
+                self.fields['items'].read_only = True
 
     def get_agent_name(self, obj):
         return obj.agent.username if obj.agent else 'Unknown'
@@ -377,6 +384,8 @@ class OrderSerializer(serializers.ModelSerializer):
                     quantity = item_data['quantity']
                     product.stock_qty -= quantity
                     product.save()
+            order.total_amount = sum(item.total_price for item in order.items.all())
+            order.save()
             logger.warning(f"Order created: {order}")
             return order
 
@@ -420,8 +429,8 @@ class OrderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Customer is required.')
         if items_data is not None and len(items_data) == 0:
             raise serializers.ValidationError('At least one order item is required.')
-        # Set order_date to today if not provided
-        if not validated_data.get('order_date'):
+        # Set order_date to today if not provided and not set on instance
+        if not validated_data.get('order_date') and not getattr(instance, 'order_date', None):
             validated_data['order_date'] = datetime.date.today()
         # Update order fields
         for attr, value in validated_data.items():
@@ -451,6 +460,15 @@ class OrderSerializer(serializers.ModelSerializer):
                         quantity = item_data['quantity']
                         # Only deduct if creating new (stock already handled on original create)
                         # Skip stock adjustment on updates to avoid double deduction
+                
+                # Recalculate total_amount based on actual items
+                instance.total_amount = sum(item.total_price for item in instance.items.all())
+                instance.save()
+        else:
+            # Recalculate total_amount even if items are not updated (only if there are items)
+            if instance.items.exists():
+                instance.total_amount = sum(item.total_price for item in instance.items.all())
+                instance.save()
 
         return instance
 

@@ -4,6 +4,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, Phone, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, PhoneCall, User, MessageSquare } from 'lucide-react';
 
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+  const cleaned = phone.toString().replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+  }
+  return phone;
+};
+
 const CallLogList = () => {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -12,6 +21,16 @@ const CallLogList = () => {
   const [filterOrderStatus, setFilterOrderStatus] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  // Applied filter states to control query execution
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedStatus, setAppliedStatus] = useState('');
+  const [appliedEmployee, setAppliedEmployee] = useState('');
+  const [appliedOrderPlaced, setAppliedOrderPlaced] = useState('');
+  const [appliedOrderStatus, setAppliedOrderStatus] = useState('');
+  const [appliedDateFrom, setAppliedDateFrom] = useState('');
+  const [appliedDateTo, setAppliedDateTo] = useState('');
+
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedCallLog, setSelectedCallLog] = useState(null);
@@ -26,18 +45,18 @@ const CallLogList = () => {
   });
 
   const { data: callLogsData, isLoading, error, refetch, isError } = useQuery({
-    queryKey: ['callLogs', filterStatus, filterEmployee, filterOrderPlaced, filterOrderStatus, dateFrom, dateTo, search, currentPage],
+    queryKey: ['callLogs', appliedStatus, appliedEmployee, appliedOrderPlaced, appliedOrderStatus, appliedDateFrom, appliedDateTo, appliedSearch, currentPage],
     queryFn: async () => {
       const params = {
         page: currentPage,
-        search: search
+        search: appliedSearch
       };
-      if (filterStatus) params.status = filterStatus;
-      if (filterEmployee) params.employee = filterEmployee;
-      if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
-      if (filterOrderStatus) params.order_status = filterOrderStatus;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
+      if (appliedStatus) params.status = appliedStatus;
+      if (appliedEmployee) params.employee = appliedEmployee;
+      if (appliedOrderPlaced) params.order_placed = appliedOrderPlaced;
+      if (appliedOrderStatus) params.order_status = appliedOrderStatus;
+      if (appliedDateFrom) params.date_from = appliedDateFrom;
+      if (appliedDateTo) params.date_to = appliedDateTo;
 
       console.log('Fetching call logs with params:', params); // Debug log
       const response = await axios.get('/api/calllogs/', { params });
@@ -49,22 +68,52 @@ const CallLogList = () => {
 
   // Fetch statistics from server for KPIs (uses all data, not paginated)
   const { data: statisticsData } = useQuery({
-    queryKey: ['callLogsStatistics', filterStatus, filterEmployee, filterOrderPlaced, filterOrderStatus, dateFrom, dateTo, search],
+    queryKey: ['callLogsStatistics', appliedStatus, appliedEmployee, appliedOrderPlaced, appliedOrderStatus, appliedDateFrom, appliedDateTo, appliedSearch],
     queryFn: async () => {
       const params = {};
-      if (filterStatus) params.status = filterStatus;
-      if (filterEmployee) params.employee = filterEmployee;
-      if (filterOrderPlaced) params.order_placed = filterOrderPlaced;
-      if (filterOrderStatus) params.order_status = filterOrderStatus;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      if (search) params.search = search;
+      if (appliedStatus) params.status = appliedStatus;
+      if (appliedEmployee) params.employee = appliedEmployee;
+      if (appliedOrderPlaced) params.order_placed = appliedOrderPlaced;
+      if (appliedOrderStatus) params.order_status = appliedOrderStatus;
+      if (appliedDateFrom) params.date_from = appliedDateFrom;
+      if (appliedDateTo) params.date_to = appliedDateTo;
+      if (appliedSearch) params.search = appliedSearch;
 
       const response = await axios.get('/api/calllogs/statistics/', { params });
       return response.data;
     },
     retry: 1,
   });
+
+  const handleApplyFilters = () => {
+    setAppliedSearch(search);
+    setAppliedStatus(filterStatus);
+    setAppliedEmployee(filterEmployee);
+    setAppliedOrderPlaced(filterOrderPlaced);
+    setAppliedOrderStatus(filterOrderStatus);
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setSearch('');
+    setFilterStatus('');
+    setFilterEmployee('');
+    setFilterOrderPlaced('');
+    setFilterOrderStatus('');
+    setDateFrom('');
+    setDateTo('');
+
+    setAppliedSearch('');
+    setAppliedStatus('');
+    setAppliedEmployee('');
+    setAppliedOrderPlaced('');
+    setAppliedOrderStatus('');
+    setAppliedDateFrom('');
+    setAppliedDateTo('');
+    setCurrentPage(1);
+  };
 
   const callLogs = callLogsData?.results || [];
   const totalCount = callLogsData?.count || 0;
@@ -237,6 +286,11 @@ const CallLogList = () => {
                   placeholder="Search customers, phone, order ID..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleApplyFilters();
+                    }
+                  }}
                   className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64 transition-all duration-200"
                 />
               </div>
@@ -316,6 +370,22 @@ const CallLogList = () => {
                   className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all duration-200"
                 />
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-2 ml-auto lg:ml-0">
+                <button
+                  onClick={handleApplyFilters}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500/20 active:bg-blue-800 transition-all duration-200"
+                >
+                  Apply Filters
+                </button>
+                <button
+                  onClick={handleClearFilters}
+                  className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:ring-2 focus:ring-gray-200 transition-all duration-200"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
 
             {/* View Toggle */}
@@ -382,9 +452,9 @@ const CallLogList = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                          {callLog.customer_phone}
-                        </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                           {callLog.customer_phone ? formatPhoneNumber(callLog.customer_phone) : '—'}
+                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{callLog.employee_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
                           {formatCallDateTimeDuration(callLog)}
@@ -483,10 +553,10 @@ const CallLogList = () => {
                   </div>
 
                   <div className="space-y-3 mb-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Phone:</span>
-                      <span className="text-sm font-medium text-gray-900 font-mono">{callLog.customer_phone}</span>
-                    </div>
+                     <div className="flex items-center justify-between">
+                       <span className="text-sm text-gray-600">Phone:</span>
+                       <span className="text-sm font-medium text-gray-900 font-mono">{callLog.customer_phone ? formatPhoneNumber(callLog.customer_phone) : '—'}</span>
+                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Employee:</span>
                       <span className="text-sm font-medium text-gray-900">{callLog.employee_name}</span>
@@ -560,54 +630,158 @@ const CallLogList = () => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing {((currentPage - 1) * 15) + 1} to {Math.min(currentPage * 15, totalCount)} of {totalCount} results
+          <div className="bg-white px-4 py-3 flex items-center justify-between border border-gray-100 rounded-xl shadow-sm sm:px-6 mt-6">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Go to page:</span>
+                <input
+                  type="text"
+                  placeholder={`1-${totalPages}`}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.replace(/\D/g, "");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                        setCurrentPage(val);
+                        e.target.value = "";
+                      } else {
+                        alert(`Please enter a valid page number between 1 and ${totalPages}`);
+                      }
+                    }
+                  }}
+                  className="h-8 w-14 text-center text-sm border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+                />
               </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-600">
+                  Showing{" "}
+                  <span className="font-medium text-gray-900">
+                    {totalCount > 0 ? (currentPage - 1) * 15 + 1 : 0}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-gray-900">
+                    {Math.min(currentPage * 15, totalCount)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-gray-900">
+                    {totalCount}
+                  </span>{" "}
+                  results
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <nav
+                  className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+                  aria-label="Pagination"
                 >
-                  Previous
-                </button>
-
-                {/* Page numbers */}
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${currentPage === pageNum
-                          ? 'text-blue-600 bg-blue-50 border border-blue-500'
-                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                        }`}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-1.5 rounded-l-md border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg
+                      className="h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
                     >
-                      {pageNum}
-                    </button>
-                  );
-                })}
+                      <path
+                        fillRule="evenodd"
+                        d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (page) =>
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - currentPage) <= 2,
+                    )
+                    .map((page, index, array) => (
+                      <span key={page} className="inline-flex">
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="px-3 py-1.5 border border-gray-200 bg-white text-gray-500 text-sm">
+                            ...
+                          </span>
+                        )}
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`relative inline-flex items-center px-3 py-1.5 border text-sm font-medium transition-colors ${page === currentPage
+                              ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                              : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                            }`}
+                        >
+                          {page}
+                        </button>
+                      </span>
+                    ))}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-1.5 rounded-r-md border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg
+                      className="h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10l-3.293-3.293a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </nav>
 
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
+                {/* Jump to specific page input */}
+                <div className="flex items-center gap-1.5 h-8">
+                  <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Go to page:</span>
+                  <input
+                    type="text"
+                    placeholder={`1-${totalPages}`}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                          setCurrentPage(val);
+                          e.target.value = ""; // Clear on submit
+                        } else {
+                          alert(`Please enter a valid page number between 1 and ${totalPages}`);
+                        }
+                      }
+                    }}
+                    className="h-8 w-16 text-center text-sm border border-gray-200 rounded-lg bg-gray-50 hover:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+                  />
+                </div>
               </div>
             </div>
           </div>

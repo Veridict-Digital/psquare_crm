@@ -67,6 +67,8 @@ const OrderDetail = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['orders']);
+      queryClient.invalidateQueries(['customers']);
+      queryClient.invalidateQueries(['customer-details']);
       toast.success('Order deleted successfully');
       navigate('/orders');
     },
@@ -492,6 +494,7 @@ const OrderDetail = () => {
 
         (combo.items || []).forEach((item) => {
           const orderItemObj = order.items?.find(oi => String(oi.product) === String(item.product) && !oi.is_free && !oi.is_gift);
+          if (!orderItemObj) return;
           const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
             ? parseFloat(orderItemObj.mrp)
             : getOriginalPrice(item.product);
@@ -524,6 +527,7 @@ const OrderDetail = () => {
 
         (combo.rewards || []).forEach((reward) => {
           const orderItemObj = order.items?.find(oi => String(oi.product) === String(reward.product) && oi.is_free);
+          if (!orderItemObj) return;
           const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
             ? parseFloat(orderItemObj.mrp)
             : getOriginalPrice(reward.product);
@@ -554,6 +558,7 @@ const OrderDetail = () => {
 
         (combo.gifts || []).forEach((gift) => {
           const orderItemObj = order.items?.find(oi => String(oi.product) === String(gift.product) && oi.is_gift);
+          if (!orderItemObj) return;
           const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
             ? parseFloat(orderItemObj.mrp)
             : getOriginalPrice(gift.product);
@@ -581,6 +586,60 @@ const OrderDetail = () => {
             type: 'Gift',
             hsn: getProductHsn(gift.product)
           });
+        });
+      });
+
+      // Add any normal items (non-combo items) that are not part of any combo
+      const comboProductIds = new Set();
+      comboDetails.forEach((combo) => {
+        (combo.items || []).forEach(item => comboProductIds.add(String(item.product)));
+        (combo.rewards || []).forEach(reward => comboProductIds.add(String(reward.product)));
+        (combo.gifts || []).forEach(gift => comboProductIds.add(String(gift.product)));
+      });
+
+      const nonComboItems = (order.items || []).filter(item => {
+        const isPartofCombo = (item.combo !== null && item.combo !== undefined) || comboProductIds.has(String(item.product));
+        return !isPartofCombo;
+      });
+
+      nonComboItems.forEach((item) => {
+        let type = 'Paid';
+        if (item.is_free) type = 'Free';
+        if (item.is_gift) type = 'Gift';
+
+        const originalPrice = item.mrp !== undefined && item.mrp !== null && parseFloat(item.mrp) > 0
+          ? parseFloat(item.mrp)
+          : getOriginalPrice(item.product);
+        const gstRate = parseFloat(item.gst_rate_display) || getProductGstRate(item.product);
+        const totalMrp = originalPrice * item.quantity;
+        const totalOffer = type === 'Paid' ? (parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0) : 0;
+        const unitOffer = type === 'Paid' ? (parseFloat(item.unit_price) || 0) : 0;
+
+        let taxableAmount = 0;
+        let gstAmount = 0;
+
+        if (type === 'Paid') {
+          taxableAmount = totalOffer / (1 + gstRate / 100);
+          gstAmount = totalOffer - taxableAmount;
+        } else {
+          taxableAmount = totalMrp / (1 + gstRate / 100);
+          gstAmount = totalMrp - taxableAmount;
+        }
+
+        invoiceItems.push({
+          sNo: sNo++,
+          productId: item.product,
+          productName: item.product_title,
+          qty: item.quantity,
+          unitMrp: originalPrice,
+          totalMrp: totalMrp,
+          unitOffer: unitOffer,
+          totalOffer: totalOffer,
+          gstRate: gstRate,
+          taxableOffer: taxableAmount,
+          gstAmount: gstAmount,
+          type: type,
+          hsn: item.hsn || getProductHsn(item.product)
         });
       });
     } else if (order.items && order.items.length > 0) {

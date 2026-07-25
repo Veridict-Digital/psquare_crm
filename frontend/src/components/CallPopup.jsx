@@ -2,6 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useCallPopup } from '../context/CallPopupContext';
 import { Phone, Minimize2, Maximize2 } from 'lucide-react';
 
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+  const cleaned = phone.toString().replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+  }
+  return phone;
+};
+
 const CallPopup = () => {
   const {
     isVisible,
@@ -170,13 +179,13 @@ const CallPopup = () => {
           {/* Scrollable Content */}
           <div className="p-2 overflow-y-auto h-full">
             {/* Rest of the popup content */}
-            <div className="">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-900">{customer?.name || lead?.name} - {customer?.phone || lead?.phone}</span>
-                <span className="font-medium text-gray-700">Timer:</span>
-                <span className="text-2xl font-mono text-blue-600">{Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
-              </div>
-            </div>
+             <div className="">
+               <div className="flex justify-between items-center font-mono">
+                 <span className="text-gray-900">{customer?.name || lead?.name} - {formatPhoneNumber(customer?.phone || lead?.phone)}</span>
+                 <span className="font-medium text-gray-700">Timer:</span>
+                 <span className="text-2xl font-mono text-blue-600">{Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
+               </div>
+             </div>
             <div className="mb-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Assumption</label>
               <div className="flex flex-wrap gap-2">
@@ -495,8 +504,8 @@ const CallPopup = () => {
                   <h3 className="font-semibold text-gray-900 text-xs truncate leading-tight">
                     {customer?.name || lead?.name}
                   </h3>
-                  <p className="text-gray-500 text-[10px] truncate leading-normal">
-                    {customer?.phone || lead?.phone}
+                  <p className="text-gray-500 text-[10px] truncate leading-normal font-mono">
+                    {formatPhoneNumber(customer?.phone || lead?.phone)}
                   </p>
                 </div>
               </div>

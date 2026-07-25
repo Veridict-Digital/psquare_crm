@@ -2771,13 +2771,13 @@ const CustomerDetail = () => {
                             {order.payment_status}
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
-                            ₹{order.total_amount}
+                            ₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
-                            ₹{order.paid_amount}
+                            ₹{Math.round(parseFloat(order.paid_amount || 0)).toLocaleString()}
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
-                            ₹{order.total_amount - order.paid_amount}
+                            ₹{Math.round(parseFloat(order.total_amount || 0) - parseFloat(order.paid_amount || 0)).toLocaleString()}
                           </td>
                         </tr>
                       ))}

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPortal } from "react-dom";
+import { toast } from "react-hot-toast";
 import {
   Search,
   Plus,
@@ -1607,22 +1608,10 @@ const OrderNew = () => {
 
     const savings = roundToTwoDecimals(originalTotal - grandTotal);
 
-    // Use backend total_amount in edit mode if available
-    let backendTotal = null;
-    if (editMode) {
-      const savedEditData = sessionStorage.getItem("orderEditData");
-      if (savedEditData) {
-        const editData = JSON.parse(savedEditData);
-        if (editData.formData && editData.formData.total_amount !== undefined && editData.formData.total_amount !== null) {
-          backendTotal = parseFloat(editData.formData.total_amount);
-        }
-      }
-    }
-
     return {
       subtotal: roundToTwoDecimals(subtotal),
       gstAmount: roundToTwoDecimals(gstAmount),
-      total: roundToTwoDecimals(backendTotal !== null ? backendTotal : grandTotal),
+      total: roundToTwoDecimals(grandTotal),
       savings,
       originalTotal: roundToTwoDecimals(originalTotal),
       originalSubtotal: roundToTwoDecimals(originalSubtotal),
@@ -1645,47 +1634,38 @@ const OrderNew = () => {
     onSuccess: (data) => {
       setGeneratedOrderId(data.order_id);
       setSavedDbOrderId(data.id);
-      setShowSuccessModal(true);
+      // setShowSuccessModal(true); // Don't show success modal popup
+      
+      toast.success(editMode ? "Order updated successfully!" : "Order placed successfully!");
+      
       queryClient.invalidateQueries(["orders"]);
       queryClient.invalidateQueries(["customers"]);
+      queryClient.invalidateQueries(["customer-details"]);
 
       if (editMode) {
         sessionStorage.removeItem("orderEditData");
         sessionStorage.removeItem("orderEditId");
       } else {
         const targetId = formData.customer ? formData.customer.toString() : "";
-        sessionStorage.removeItem(`orderNewFormData_${targetId || 'anonymous'}`);
+        // Only clear items and combinations drafts, keep form data draft
         sessionStorage.removeItem(`orderNewOrderItems_${targetId || 'anonymous'}`);
         sessionStorage.removeItem(`orderNewAppliedCombos_${targetId || 'anonymous'}`);
       }
 
       if (!editMode) {
-        setFormData({
-          customer: "",
-          agent: "",
+        // Reset order items and combinations, but KEEP customer and agent details
+        setFormData(prev => ({
+          ...prev,
           status: "Placed",
           payment_status: "Advance",
           followup_date: "",
           partial_amount: 0,
-          delivery_address: {
-            house_flat_no: "",
-            wing_lane: "",
-            society_colony: "",
-            landmark: "",
-            area: "",
-            pincode: "",
-            state: "",
-            district: "",
-            tahsil: "",
-            city: "",
-          },
-          delivery_option: "primary",
           order_date: new Date().toISOString().split('T')[0],
           created_at: new Date().toISOString().split('T')[0],
-        });
+        }));
         setOrderItems([]);
         setAppliedCombos([]);
-        setCustomerKPIs(null);
+        // Keep customerKPIs as they are since the customer is still selected
       }
     },
     onError: (error) => {

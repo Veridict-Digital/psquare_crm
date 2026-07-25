@@ -34,6 +34,226 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
+// Reusable async searchable dropdown for filter fields using React Portal
+const SearchableDropdown = ({
+  value,
+  onChange,
+  fetchUrl,
+  placeholder,
+  minLength = 1,
+  disabled = false,
+  className = "",
+  maxLength,
+}) => {
+  const [inputValue, setInputValue] = useState(value || "");
+  const [options, setOptions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const [isTyping, setIsTyping] = useState(false);
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+  const fetchTimeoutRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    setInputValue(value || "");
+  }, [value]);
+
+  const updateCoords = useCallback(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showDropdown) {
+      updateCoords();
+      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("resize", updateCoords, true);
+    }
+    return () => {
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords, true);
+    };
+  }, [showDropdown, updateCoords]);
+
+  useEffect(() => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    if (!isTyping || !inputValue || inputValue.trim().length < minLength) {
+      setOptions([]);
+      setShowDropdown(false);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    fetchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await axios.get(`${fetchUrl}?q=${encodeURIComponent(inputValue)}`);
+
+        let optionsArray = [];
+        if (Array.isArray(response.data)) {
+          optionsArray = response.data;
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          optionsArray = response.data.results;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          optionsArray = response.data.data;
+        } else if (typeof response.data === 'object') {
+          optionsArray = Object.values(response.data).find(val => Array.isArray(val)) || [];
+        }
+
+        setOptions(optionsArray);
+        if (isTyping && optionsArray.length > 0) {
+          setShowDropdown(true);
+        }
+      } catch (err) {
+        console.error("Dropdown fetch error for", fetchUrl, err);
+        setOptions([]);
+        setShowDropdown(false);
+      } finally {
+        setLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [inputValue, fetchUrl, minLength, isTyping]);
+
+  const handleKeyDown = (e) => {
+    if (!showDropdown) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlighted((prev) => Math.min(prev + 1, options.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlighted((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Enter" && highlighted >= 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSelect(options[highlighted]);
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+      setIsTyping(false);
+    }
+  };
+
+  const handleSelect = (option) => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    setShowDropdown(false);
+    setIsTyping(false);
+    setHighlighted(-1);
+    setOptions([]);
+
+    setInputValue(option);
+    onChange(option);
+
+    if (inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 50);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        const portalDropdown = document.getElementById("portal-searchable-dropdown-menu");
+        if (portalDropdown && portalDropdown.contains(event.target)) {
+          return;
+        }
+        setShowDropdown(false);
+        setIsTyping(false);
+        setHighlighted(-1);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={(e) => {
+          const newValue = e.target.value;
+          setInputValue(newValue);
+          setIsTyping(true);
+          onChange(newValue);
+          setHighlighted(-1);
+        }}
+        onFocus={() => {
+          if (inputValue && inputValue.length >= minLength && !showDropdown) {
+            setIsTyping(true);
+          }
+        }}
+        onBlur={() => {
+          setTimeout(() => {
+            setIsTyping(false);
+          }, 200);
+        }}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className={`w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm ${className}`}
+        disabled={disabled}
+        autoComplete="off"
+        maxLength={maxLength}
+      />
+      {loading && (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+        </div>
+      )}
+      {showDropdown && options.length > 0 && createPortal(
+        <ul
+          id="portal-searchable-dropdown-menu"
+          className="absolute z-[9999] bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+          style={{
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+          }}
+        >
+          {options.map((option, idx) => (
+            <li
+              key={idx}
+              className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${idx === highlighted ? "bg-blue-100" : ""
+                }`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(option);
+              }}
+              onMouseEnter={() => setHighlighted(idx)}
+            >
+              {option}
+            </li>
+          ))}
+        </ul>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 const CustomerList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -254,221 +474,6 @@ const CustomerList = () => {
     filterArea, filterCity, filterDistrict, filterTahsil, filterState, filterPincode,
     dateFrom, dateTo, viewType, currentPage, pageSize, updateURLParams
   ]);
-
-  // Reusable async searchable dropdown for filter fields using React Portal
-  const SearchableDropdown = ({
-    value,
-    onChange,
-    fetchUrl,
-    placeholder,
-    minLength = 1,
-    disabled = false,
-    className = "",
-    maxLength,
-  }) => {
-    const [inputValue, setInputValue] = useState(value || "");
-    const [options, setOptions] = useState([]);
-    const [showDropdown, setShowDropdown] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [highlighted, setHighlighted] = useState(-1);
-    const [isTyping, setIsTyping] = useState(false);
-    const containerRef = useRef(null);
-    const inputRef = useRef(null);
-    const fetchTimeoutRef = useRef(null);
-    const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-
-    useEffect(() => {
-      setInputValue(value || "");
-    }, [value]);
-
-    const updateCoords = useCallback(() => {
-      if (inputRef.current) {
-        const rect = inputRef.current.getBoundingClientRect();
-        setCoords({
-          top: rect.bottom + window.scrollY,
-          left: rect.left + window.scrollX,
-          width: rect.width
-        });
-      }
-    }, []);
-
-    useEffect(() => {
-      if (showDropdown) {
-        updateCoords();
-        window.addEventListener("scroll", updateCoords, true);
-        window.addEventListener("resize", updateCoords, true);
-      }
-      return () => {
-        window.removeEventListener("scroll", updateCoords, true);
-        window.removeEventListener("resize", updateCoords, true);
-      };
-    }, [showDropdown, updateCoords]);
-
-    useEffect(() => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-
-      if (!isTyping || !inputValue || inputValue.trim().length < minLength) {
-        setOptions([]);
-        setShowDropdown(false);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-
-      fetchTimeoutRef.current = setTimeout(async () => {
-        try {
-          const response = await axios.get(`${fetchUrl}?q=${encodeURIComponent(inputValue)}`);
-
-          let optionsArray = [];
-          if (Array.isArray(response.data)) {
-            optionsArray = response.data;
-          } else if (response.data.results && Array.isArray(response.data.results)) {
-            optionsArray = response.data.results;
-          } else if (response.data.data && Array.isArray(response.data.data)) {
-            optionsArray = response.data.data;
-          } else if (typeof response.data === 'object') {
-            optionsArray = Object.values(response.data).find(val => Array.isArray(val)) || [];
-          }
-
-          setOptions(optionsArray);
-          if (isTyping && optionsArray.length > 0) {
-            setShowDropdown(true);
-          }
-        } catch (err) {
-          console.error("Dropdown fetch error for", fetchUrl, err);
-          setOptions([]);
-          setShowDropdown(false);
-        } finally {
-          setLoading(false);
-        }
-      }, 500);
-
-      return () => {
-        if (fetchTimeoutRef.current) {
-          clearTimeout(fetchTimeoutRef.current);
-        }
-      };
-    }, [inputValue, fetchUrl, minLength, isTyping]);
-
-    const handleKeyDown = (e) => {
-      if (!showDropdown) return;
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setHighlighted((prev) => Math.min(prev + 1, options.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setHighlighted((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === "Enter" && highlighted >= 0) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleSelect(options[highlighted]);
-      } else if (e.key === "Escape") {
-        setShowDropdown(false);
-        setIsTyping(false);
-      }
-    };
-
-    const handleSelect = (option) => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-
-      setShowDropdown(false);
-      setIsTyping(false);
-      setHighlighted(-1);
-      setOptions([]);
-
-      setInputValue(option);
-      onChange(option);
-    };
-
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (containerRef.current && !containerRef.current.contains(event.target)) {
-          const portalDropdown = document.getElementById("portal-searchable-dropdown-menu");
-          if (portalDropdown && portalDropdown.contains(event.target)) {
-            return;
-          }
-          setShowDropdown(false);
-          setIsTyping(false);
-          setHighlighted(-1);
-        }
-      };
-
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    return (
-      <div ref={containerRef} className="relative w-full">
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={(e) => {
-            const newValue = e.target.value;
-            setInputValue(newValue);
-            setIsTyping(true);
-            onChange("");
-            setHighlighted(-1);
-          }}
-          onFocus={() => {
-            if (inputValue && inputValue.length >= minLength && !showDropdown) {
-              setIsTyping(true);
-            }
-          }}
-          onBlur={() => {
-            setTimeout(() => {
-              setIsTyping(false);
-            }, 200);
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className={`w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm ${className}`}
-          disabled={disabled}
-          autoComplete="off"
-          maxLength={maxLength}
-        />
-        {loading && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-          </div>
-        )}
-        {showDropdown && options.length > 0 && createPortal(
-          <ul
-            id="portal-searchable-dropdown-menu"
-            className="absolute z-[9999] bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
-            style={{
-              top: `${coords.top}px`,
-              left: `${coords.left}px`,
-              width: `${coords.width}px`,
-            }}
-          >
-            {options.map((option, idx) => (
-              <li
-                key={idx}
-                className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                  idx === highlighted ? "bg-blue-100" : ""
-                }`}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(option);
-                }}
-                onMouseEnter={() => setHighlighted(idx)}
-              >
-                {option}
-              </li>
-            ))}
-          </ul>,
-          document.body
-        )}
-      </div>
-    );
-  };
 
   // Query for customers (uses applied filters and searches)
   const {
@@ -881,9 +886,9 @@ const CustomerList = () => {
     if (clean.length <= 3) {
       return clean;
     } else if (clean.length <= 6) {
-      return `${clean.slice(0, 3)} - ${clean.slice(3)}`;
+      return `${clean.slice(0, 3)}-${clean.slice(3)}`;
     } else {
-      return `${clean.slice(0, 3)} - ${clean.slice(3, 6)} - ${clean.slice(6, 10)}`;
+      return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6, 10)}`;
     }
   };
 
@@ -1914,8 +1919,8 @@ const CustomerList = () => {
                     setCurrentPage(1);
                   }}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "customers"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
                     }`}
                 >
                   Appointments
@@ -1926,8 +1931,8 @@ const CustomerList = () => {
                     setCurrentPage(1);
                   }}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "leads"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
                     }`}
                 >
                   Leads
@@ -1939,8 +1944,8 @@ const CustomerList = () => {
                 <button
                   onClick={() => setViewMode("table")}
                   className={`p-1.5 rounded-md transition-all ${viewMode === "table"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
                     }`}
                 >
                   <List className="h-4 w-4" />
@@ -1948,8 +1953,8 @@ const CustomerList = () => {
                 <button
                   onClick={() => setViewMode("card")}
                   className={`p-1.5 rounded-md transition-all ${viewMode === "card"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
                     }`}
                 >
                   <Grid className="h-4 w-4" />
@@ -2954,8 +2959,8 @@ const CustomerList = () => {
                           <button
                             onClick={() => setCurrentPage(page)}
                             className={`relative inline-flex items-center px-3 py-1.5 border text-sm font-medium transition-colors ${page === currentPage
-                                ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
-                                : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                              ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                              : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
                               }`}
                           >
                             {page}
@@ -3067,8 +3072,8 @@ const CustomerList = () => {
                       <p className="text-gray-600 text-sm">ID: {customer.id}</p>
                       <span
                         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${customer.contact_type === "Customer"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
                           }`}
                       >
                         {customer.contact_type}

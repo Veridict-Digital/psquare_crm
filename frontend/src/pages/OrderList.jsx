@@ -1,10 +1,234 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, DollarSign, ShoppingCart, Truck, AlertCircle, Plus, X, IndianRupee, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
+
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+  const cleaned = phone.toString().replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+  }
+  return phone;
+};
+
+const SearchableDropdown = ({
+  value,
+  onChange,
+  fetchUrl,
+  placeholder,
+  minLength = 1,
+  disabled = false,
+  className = "",
+  maxLength,
+}) => {
+  const [inputValue, setInputValue] = useState(value || "");
+  const [options, setOptions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const [isTyping, setIsTyping] = useState(false);
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+  const fetchTimeoutRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    setInputValue(value || "");
+  }, [value]);
+
+  const updateCoords = useCallback(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showDropdown) {
+      updateCoords();
+      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("resize", updateCoords, true);
+    }
+    return () => {
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords, true);
+    };
+  }, [showDropdown, updateCoords]);
+
+  useEffect(() => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    if (!isTyping || !inputValue || inputValue.trim().length < minLength) {
+      setOptions([]);
+      setShowDropdown(false);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    fetchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await axios.get(`${fetchUrl}?q=${encodeURIComponent(inputValue)}`);
+
+        let optionsArray = [];
+        if (Array.isArray(response.data)) {
+          optionsArray = response.data;
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          optionsArray = response.data.results;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          optionsArray = response.data.data;
+        } else if (typeof response.data === 'object') {
+          optionsArray = Object.values(response.data).find(val => Array.isArray(val)) || [];
+        }
+
+        setOptions(optionsArray);
+        if (isTyping && optionsArray.length > 0) {
+          setShowDropdown(true);
+        }
+      } catch (err) {
+        console.error("Dropdown fetch error for", fetchUrl, err);
+        setOptions([]);
+        setShowDropdown(false);
+      } finally {
+        setLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [inputValue, fetchUrl, minLength, isTyping]);
+
+  const handleKeyDown = (e) => {
+    if (!showDropdown) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlighted((prev) => Math.min(prev + 1, options.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlighted((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Enter" && highlighted >= 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSelect(options[highlighted]);
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+      setIsTyping(false);
+    }
+  };
+
+  const handleSelect = (option) => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    setShowDropdown(false);
+    setIsTyping(false);
+    setHighlighted(-1);
+    setOptions([]);
+
+    const formatted = fetchUrl.includes("unique_phones") ? formatPhoneNumber(option) : option;
+    setInputValue(formatted);
+    onChange(formatted);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        const portalDropdown = document.getElementById("portal-searchable-dropdown-menu");
+        if (portalDropdown && portalDropdown.contains(event.target)) {
+          return;
+        }
+        setShowDropdown(false);
+        setIsTyping(false);
+        setHighlighted(-1);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={(e) => {
+          const newValue = e.target.value;
+          setInputValue(newValue);
+          setIsTyping(true);
+          onChange(newValue);
+          setHighlighted(-1);
+        }}
+        onFocus={() => {
+          if (inputValue && inputValue.length >= minLength && !showDropdown) {
+            setIsTyping(true);
+          }
+        }}
+        onBlur={() => {
+          setTimeout(() => {
+            setIsTyping(false);
+          }, 200);
+        }}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className={`w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm ${className}`}
+        disabled={disabled}
+        autoComplete="off"
+        maxLength={maxLength}
+      />
+      {loading && (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full"></div>
+        </div>
+      )}
+      {showDropdown && options.length > 0 && createPortal(
+        <ul
+          id="portal-searchable-dropdown-menu"
+          className="absolute z-[9999] bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+          style={{
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+          }}
+        >
+          {options.map((option, idx) => (
+            <li
+              key={idx}
+              className={`px-4 py-2 text-sm cursor-pointer hover:bg-green-50 transition-colors ${idx === highlighted ? "bg-green-100" : ""
+                }`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(option);
+              }}
+              onMouseEnter={() => setHighlighted(idx)}
+            >
+              {fetchUrl.includes("unique_phones") ? formatPhoneNumber(option) : option}
+            </li>
+          ))}
+        </ul>,
+        document.body
+      )}
+    </div>
+  );
+};
 
 const OrderList = () => {
   const { hasPermission } = useAuth();
@@ -32,7 +256,7 @@ const OrderList = () => {
   const [customerOrgType, setCustomerOrgType] = useState('');
   const [customerCustomerType, setCustomerCustomerType] = useState('');
   const [customerTelecaller, setCustomerTelecaller] = useState('');
-  
+
   const [customerHouseFlatNo, setCustomerHouseFlatNo] = useState('');
   const [customerWingLane, setCustomerWingLane] = useState('');
   const [customerSocietyColony, setCustomerSocietyColony] = useState('');
@@ -66,7 +290,7 @@ const OrderList = () => {
   const [appliedCustomerOrgType, setAppliedCustomerOrgType] = useState('');
   const [appliedCustomerCustomerType, setAppliedCustomerCustomerType] = useState('');
   const [appliedCustomerTelecaller, setAppliedCustomerTelecaller] = useState('');
-  
+
   const [appliedCustomerHouseFlatNo, setAppliedCustomerHouseFlatNo] = useState('');
   const [appliedCustomerWingLane, setAppliedCustomerWingLane] = useState('');
   const [appliedCustomerSocietyColony, setAppliedCustomerSocietyColony] = useState('');
@@ -83,7 +307,7 @@ const OrderList = () => {
   const [pageSize, setPageSize] = useState(15);
   const [allAgents, setAllAgents] = useState([]);
   const [exporting, setExporting] = useState(false);
-  
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -154,7 +378,7 @@ const OrderList = () => {
       if (appliedMaxItems) params.append('max_items', appliedMaxItems);
       if (appliedDateFrom) params.append('date_from', appliedDateFrom);
       if (appliedDateTo) params.append('date_to', appliedDateTo);
-      
+
       // Customer filters
       if (appliedCustomerPhone) params.append('customer_phone', appliedCustomerPhone);
       if (appliedCustomerName) params.append('customer_name', appliedCustomerName);
@@ -163,7 +387,7 @@ const OrderList = () => {
       if (appliedCustomerOrgType) params.append('customer_org_type', appliedCustomerOrgType);
       if (appliedCustomerCustomerType) params.append('customer_customer_type', appliedCustomerCustomerType);
       if (appliedCustomerTelecaller) params.append('customer_telecaller', appliedCustomerTelecaller);
-      
+
       if (appliedCustomerHouseFlatNo) params.append('customer_house_flat_no', appliedCustomerHouseFlatNo);
       if (appliedCustomerWingLane) params.append('customer_wing_lane', appliedCustomerWingLane);
       if (appliedCustomerSocietyColony) params.append('customer_society_colony', appliedCustomerSocietyColony);
@@ -174,7 +398,7 @@ const OrderList = () => {
       if (appliedCustomerTahsil) params.append('customer_tahsil', appliedCustomerTahsil);
       if (appliedCustomerState) params.append('customer_state', appliedCustomerState);
       if (appliedCustomerPincode) params.append('customer_pincode', appliedCustomerPincode);
-      
+
       const response = await axios.get(`api/orders/?${params.toString()}`);
       return response.data;
     },
@@ -300,7 +524,7 @@ const OrderList = () => {
       if (appliedMaxItems) params.append('max_items', appliedMaxItems);
       if (appliedDateFrom) params.append('date_from', appliedDateFrom);
       if (appliedDateTo) params.append('date_to', appliedDateTo);
-      
+
       // Customer filters
       if (appliedCustomerPhone) params.append('customer_phone', appliedCustomerPhone);
       if (appliedCustomerName) params.append('customer_name', appliedCustomerName);
@@ -309,7 +533,7 @@ const OrderList = () => {
       if (appliedCustomerOrgType) params.append('customer_org_type', appliedCustomerOrgType);
       if (appliedCustomerCustomerType) params.append('customer_customer_type', appliedCustomerCustomerType);
       if (appliedCustomerTelecaller) params.append('customer_telecaller', appliedCustomerTelecaller);
-      
+
       if (appliedCustomerHouseFlatNo) params.append('customer_house_flat_no', appliedCustomerHouseFlatNo);
       if (appliedCustomerWingLane) params.append('customer_wing_lane', appliedCustomerWingLane);
       if (appliedCustomerSocietyColony) params.append('customer_society_colony', appliedCustomerSocietyColony);
@@ -346,8 +570,8 @@ const OrderList = () => {
   const totalPages = Math.ceil(totalOrders / pageSize);
 
   // Calculate KPIs
-  const totalRevenue = Math.round(orders?.total_amount !== undefined 
-    ? parseFloat(orders.total_amount) 
+  const totalRevenue = Math.round(orders?.total_amount !== undefined
+    ? parseFloat(orders.total_amount)
     : (ordersData?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0));
 
   // Track all telecallers seen so the list doesn't shrink when filtered
@@ -377,7 +601,7 @@ const OrderList = () => {
     setAppliedMaxItems(maxItems);
     setAppliedDateFrom(pendingDateFrom);
     setAppliedDateTo(pendingDateTo);
-    
+
     // Customer Applied States
     setAppliedCustomerPhone(customerPhone);
     setAppliedCustomerName(customerName);
@@ -386,7 +610,7 @@ const OrderList = () => {
     setAppliedCustomerOrgType(customerOrgType);
     setAppliedCustomerCustomerType(customerCustomerType);
     setAppliedCustomerTelecaller(customerTelecaller);
-    
+
     setAppliedCustomerHouseFlatNo(customerHouseFlatNo);
     setAppliedCustomerWingLane(customerWingLane);
     setAppliedCustomerSocietyColony(customerSocietyColony);
@@ -426,7 +650,7 @@ const OrderList = () => {
     setCustomerOrgType('');
     setCustomerCustomerType('');
     setCustomerTelecaller('');
-    
+
     setCustomerHouseFlatNo('');
     setCustomerWingLane('');
     setCustomerSocietyColony('');
@@ -459,7 +683,7 @@ const OrderList = () => {
     setAppliedCustomerOrgType('');
     setAppliedCustomerCustomerType('');
     setAppliedCustomerTelecaller('');
-    
+
     setAppliedCustomerHouseFlatNo('');
     setAppliedCustomerWingLane('');
     setAppliedCustomerSocietyColony('');
@@ -632,48 +856,44 @@ const OrderList = () => {
             {/* Cust Phone */}
             <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Cust. Phone</label>
-              <input
-                type="text"
-                placeholder="Phone..."
+              <SearchableDropdown
                 value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                onChange={setCustomerPhone}
+                fetchUrl="/api/customers/unique_phones/"
+                placeholder="Phone..."
               />
             </div>
 
             {/* Cust Name */}
             <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Cust. Name</label>
-              <input
-                type="text"
-                placeholder="Name..."
+              <SearchableDropdown
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                onChange={setCustomerName}
+                fetchUrl="/api/customers/unique_names/"
+                placeholder="Name..."
               />
             </div>
 
             {/* Cust Surname */}
             <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Cust. Surname</label>
-              <input
-                type="text"
-                placeholder="Surname..."
+              <SearchableDropdown
                 value={customerSurname}
-                onChange={(e) => setCustomerSurname(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                onChange={setCustomerSurname}
+                fetchUrl="/api/customers/unique_surnames/"
+                placeholder="Surname..."
               />
             </div>
 
             {/* Cust Org Name */}
             <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Cust. Org Name</label>
-              <input
-                type="text"
-                placeholder="Organization..."
+              <SearchableDropdown
                 value={customerOrgName}
-                onChange={(e) => setCustomerOrgName(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                onChange={setCustomerOrgName}
+                fetchUrl="/api/customers/unique_company_names/"
+                placeholder="Organization..."
               />
             </div>
 
@@ -713,102 +933,93 @@ const OrderList = () => {
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
                 {/* Pincode */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="Pincode"
+                  <SearchableDropdown
                     value={customerPincode}
-                    onChange={(e) => setCustomerPincode(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerPincode}
+                    fetchUrl="/api/customers/unique_pincodes/"
+                    placeholder="Pincode"
+                    maxLength="6"
                   />
                 </div>
                 {/* State */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="State"
+                  <SearchableDropdown
                     value={customerState}
-                    onChange={(e) => setCustomerState(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerState}
+                    fetchUrl="/api/customers/unique_states/"
+                    placeholder="State"
                   />
                 </div>
                 {/* Tahsil */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="Tahsil"
+                  <SearchableDropdown
                     value={customerTahsil}
-                    onChange={(e) => setCustomerTahsil(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerTahsil}
+                    fetchUrl="/api/customers/unique_tahsils/"
+                    placeholder="Tahsil"
                   />
                 </div>
                 {/* District */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="District"
+                  <SearchableDropdown
                     value={customerDistrict}
-                    onChange={(e) => setCustomerDistrict(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerDistrict}
+                    fetchUrl="/api/customers/unique_districts/"
+                    placeholder="District"
                   />
                 </div>
                 {/* City */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="City"
+                  <SearchableDropdown
                     value={customerCity}
-                    onChange={(e) => setCustomerCity(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerCity}
+                    fetchUrl="/api/customers/unique_cities/"
+                    placeholder="City"
                   />
                 </div>
                 {/* Area */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="Area"
+                  <SearchableDropdown
                     value={customerArea}
-                    onChange={(e) => setCustomerArea(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerArea}
+                    fetchUrl="/api/customers/unique_areas/"
+                    placeholder="Area"
                   />
                 </div>
                 {/* Landmark */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="Landmark"
+                  <SearchableDropdown
                     value={customerLandmark}
-                    onChange={(e) => setCustomerLandmark(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerLandmark}
+                    fetchUrl="/api/customers/unique_landmarks/"
+                    placeholder="Landmark"
                   />
                 </div>
                 {/* Society/Colony */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="Society/Colony"
+                  <SearchableDropdown
                     value={customerSocietyColony}
-                    onChange={(e) => setCustomerSocietyColony(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerSocietyColony}
+                    fetchUrl="/api/customers/unique_society_colonies/"
+                    placeholder="Society/Colony"
                   />
                 </div>
                 {/* Wing/Lane */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="Wing/Lane"
+                  <SearchableDropdown
                     value={customerWingLane}
-                    onChange={(e) => setCustomerWingLane(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerWingLane}
+                    fetchUrl="/api/customers/unique_wing_lanes/"
+                    placeholder="Wing/Lane"
                   />
                 </div>
                 {/* House/Flat No */}
                 <div className="min-w-[110px] flex-1">
-                  <input
-                    type="text"
-                    placeholder="Flat/House No"
+                  <SearchableDropdown
                     value={customerHouseFlatNo}
-                    onChange={(e) => setCustomerHouseFlatNo(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+                    onChange={setCustomerHouseFlatNo}
+                    fetchUrl="/api/customers/unique_house_flat_nos/"
+                    placeholder="Flat/House No"
                   />
                 </div>
               </div>
@@ -927,15 +1138,15 @@ const OrderList = () => {
 
                   {/* KPIs & View Mode */}
                   <div className="flex items-center gap-1.5 h-full">
-                    <div 
-                      className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-1 text-sm font-bold text-blue-800 shadow-sm h-full" 
+                    <div
+                      className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-1 text-sm font-bold text-blue-800 shadow-sm h-full"
                       title="Total Orders count"
                     >
                       <ShoppingCart className="w-4 h-4 text-blue-600" />
                       <span>{totalOrders}</span>
                     </div>
-                    <div 
-                      className="px-3 py-2 bg-green-50 border border-green-100 rounded-lg flex items-center gap-1 text-sm font-bold text-green-800 shadow-sm h-full" 
+                    <div
+                      className="px-3 py-2 bg-green-50 border border-green-100 rounded-lg flex items-center gap-1 text-sm font-bold text-green-800 shadow-sm h-full"
                       title="Total Revenue amount of orders"
                     >
                       <IndianRupee className="w-4 h-4 text-green-600" />
@@ -1017,346 +1228,398 @@ const OrderList = () => {
                       <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Actions</th>
                     </tr>
                   </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {finalFilteredOrders?.length > 0 ? (
-                    finalFilteredOrders.map(order => (
-                      <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-200">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <Link
-                            to={`/orders/${order.id}`}
-                            className="font-mono text-sm text-blue-600 hover:text-blue-900 font-medium transition-colors duration-200"
-                          >
-                            {order.order_id || `ORD-${order.id}`}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.order_date ? new Date(order.order_date).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Users className="w-4 h-4 text-gray-400 mr-2" />
-                            <span className="text-sm font-medium text-gray-900">
-                              {`${order.customer_details?.name || order.customer_name || ""} ${order.customer_details?.surname || ""}`.trim()}
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {finalFilteredOrders?.length > 0 ? (
+                      finalFilteredOrders.map(order => (
+                        <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-200">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <Link
+                              to={`/orders/${order.id}`}
+                              className="font-mono text-sm text-blue-600 hover:text-blue-900 font-medium transition-colors duration-200"
+                            >
+                              {order.order_id || `ORD-${order.id}`}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {order.order_date ? new Date(order.order_date).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <Users className="w-4 h-4 text-gray-400 mr-2" />
+                              <span className="text-sm font-medium text-gray-900">
+                                {`${order.customer_details?.name || order.customer_name || ""} ${order.customer_details?.surname || ""}`.trim()}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {order.customer_details?.company_name || '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {order.customer_details?.company_type_display || '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono">
+                            {order.customer_details?.phone ? formatPhoneNumber(order.customer_details.phone) : '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{order.agent_name}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-sm font-semibold text-blue-600">₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-sm font-medium text-green-600">₹{Math.round(parseFloat(order.paid_amount || 0)).toLocaleString()}</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-sm font-medium text-red-600">
+                              ₹{Math.round(parseFloat(order.total_amount || 0) - parseFloat(order.paid_amount || 0)).toLocaleString()}
                             </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.customer_details?.company_name || '—'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.customer_details?.company_type_display || '—'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.customer_details?.phone || '—'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{order.agent_name}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-semibold text-blue-600">₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}</span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-medium text-green-600">₹{Math.round(parseFloat(order.paid_amount || 0)).toLocaleString()}</span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-medium text-red-600">
-                            ₹{Math.round(parseFloat(order.total_amount || 0) - parseFloat(order.paid_amount || 0)).toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            order.status === 'Delivered'
-                              ? 'bg-green-100 text-green-800'
-                              : order.status === 'Dispatched'
-                              ? 'bg-blue-100 text-blue-800'
-                              : order.status === 'Processing'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            order.payment_status === 'Paid'
-                              ? 'bg-green-100 text-green-800'
-                              : order.payment_status === 'Partial'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : order.payment_status === 'Credit'
-                              ? 'bg-orange-100 text-orange-800'
-                              : order.payment_status === 'Advance'
-                              ? 'bg-blue-100 text-blue-800'
-                              : order.payment_status === 'COD'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {order.payment_status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 max-w-sm break-words" title={getDeliveryAddress(order)}>
-                          {getDeliveryAddress(order)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => navigate(`/orders/${order.id}`)}
-                              className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEditClick(order)}
-                              className="text-green-600 hover:text-green-900 transition-colors duration-200"
-                              title="Edit"
-                            >
-                              Edit
-                            </button>
-                            {isAdmin && (
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.status === 'Delivered'
+                                ? 'bg-green-100 text-green-800'
+                                : order.status === 'Dispatched'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : order.status === 'Processing'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-gray-100 text-gray-800'
+                              }`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.payment_status === 'Paid'
+                                ? 'bg-green-100 text-green-800'
+                                : order.payment_status === 'Partial'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : order.payment_status === 'Credit'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : order.payment_status === 'Advance'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : order.payment_status === 'COD'
+                                        ? 'bg-purple-100 text-purple-800'
+                                        : 'bg-red-100 text-red-800'
+                              }`}>
+                              {order.payment_status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 max-w-sm break-words" title={getDeliveryAddress(order)}>
+                            {getDeliveryAddress(order)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-2">
                               <button
-                                onClick={() => {
-                                  if (window.confirm('Are you sure you want to delete this order?')) {
-                                    deleteMutation.mutate(order.id);
-                                  }
-                                }}
-                                className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                                title="Delete"
+                                onClick={() => navigate(`/orders/${order.id}`)}
+                                className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                                title="View Details"
                               >
-                                Delete
+                                <Eye className="w-4 h-4" />
                               </button>
-                            )}
+                              <button
+                                onClick={() => handleEditClick(order)}
+                                className="text-green-600 hover:text-green-900 transition-colors duration-200"
+                                title="Edit"
+                              >
+                                Edit
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('Are you sure you want to delete this order?')) {
+                                      deleteMutation.mutate(order.id);
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                  title="Delete"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="14" className="px-6 py-12 text-center">
+                          <div className="flex flex-col items-center">
+                            <ShoppingCart className="w-12 h-12 text-gray-400 mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
+                            <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
                           </div>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="14" className="px-6 py-12 text-center">
-                        <div className="flex flex-col items-center">
-                          <ShoppingCart className="w-12 h-12 text-gray-400 mb-4" />
-                          <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
-                          <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing{" "}
-                      <span className="font-medium">
-                        {(currentPage - 1) * pageSize + 1}
-                      </span>{" "}
-                      to{" "}
-                      <span className="font-medium">
-                        {Math.min(currentPage * pageSize, totalOrders)}
-                      </span>{" "}
-                      of <span className="font-medium">{totalOrders}</span>{" "}
-                      results
-                    </p>
-                  </div>
-                  <div>
-                    <nav
-                      className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
-                      aria-label="Pagination"
-                    >
-                      <button
-                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <svg
-                          className="h-5 w-5"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (page) => (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              page === currentPage
-                                ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
-                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        ),
-                      )}
-                      <button
-                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="sr-only">Next</span>
-                        <svg
-                          className="h-5 w-5"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </nav>
-                  </div>
-                </div>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto pb-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-1">
-              {finalFilteredOrders?.length > 0 ? (
-                finalFilteredOrders.map(order => (
-                  <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="bg-green-100 p-2 rounded-full">
-                          <Package className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                           <h3 className="font-semibold text-gray-900">{`${order.customer_details?.name || order.customer_name || ""} ${order.customer_details?.surname || ""}`.trim()}</h3>
-                          <p className="text-sm text-gray-500 font-mono">{order.order_id || `ORD-${order.id}`}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end space-y-2">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          order.status === 'Delivered'
-                            ? 'bg-green-100 text-green-800'
-                            : order.status === 'Dispatched'
-                            ? 'bg-blue-100 text-blue-800'
-                            : order.status === 'Processing'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {order.status}
-                        </span>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          order.payment_status === 'Paid'
-                            ? 'bg-green-100 text-green-800'
-                            : order.payment_status === 'Partial'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : order.payment_status === 'Credit'
-                            ? 'bg-orange-100 text-orange-800'
-                            : order.payment_status === 'Advance'
-                            ? 'bg-blue-100 text-blue-800'
-                            : order.payment_status === 'COD'
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {order.payment_status}
-                        </span>
-                      </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 rounded-b-xl">
+                  <div className="flex-1 flex justify-between sm:hidden">
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Previous
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Go to page:</span>
+                      <input
+                        type="text"
+                        placeholder={`1-${totalPages}`}
+                        onChange={(e) => {
+                          e.target.value = e.target.value.replace(/\D/g, "");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                              setCurrentPage(val);
+                              e.target.value = "";
+                            } else {
+                              alert(`Please enter a valid page number between 1 and ${totalPages}`);
+                            }
+                          }
+                        }}
+                        className="h-8 w-14 text-center text-sm border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+                      />
                     </div>
 
-                    <div className="space-y-3 mb-4">
-                      {order.customer_details?.company_name && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Organization:</span>
-                          <span className="text-sm font-medium text-gray-900">
-                            {order.customer_details.company_name} {order.customer_details.company_type_display ? `(${order.customer_details.company_type_display})` : ''}
-                          </span>
-                        </div>
-                      )}
-                      {order.customer_details?.phone && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Phone:</span>
-                          <span className="text-sm font-medium text-gray-900">{order.customer_details.phone}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Agent:</span>
-                        <span className="text-sm font-medium text-gray-900">{order.agent_name}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Amount:</span>
-                        <span className="text-sm font-semibold text-blue-600">₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}</span>
-                      </div>
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="ml-3 relative inline-flex items-center px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing{" "}
+                        <span className="font-medium">
+                          {totalOrders > 0 ? (currentPage - 1) * pageSize + 1 : 0}
+                        </span>{" "}
+                        to{" "}
+                        <span className="font-medium">
+                          {Math.min(currentPage * pageSize, totalOrders)}
+                        </span>{" "}
+                        of <span className="font-medium">{totalOrders}</span>{" "}
+                        results
+                      </p>
                     </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                      <button
-                        onClick={() => navigate(`/orders/${order.id}`)}
-                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                    <div className="flex items-center gap-4">
+                      <nav
+                        className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+                        aria-label="Pagination"
                       >
-                        <Eye className="w-4 h-4" />
-                        <span className="text-sm font-medium">View Details</span>
-                      </button>
-                      <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => handleEditClick(order)}
-                          className="text-green-600 hover:text-green-900 transition-colors duration-200"
-                          title="Edit"
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center px-2 py-1.5 rounded-l-md border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                          Edit
-                        </button>
-                        {isAdmin && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to delete this order?')) {
-                                deleteMutation.mutate(order.id);
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                            title="Delete"
+                          <span className="sr-only">Previous</span>
+                          <svg
+                            className="h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
                           >
-                            Delete
-                          </button>
-                        )}
+                            <path
+                              fillRule="evenodd"
+                              d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter(
+                            (page) =>
+                              page === 1 ||
+                              page === totalPages ||
+                              Math.abs(page - currentPage) <= 2,
+                          )
+                          .map((page, index, array) => (
+                            <span key={page} className="inline-flex">
+                              {index > 0 && array[index - 1] !== page - 1 && (
+                                <span className="px-3 py-1.5 border border-gray-200 bg-white text-gray-500 text-sm">
+                                  ...
+                                </span>
+                              )}
+                              <button
+                                onClick={() => setCurrentPage(page)}
+                                className={`relative inline-flex items-center px-3 py-1.5 border text-sm font-medium transition-colors ${page === currentPage
+                                  ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                                  : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                  }`}
+                              >
+                                {page}
+                              </button>
+                            </span>
+                          ))}
+                        <button
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                          className="relative inline-flex items-center px-2 py-1.5 rounded-r-md border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <span className="sr-only">Next</span>
+                          <svg
+                            className="h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10l-3.293-3.293a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                      </nav>
+
+                      {/* Jump to specific page input */}
+                      <div className="flex items-center gap-1.5 h-8">
+                        <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Go to page:</span>
+                        <input
+                          type="text"
+                          placeholder={`1-${totalPages}`}
+                          onChange={(e) => {
+                            e.target.value = e.target.value.replace(/\D/g, "");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                                setCurrentPage(val);
+                                e.target.value = ""; // Clear on submit
+                              } else {
+                                alert(`Please enter a valid page number between 1 and ${totalPages}`);
+                              }
+                            }
+                          }}
+                          className="h-8 w-16 text-center text-sm border border-gray-200 rounded-lg bg-gray-50 hover:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+                        />
                       </div>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="col-span-full flex flex-col items-center justify-center py-12">
-                  <ShoppingCart className="w-16 h-16 text-gray-400 mb-4" />
-                  <h3 className="text-xl font-medium text-gray-900 mb-2">No orders found</h3>
-                  <p className="text-gray-500 text-center">Try adjusting your search or filter criteria.</p>
                 </div>
               )}
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto pb-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-1">
+                {finalFilteredOrders?.length > 0 ? (
+                  finalFilteredOrders.map(order => (
+                    <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-green-100 p-2 rounded-full">
+                            <Package className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{`${order.customer_details?.name || order.customer_name || ""} ${order.customer_details?.surname || ""}`.trim()}</h3>
+                            <p className="text-sm text-gray-500 font-mono">{order.order_id || `ORD-${order.id}`}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.status === 'Delivered'
+                              ? 'bg-green-100 text-green-800'
+                              : order.status === 'Dispatched'
+                                ? 'bg-blue-100 text-blue-800'
+                                : order.status === 'Processing'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                            }`}>
+                            {order.status}
+                          </span>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.payment_status === 'Paid'
+                              ? 'bg-green-100 text-green-800'
+                              : order.payment_status === 'Partial'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : order.payment_status === 'Credit'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : order.payment_status === 'Advance'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : order.payment_status === 'COD'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : 'bg-red-100 text-red-800'
+                            }`}>
+                            {order.payment_status}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 mb-4">
+                        {order.customer_details?.company_name && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Organization:</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {order.customer_details.company_name} {order.customer_details.company_type_display ? `(${order.customer_details.company_type_display})` : ''}
+                            </span>
+                          </div>
+                        )}
+                        {order.customer_details?.phone && (
+                          <div className="flex items-center justify-between font-mono">
+                            <span className="text-sm text-gray-600">Phone:</span>
+                            <span className="text-sm font-medium text-gray-900">{formatPhoneNumber(order.customer_details.phone)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Agent:</span>
+                          <span className="text-sm font-medium text-gray-900">{order.agent_name}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Amount:</span>
+                          <span className="text-sm font-semibold text-blue-600">₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <button
+                          onClick={() => navigate(`/orders/${order.id}`)}
+                          className="flex items-center space-x-2 text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span className="text-sm font-medium">View Details</span>
+                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEditClick(order)}
+                            className="text-green-600 hover:text-green-900 transition-colors duration-200"
+                            title="Edit"
+                          >
+                            Edit
+                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to delete this order?')) {
+                                  deleteMutation.mutate(order.id);
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                              title="Delete"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full flex flex-col items-center justify-center py-12">
+                    <ShoppingCart className="w-16 h-16 text-gray-400 mb-4" />
+                    <h3 className="text-xl font-medium text-gray-900 mb-2">No orders found</h3>
+                    <p className="text-gray-500 text-center">Try adjusting your search or filter criteria.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

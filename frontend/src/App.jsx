@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CallPopupProvider } from './context/CallPopupContext';
 import { AuthProvider } from './context/AuthContext';
+import { Toaster } from 'react-hot-toast';
 import { SidebarProvider, useSidebar } from './context/SidebarContext';
 import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
@@ -113,6 +114,7 @@ const AppContent = () => {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
       <AuthProvider>
         <Router>
           <CallPopupProvider>

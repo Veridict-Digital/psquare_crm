@@ -60,7 +60,29 @@ const UserNew = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    createUserMutation.mutate(formData);
+    
+    // Clean empty string inputs to null for optional database fields
+    const cleanedData = { ...formData };
+    const nullableFields = [
+      'date_of_birth',
+      'joining_date',
+      'salary',
+      'pincode_territory',
+      'aadhar_number',
+      'pan_number',
+      'phone_number',
+      'emergency_contact_phone',
+      'bank_account_number',
+      'ifsc_code'
+    ];
+    
+    nullableFields.forEach(field => {
+      if (cleanedData[field] === '') {
+        cleanedData[field] = null;
+      }
+    });
+
+    createUserMutation.mutate(cleanedData);
   };
 
   return (

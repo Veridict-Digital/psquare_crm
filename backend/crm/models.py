@@ -563,6 +563,9 @@ class OrderItem(models.Model):
     is_gift = models.BooleanField(default=False)
     combo = models.ForeignKey('ProductCombination', on_delete=models.SET_NULL, null=True, blank=True, related_name='order_items')
 
+    class Meta:
+        ordering = ['id']
+
     def save(self, *args, **kwargs):
 
         # Calculate total price with inclusive GST
