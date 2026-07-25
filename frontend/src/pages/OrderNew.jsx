@@ -208,7 +208,7 @@ const ComboOffersTable = ({
         <tr className="bg-[#1a2332]">
           <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white"></th>
           <th className="border border-gray-300 px-4 py-1 text-xs font-medium text-white">Product</th>
-          <th 
+          <th
             className="border border-gray-300 px-4 py-1 text-xs font-semibold text-white cursor-pointer hover:bg-gray-700 transition-colors select-none"
             onClick={() => setComboSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
             title="Click to sort by purchase product quantity"
@@ -292,7 +292,7 @@ const ComboOffersTable = ({
                 {firstRequiredItem ? (
                   (() => {
                     const qty = parseInt(firstRequiredItem.quantity_required) || 0;
-                    const offer = firstRequiredItem.offer_price 
+                    const offer = firstRequiredItem.offer_price
                       ? parseFloat(firstRequiredItem.offer_price)
                       : (requiredProduct?.pricing?.sale_rate !== undefined && requiredProduct?.pricing?.sale_rate !== null
                         ? parseFloat(requiredProduct.pricing.sale_rate)
@@ -394,7 +394,7 @@ const ComboOffersTable = ({
                     >
                       <X className="w-4 h-4" />
                     </button>
-                   </div>
+                  </div>
                 )}
               </td>
             </tr>
@@ -509,7 +509,7 @@ const OrderNew = () => {
   const getInitialDraft = (type, defaultVal) => {
     if (editMode) return defaultVal;
     const targetId = initialCustomerId.toString();
-    const key = type === "form" 
+    const key = type === "form"
       ? `orderNewFormData_${targetId || 'anonymous'}`
       : type === "items"
         ? `orderNewOrderItems_${targetId || 'anonymous'}`
@@ -1635,9 +1635,9 @@ const OrderNew = () => {
       setGeneratedOrderId(data.order_id);
       setSavedDbOrderId(data.id);
       // setShowSuccessModal(true); // Don't show success modal popup
-      
+
       toast.success(editMode ? "Order updated successfully!" : "Order placed successfully!");
-      
+
       queryClient.invalidateQueries(["orders"]);
       queryClient.invalidateQueries(["customers"]);
       queryClient.invalidateQueries(["customer-details"]);
@@ -2298,7 +2298,7 @@ const OrderNew = () => {
               <th rowSpan="2" className="text-left">Description of Goods</th>
               <th rowSpan="2" className="text-center w-16">HSN/SAC</th>
               <th colSpan="4" className="text-center w-48">Quantity</th>
-              <th rowSpan="2" className="text-right w-20">Rate<br/>(Incl. of Tax)</th>
+              <th rowSpan="2" className="text-right w-20">Rate<br />(Incl. of Tax)</th>
               <th rowSpan="2" className="text-right w-20">Rate</th>
               <th rowSpan="2" className="text-right w-24">Amount</th>
             </tr>
@@ -2355,7 +2355,7 @@ const OrderNew = () => {
                 <td className="text-right font-bold">{formatCurrency(totalIgst)}</td>
               </tr>
             )}
-            
+
             {/* Round Off row */}
             {Math.abs(roundOff) >= 0.005 && (
               <tr style={{ height: "20px" }}>
@@ -2827,8 +2827,8 @@ const OrderNew = () => {
                                       </span>
                                     )}
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${customer.contact_type === 'Customer'
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-yellow-100 text-yellow-800'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-yellow-100 text-yellow-800'
                                       }`}>
                                       {customer.contact_type}
                                     </span>
@@ -3424,30 +3424,30 @@ const OrderNew = () => {
                     />
                     <span className="text-sm text-gray-700">Gifts</span>
                   </label>
-                      <div className="flex items-center space-x-2 ml-auto">
-                        <span className="text-xs text-gray-500 font-medium">Sort Qty:</span>
-                        <select
-                          value={comboSortOrder}
-                          onChange={(e) => setComboSortOrder(e.target.value)}
-                          className="text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                        >
-                          <option value="desc">Descending (High to Low)</option>
-                          <option value="asc">Ascending (Low to High)</option>
-                        </select>
-                      </div>
-                      {(filterPaid || filterFree || filterGift) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterPaid(false);
-                            setFilterFree(false);
-                            setFilterGift(false);
-                          }}
-                          className="text-xs text-red-600 hover:text-red-800 underline"
-                        >
-                          Clear all
-                        </button>
-                      )}
+                  <div className="flex items-center space-x-2 ml-auto">
+                    <span className="text-xs text-gray-500 font-medium">Sort Qty:</span>
+                    <select
+                      value={comboSortOrder}
+                      onChange={(e) => setComboSortOrder(e.target.value)}
+                      className="text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                    >
+                      <option value="desc">Descending (High to Low)</option>
+                      <option value="asc">Ascending (Low to High)</option>
+                    </select>
+                  </div>
+                  {(filterPaid || filterFree || filterGift) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterPaid(false);
+                        setFilterFree(false);
+                        setFilterGift(false);
+                      }}
+                      className="text-xs text-red-600 hover:text-red-800 underline"
+                    >
+                      Clear all
+                    </button>
+                  )}
                 </div>
               </div>
             )}

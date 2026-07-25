@@ -384,7 +384,7 @@ class OrderSerializer(serializers.ModelSerializer):
                     quantity = item_data['quantity']
                     product.stock_qty -= quantity
                     product.save()
-            order.total_amount = sum(item.total_price for item in order.items.all())
+            order.total_amount = sum((item.total_price or 0) for item in order.items.all())
             order.save()
             logger.warning(f"Order created: {order}")
             return order
@@ -425,10 +425,43 @@ class OrderSerializer(serializers.ModelSerializer):
                 instance.delivery_address = delivery_address
 
         # Explicit validation
-        if not validated_data.get('customer'):
+        if not validated_data.get('customer') and not getattr(instance, 'customer', None):
             raise serializers.ValidationError('Customer is required.')
         if items_data is not None and len(items_data) == 0:
             raise serializers.ValidationError('At least one order item is required.')
+
+        # Prevent status regression during update
+        ORDER_STATUS_RANK = {
+            'ordered': 1, 'Placed': 1, 'Pending': 1,
+            'Preparing': 2, 'Processing': 2,
+            'Dispatched': 3,
+            'Delivered': 4, 'Cancelled': 4
+        }
+        PAYMENT_STATUS_RANK = {
+            'Credit': 1, 'COD': 1,
+            'Advance': 2,
+            'Partial': 3,
+            'Paid': 4
+        }
+
+        new_status = validated_data.get('status')
+        if new_status and instance.status:
+            old_rank = ORDER_STATUS_RANK.get(instance.status, 1)
+            new_rank = ORDER_STATUS_RANK.get(new_status, 1)
+            if instance.status in ['Delivered', 'Cancelled'] and new_status != instance.status:
+                raise serializers.ValidationError({'status': f"Cannot change order status once it is {instance.status}."})
+            elif new_rank < old_rank and new_status != 'Cancelled':
+                raise serializers.ValidationError({'status': f"Cannot revert order status from {instance.status} to {new_status}."})
+
+        new_payment_status = validated_data.get('payment_status')
+        if new_payment_status and instance.payment_status:
+            old_pay_rank = PAYMENT_STATUS_RANK.get(instance.payment_status, 1)
+            new_pay_rank = PAYMENT_STATUS_RANK.get(new_payment_status, 1)
+            if instance.payment_status == 'Paid' and new_payment_status != 'Paid':
+                raise serializers.ValidationError({'payment_status': "Cannot revert payment status once it is Paid."})
+            elif new_pay_rank < old_pay_rank:
+                raise serializers.ValidationError({'payment_status': f"Cannot revert payment status from {instance.payment_status} to {new_payment_status}."})
+
         # Set order_date to today if not provided and not set on instance
         if not validated_data.get('order_date') and not getattr(instance, 'order_date', None):
             validated_data['order_date'] = datetime.date.today()
@@ -445,13 +478,19 @@ class OrderSerializer(serializers.ModelSerializer):
                 instance.items.all().delete()
                 # Create new items with safe FK handling
                 for item_data in items_data:
-                    combo = None
-                    if item_data.get('combo'):
-                        try:
-                            combo = ProductCombination.objects.get(id=item_data['combo'])
-                            item_data['combo'] = combo
-                        except ProductCombination.DoesNotExist:
-                            item_data.pop('combo', None)  # Remove invalid combo
+                    combo_val = item_data.get('combo')
+                    if combo_val is not None:
+                        if isinstance(combo_val, ProductCombination):
+                            pass
+                        elif isinstance(combo_val, int) or (isinstance(combo_val, str) and str(combo_val).isdigit()):
+                            try:
+                                item_data['combo'] = ProductCombination.objects.get(id=int(combo_val))
+                            except ProductCombination.DoesNotExist:
+                                item_data.pop('combo', None)
+                        elif hasattr(combo_val, 'id'):
+                            item_data['combo'] = combo_val
+                        else:
+                            item_data.pop('combo', None)
 
                     order_item = OrderItem.objects.create(order=instance, **item_data)
                     # Update product stock ONLY for paid items (no double deduction on update)
@@ -462,12 +501,12 @@ class OrderSerializer(serializers.ModelSerializer):
                         # Skip stock adjustment on updates to avoid double deduction
                 
                 # Recalculate total_amount based on actual items
-                instance.total_amount = sum(item.total_price for item in instance.items.all())
+                instance.total_amount = sum((item.total_price or 0) for item in instance.items.all())
                 instance.save()
         else:
             # Recalculate total_amount even if items are not updated (only if there are items)
             if instance.items.exists():
-                instance.total_amount = sum(item.total_price for item in instance.items.all())
+                instance.total_amount = sum((item.total_price or 0) for item in instance.items.all())
                 instance.save()
 
         return instance
