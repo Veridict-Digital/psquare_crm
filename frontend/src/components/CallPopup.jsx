@@ -63,7 +63,7 @@ const CallPopup = () => {
 
   if (!isVisible && !isEmbedded) return null;
 
-  const [position, setPosition] = useState({ x: 1400, y: 350 });
+  const [position, setPosition] = useState({ x: 1400, y: 220 });
   const [size, setSize] = useState({ width: 600, height: 600 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -600,7 +600,7 @@ const CallPopup = () => {
 
                 {isAssumptionOpen && (
                   <div className="p-2 border-t border-gray-100">
-                    <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1">
                       {assumptions?.map(assumption => (
                         <label
                           key={assumption.id}
@@ -664,7 +664,7 @@ const CallPopup = () => {
 
                 {isCallStatusOpen && (
                   <div className="p-2 border-t border-gray-100">
-                    <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1">
                       {assumptions2?.map(assumption => (
                         <label
                           key={assumption.id}
@@ -728,7 +728,7 @@ const CallPopup = () => {
 
                 {isPaymentStatusOpen && (
                   <div className="p-2 border-t border-gray-100">
-                    <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1">
                       {assumptions3?.map(assumption => (
                         <label
                           key={assumption.id}

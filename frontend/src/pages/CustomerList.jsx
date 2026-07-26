@@ -32,7 +32,6 @@ import {
   Filter,
   UserCircle,
 } from "lucide-react";
-import { toast } from "react-hot-toast";
 
 // Reusable async searchable dropdown for filter fields using React Portal
 const SearchableDropdown = ({
@@ -1606,12 +1605,10 @@ const CustomerList = () => {
                             throw new Error("document.execCommand('copy') was unsuccessful");
                           }
                         }
-                        toast.success("Phone number copied!");
                         setCopiedPhoneSearch(true);
                         setTimeout(() => setCopiedPhoneSearch(false), 2000);
                       } catch (err) {
                         console.error("Failed to copy:", err);
-                        toast.error("Failed to copy phone number");
                       }
                     }}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors"

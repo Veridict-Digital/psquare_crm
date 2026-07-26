@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+const toast = Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {}, info: () => {} });
 import {
   Edit,
   X,

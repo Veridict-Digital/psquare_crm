@@ -4,7 +4,7 @@ import axios from "../api/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallPopup } from "../context/CallPopupContext";
 import { useAuth } from "../context/AuthContext";
-import { toast } from "react-hot-toast";
+
 import {
   User,
   Phone,
@@ -162,11 +162,8 @@ const CustomerDetail = () => {
       queryClient.invalidateQueries(["old-order-histories", id]);
       setShowAddOldOrder(false);
       setOldOrderForm({ date: "", notes: "", amount: "" });
-      toast.success("Old order added successfully");
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.error || "Failed to add old order");
-    },
+    onError: (error) => {},
   });
 
   // Update old order history mutation
@@ -177,11 +174,8 @@ const CustomerDetail = () => {
       queryClient.invalidateQueries(["old-order-histories", id]);
       setEditingOldOrder(null);
       setOldOrderForm({ date: "", notes: "", amount: "" });
-      toast.success("Old order updated successfully");
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.error || "Failed to update old order");
-    },
+    onError: (error) => {},
   });
 
   // Delete old order history mutation
@@ -190,11 +184,8 @@ const CustomerDetail = () => {
       axios.delete(`/api/old-order-histories/${orderId}/`),
     onSuccess: () => {
       queryClient.invalidateQueries(["old-order-histories", id]);
-      toast.success("Old order deleted successfully");
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.error || "Failed to delete old order");
-    },
+    onError: (error) => {},
   });
 
   // Add this useEffect to set old orders when data loads
@@ -207,7 +198,6 @@ const CustomerDetail = () => {
   // Add handler functions
   const handleAddOldOrder = () => {
     if (!oldOrderForm.date || !oldOrderForm.amount) {
-      toast.error("Date and amount are required");
       return;
     }
     addOldOrderMutation.mutate({
@@ -229,7 +219,6 @@ const CustomerDetail = () => {
 
   const handleUpdateOldOrder = () => {
     if (!oldOrderForm.date || !oldOrderForm.amount) {
-      toast.error("Date and amount are required");
       return;
     }
     updateOldOrderMutation.mutate({
@@ -420,11 +409,9 @@ const CustomerDetail = () => {
       setEditingField(null);
       setEditingAddress(false);
       setShowNameEditDropdown(false);
-      toast.success("Customer details updated successfully");
     },
     onError: (err, newData, context) => {
       console.error("Failed to update customer:", err);
-      toast.error(err.response?.data?.error || err.message || "Failed to update customer");
       
       // Rollback to previous details
       if (context?.previousDetails) {
@@ -442,6 +429,8 @@ const CustomerDetail = () => {
     onSettled: () => {
       // Always refetch to sync cache with server
       queryClient.invalidateQueries({ queryKey: ["customer-details", id] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["order"] });
     },
   });
 
@@ -555,16 +544,10 @@ const CustomerDetail = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["customer-details", id]);
-      toast.success("Call log updated successfully");
     },
     onError: (error) => {
       console.error("Failed to update call log:", error);
       console.error("Error response:", error.response?.data);
-      toast.error(
-        error.response?.data?.duration?.[0] ||
-        error.response?.data?.error ||
-        "Failed to update call log",
-      );
       queryClient.invalidateQueries(["customer-details", id]);
     },
   });
@@ -2107,9 +2090,8 @@ const CustomerDetail = () => {
                     const value = tempGstinValue !== null ? tempGstinValue : (customer?.gstin_no || "");
                     if (value !== (customer?.gstin_no || "")) {
                       if (value && value.length !== 15) {
-                        toast.error("GSTIN must be exactly 15 characters");
                         setTempGstinValue(null);
-                        setGstinError("");
+                        setGstinError("GSTIN must be exactly 15 characters");
                         e.target.value = customer?.gstin_no ? formatGstinWithDashes(customer.gstin_no) : "";
                       } else if (value.length === 15) {
                         axios.get(`/api/customers/?gstin_no=${value}`)
@@ -2117,7 +2099,6 @@ const CustomerDetail = () => {
                             const existingCustomers = res.data;
                             const isDuplicate = existingCustomers.some(c => c.id !== Number(id));
                             if (isDuplicate) {
-                              toast.error("GSTIN already exists");
                               setGstinError("GSTIN already exists");
                               setTempGstinValue(null);
                             } else {

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+const toast = Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {}, info: () => {} });
 import {
   Plus,
   X,

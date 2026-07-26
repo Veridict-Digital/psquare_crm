@@ -703,7 +703,23 @@ const OrderList = () => {
 
   // Helper: Get delivery address from order with fallback to customer primary address
   const getDeliveryAddress = (order) => {
-    // If custom address, use order.delivery_address (string or object)
+    // 1. Primary: use customer live address from customer_details if present
+    if (order && order.customer_details) {
+      const addressParts = [
+        order.customer_details.house_flat_no,
+        order.customer_details.wing_lane,
+        order.customer_details.society_colony,
+        order.customer_details.landmark,
+        order.customer_details.area,
+        order.customer_details.city,
+        order.customer_details.district,
+        order.customer_details.state,
+        order.customer_details.pincode,
+      ].filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+      if (addressParts.length > 0) return addressParts.join(', ');
+    }
+
+    // 2. Fallback: use order's stored custom delivery_address
     if (order && order.delivery_address) {
       if (typeof order.delivery_address === 'string' && order.delivery_address.trim().length > 0 && order.delivery_address.trim().toLowerCase() !== 'n/a') {
         try {
@@ -730,21 +746,6 @@ const OrderList = () => {
         const addressParts = Object.values(order.delivery_address).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
         if (addressParts.length > 0) return addressParts.join(', ');
       }
-    }
-    // Fallback: use customer primary address
-    if (order && order.customer_details) {
-      const addressParts = [
-        order.customer_details.house_flat_no,
-        order.customer_details.wing_lane,
-        order.customer_details.society_colony,
-        order.customer_details.landmark,
-        order.customer_details.area,
-        order.customer_details.city,
-        order.customer_details.district,
-        order.customer_details.state,
-        order.customer_details.pincode,
-      ].filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
-      if (addressParts.length > 0) return addressParts.join(', ');
     }
     return 'N/A';
   };

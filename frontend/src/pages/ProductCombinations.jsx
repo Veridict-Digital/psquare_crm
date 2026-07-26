@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "../api/axios";
-import { toast } from "react-hot-toast";
+const toast = Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {}, info: () => {} });
 import { useSidebar } from "../context/SidebarContext";
 
 // Constants for column widths

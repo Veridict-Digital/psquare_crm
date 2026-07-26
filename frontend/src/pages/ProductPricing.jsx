@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
-import { toast } from "react-hot-toast";
+const toast = Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {}, info: () => {} });
 
 // Constants
 const COLUMN_WIDTHS = {

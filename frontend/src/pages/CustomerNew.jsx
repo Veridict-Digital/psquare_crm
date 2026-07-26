@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../api/axios';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+
 import {
   User,
   Building,
@@ -63,11 +63,9 @@ const CustomerNew = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['customers']);
-      toast.success('Customer created successfully!');
       navigate('/customers');
     },
     onError: (error) => {
-      toast.error('Failed to create customer');
       console.error('Error creating customer:', error);
     },
   });
@@ -109,7 +107,6 @@ const CustomerNew = () => {
     const hasErrors = Object.values(newErrors).some(error => error !== '');
 
     if (hasErrors) {
-      toast.error('Please fix the validation errors before submitting.');
       return;
     }
 

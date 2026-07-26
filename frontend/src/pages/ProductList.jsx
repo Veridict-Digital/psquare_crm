@@ -24,7 +24,6 @@ import {
   TrendingDown,
   Hash
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 
 const ProductList = () => {
   // Helper to get absolute image URL
@@ -210,14 +209,11 @@ const ProductList = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      toast.success(`Imported ${data.created_count || 0} products successfully! ${data.skipped || 0} skipped.`);
       queryClient.invalidateQueries(['products']);
       setShowImportModal(false);
       setImportFile(null);
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.error || 'Import failed');
-    },
+    onError: (error) => {},
   });
 
   const handleImport = () => {
@@ -230,9 +226,7 @@ const ProductList = () => {
     const file = e.target.files[0];
     if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
       setImportFile(file);
-      toast.success(`${file.name} selected for import`);
     } else {
-      toast.error('Please select a CSV or Excel file');
       e.target.value = '';
     }
   };
@@ -257,10 +251,8 @@ const ProductList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['products']);
-      toast.success('Product deleted successfully');
     },
     onError: (error) => {
-      toast.error('Failed to delete product');
       console.error('Delete error:', error);
     }
   });
@@ -275,11 +267,9 @@ const ProductList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['products']);
-      toast.success('Stock updated successfully');
       setEditingStock(null);
     },
     onError: (error) => {
-      toast.error('Failed to update stock');
       console.error('Update stock error:', error);
     }
   });
@@ -508,7 +498,6 @@ const ProductList = () => {
       filterMaxPrice,
     });
     setCurrentPage(1);
-    toast.success("Filters applied");
   }, [
     search,
     filterSKU,
@@ -594,7 +583,6 @@ const ProductList = () => {
       filterMaxPrice: "",
     });
     setCurrentPage(1);
-    toast.success("Filters cleared");
   }, []);
 
   // Calculate profit for each product
