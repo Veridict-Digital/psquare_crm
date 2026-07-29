@@ -64,15 +64,17 @@ const UserManagement = () => {
   // Filtered users calculation
   const roleOrder = { 'Admin': 0, 'Employee': 1, 'Telecaller': 2 };
   let filteredUsers = users?.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase());
+    const fullName = [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" ");
+    const matchesSearch = (user.username || "").toLowerCase().includes(search.toLowerCase()) ||
+      (user.email || "").toLowerCase().includes(search.toLowerCase()) ||
+      fullName.toLowerCase().includes(search.toLowerCase());
     const matchesRole = filterRole ? user.role === filterRole : true;
     return matchesSearch && matchesRole;
   })?.slice().sort((a, b) => {
     const aOrder = roleOrder[a.role] ?? 99;
     const bOrder = roleOrder[b.role] ?? 99;
     if (aOrder !== bOrder) return aOrder - bOrder;
-    return a.username.localeCompare(b.username);
+    return (a.username || "").localeCompare(b.username || "");
   });
 
   // Handle role deletion
@@ -261,7 +263,7 @@ const UserManagement = () => {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Search by username or email..."
+                  placeholder="Search by name, username, or email..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 outline-none transition-all shadow-sm"
@@ -300,6 +302,7 @@ const UserManagement = () => {
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100 text-left">
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">ID</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Full Name</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Username</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
@@ -307,32 +310,36 @@ const UserManagement = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredUsers?.map(user => (
-                      <tr key={user.id} className="hover:bg-gray-55/30 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{user.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{user.username}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.email}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
-                            user.role === 'Admin' 
-                              ? 'bg-blue-100 text-blue-800' 
-                              : user.role === 'Telecaller'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {user.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Link 
-                            to={`/users/edit/${user.id}`} 
-                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg mr-2 font-bold transition-all inline-block"
-                          >
-                            Edit
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredUsers?.map(user => {
+                      const fullName = [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" ");
+                      return (
+                        <tr key={user.id} className="hover:bg-gray-55/30 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{user.id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{fullName || "—"}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">{user.username}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.email || "—"}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
+                              user.role === 'Admin' 
+                                ? 'bg-blue-100 text-blue-800' 
+                                : user.role === 'Telecaller'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <Link 
+                              to={`/users/edit/${user.id}`} 
+                              className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg mr-2 font-bold transition-all inline-block"
+                            >
+                              Edit
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

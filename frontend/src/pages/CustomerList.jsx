@@ -641,6 +641,9 @@ const CustomerList = () => {
 
   // Apply filters when apply button is clicked
   const handleApplyFilters = useCallback(() => {
+    setPhoneSearch(phoneSearchInput);
+    setShowPhoneDropdown(false);
+    setPhoneIsTyping(false);
     setNameSearch(pendingNameSearch);
     setSurnameSearch(pendingSurnameSearch);
     setFilterHouseFlatNo(pendingFilterHouseFlatNo);
@@ -662,6 +665,7 @@ const CustomerList = () => {
     setDateTo(pendingDateTo);
     setCurrentPage(1);
   }, [
+    phoneSearchInput,
     pendingNameSearch,
     pendingSurnameSearch,
     pendingFilterHouseFlatNo,
