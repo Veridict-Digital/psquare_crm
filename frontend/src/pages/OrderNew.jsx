@@ -462,8 +462,9 @@ const OrderNew = () => {
   const [searchParams] = useSearchParams();
   const urlCustomerId = searchParams.get("customer");
   const urlCustomerName = searchParams.get("customer_name");
-  const editMode = searchParams.get("mode") === "edit";
-  const editOrderId = sessionStorage.getItem("orderEditId");
+  const urlOrderId = searchParams.get("id");
+  const editOrderId = urlOrderId || sessionStorage.getItem("orderEditId");
+  const editMode = searchParams.get("mode") === "edit" || !!editOrderId;
 
   const customerDropdownRef = useRef(null);
   const productDropdownRef = useRef(null);

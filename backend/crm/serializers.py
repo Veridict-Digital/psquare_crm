@@ -375,6 +375,18 @@ class OrderSerializer(serializers.ModelSerializer):
         if request and request.user and request.user.is_authenticated:
             validated_data['created_by'] = request.user
 
+        # Prevent duplicate order creation if an order was created for the same customer in the last 10 seconds
+        customer_obj = validated_data.get('customer')
+        if customer_obj:
+            from django.utils import timezone
+            recent_duplicate = Order.objects.filter(
+                customer=customer_obj,
+                created_at__gte=timezone.now() - datetime.timedelta(seconds=10)
+            ).order_by('-id').first()
+            if recent_duplicate:
+                logger.warning(f"Duplicate order submission detected within 10s for customer {customer_obj.id}. Returning existing order {recent_duplicate.id}.")
+                return recent_duplicate
+
         with transaction.atomic():
             order = Order.objects.create(**validated_data, applied_combos=applied_combos)
             for item_data in items_data:

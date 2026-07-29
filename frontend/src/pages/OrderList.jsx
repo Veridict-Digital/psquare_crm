@@ -505,7 +505,7 @@ const OrderList = () => {
     sessionStorage.setItem("orderEditId", order.id.toString());
 
     // 7. Navigate to OrderNew
-    navigate(`/orders/new?mode=edit&customer=${order.customer}`);
+    navigate(`/orders/new?mode=edit&id=${order.id}&customer=${order.customer}`);
   };
 
   const handleExportExcel = async () => {

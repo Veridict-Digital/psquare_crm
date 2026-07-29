@@ -175,7 +175,7 @@ const OrderDetail = () => {
     sessionStorage.setItem("orderEditId", order.id.toString());
 
     // 7. Navigate to OrderNew
-    navigate(`/orders/new?mode=edit&customer=${order.customer}`);
+    navigate(`/orders/new?mode=edit&id=${order.id}&customer=${order.customer}`);
   };
 
   // Format currency
@@ -484,162 +484,7 @@ const OrderDetail = () => {
       return productObj ? productObj.hsn : '';
     };
 
-    if (order.applied_combos && order.applied_combos.length > 0 && comboDetails.length > 0) {
-      comboDetails.forEach((combo) => {
-        const appliedCombo = order.applied_combos?.find(c => String(c.combo_id) === String(combo.id));
-        const appliedQuantity = appliedCombo?.quantity || 1;
-
-        (combo.items || []).forEach((item) => {
-          const orderItemObj = order.items?.find(oi => String(oi.product) === String(item.product) && !oi.is_free && !oi.is_gift);
-          if (!orderItemObj) return;
-          const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
-            ? parseFloat(orderItemObj.mrp)
-            : getOriginalPrice(item.product);
-          const itemQty = item.quantity_required * appliedQuantity;
-          const totalMrp = unitMrp * itemQty;
-
-          const unitOffer = orderItemObj ? parseFloat(orderItemObj.unit_price) : (parseFloat(item.offer_price) || 0);
-          const totalOffer = orderItemObj ? parseFloat(orderItemObj.total_price) : (unitOffer * itemQty);
-          const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(item.product);
-
-          const taxableOffer = totalOffer / (1 + gstRate / 100);
-          const gstOfferAmount = totalOffer - taxableOffer;
-
-          invoiceItems.push({
-            sNo: sNo++,
-            productId: item.product,
-            productName: item.product_title,
-            qty: itemQty,
-            unitMrp: unitMrp,
-            totalMrp: totalMrp,
-            unitOffer: unitOffer,
-            totalOffer: totalOffer,
-            gstRate: gstRate,
-            taxableOffer: taxableOffer,
-            gstAmount: gstOfferAmount,
-            type: 'Paid',
-            hsn: getProductHsn(item.product)
-          });
-        });
-
-        (combo.rewards || []).forEach((reward) => {
-          const orderItemObj = order.items?.find(oi => String(oi.product) === String(reward.product) && oi.is_free);
-          if (!orderItemObj) return;
-          const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
-            ? parseFloat(orderItemObj.mrp)
-            : getOriginalPrice(reward.product);
-          const itemQty = reward.quantity_free * appliedQuantity;
-          const totalMrp = unitMrp * itemQty;
-
-          const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(reward.product);
-
-          const taxableMrp = totalMrp / (1 + gstRate / 100);
-          const gstMrpAmount = totalMrp - taxableMrp;
-
-          invoiceItems.push({
-            sNo: sNo++,
-            productId: reward.product,
-            productName: reward.product_title,
-            qty: itemQty,
-            unitMrp: unitMrp,
-            totalMrp: totalMrp,
-            unitOffer: 0,
-            totalOffer: 0,
-            gstRate: gstRate,
-            taxableOffer: taxableMrp,
-            gstAmount: gstMrpAmount,
-            type: 'Free',
-            hsn: getProductHsn(reward.product)
-          });
-        });
-
-        (combo.gifts || []).forEach((gift) => {
-          const orderItemObj = order.items?.find(oi => String(oi.product) === String(gift.product) && oi.is_gift);
-          if (!orderItemObj) return;
-          const unitMrp = orderItemObj && orderItemObj.mrp !== undefined && orderItemObj.mrp !== null && parseFloat(orderItemObj.mrp) > 0
-            ? parseFloat(orderItemObj.mrp)
-            : getOriginalPrice(gift.product);
-          const giftQtyVal = gift.quantity_free || gift.quantity || 1;
-          const itemQty = giftQtyVal * appliedQuantity;
-          const totalMrp = unitMrp * itemQty;
-
-          const gstRate = orderItemObj ? (parseFloat(orderItemObj.gst_rate_display) || parseFloat(orderItemObj.gst_rate) || 0) : getProductGstRate(gift.product);
-
-          const taxableMrp = totalMrp / (1 + gstRate / 100);
-          const gstMrpAmount = totalMrp - taxableMrp;
-
-          invoiceItems.push({
-            sNo: sNo++,
-            productId: gift.product,
-            productName: gift.product_title,
-            qty: itemQty,
-            unitMrp: unitMrp,
-            totalMrp: totalMrp,
-            unitOffer: 0,
-            totalOffer: 0,
-            gstRate: gstRate,
-            taxableOffer: taxableMrp,
-            gstAmount: gstMrpAmount,
-            type: 'Gift',
-            hsn: getProductHsn(gift.product)
-          });
-        });
-      });
-
-      // Add any normal items (non-combo items) that are not part of any combo
-      const comboProductIds = new Set();
-      comboDetails.forEach((combo) => {
-        (combo.items || []).forEach(item => comboProductIds.add(String(item.product)));
-        (combo.rewards || []).forEach(reward => comboProductIds.add(String(reward.product)));
-        (combo.gifts || []).forEach(gift => comboProductIds.add(String(gift.product)));
-      });
-
-      const nonComboItems = (order.items || []).filter(item => {
-        const isPartofCombo = (item.combo !== null && item.combo !== undefined) || comboProductIds.has(String(item.product));
-        return !isPartofCombo;
-      });
-
-      nonComboItems.forEach((item) => {
-        let type = 'Paid';
-        if (item.is_free) type = 'Free';
-        if (item.is_gift) type = 'Gift';
-
-        const originalPrice = item.mrp !== undefined && item.mrp !== null && parseFloat(item.mrp) > 0
-          ? parseFloat(item.mrp)
-          : getOriginalPrice(item.product);
-        const gstRate = parseFloat(item.gst_rate_display) || getProductGstRate(item.product);
-        const totalMrp = originalPrice * item.quantity;
-        const totalOffer = type === 'Paid' ? (parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0) : 0;
-        const unitOffer = type === 'Paid' ? (parseFloat(item.unit_price) || 0) : 0;
-
-        let taxableAmount = 0;
-        let gstAmount = 0;
-
-        if (type === 'Paid') {
-          taxableAmount = totalOffer / (1 + gstRate / 100);
-          gstAmount = totalOffer - taxableAmount;
-        } else {
-          taxableAmount = totalMrp / (1 + gstRate / 100);
-          gstAmount = totalMrp - taxableAmount;
-        }
-
-        invoiceItems.push({
-          sNo: sNo++,
-          productId: item.product,
-          productName: item.product_title,
-          qty: item.quantity,
-          unitMrp: originalPrice,
-          totalMrp: totalMrp,
-          unitOffer: unitOffer,
-          totalOffer: totalOffer,
-          gstRate: gstRate,
-          taxableOffer: taxableAmount,
-          gstAmount: gstAmount,
-          type: type,
-          hsn: item.hsn || getProductHsn(item.product)
-        });
-      });
-    } else if (order.items && order.items.length > 0) {
+    if (order?.items && order.items.length > 0) {
       order.items.forEach((item) => {
         let type = 'Paid';
         if (item.is_free) type = 'Free';
@@ -648,7 +493,7 @@ const OrderDetail = () => {
         const originalPrice = item.mrp !== undefined && item.mrp !== null && parseFloat(item.mrp) > 0
           ? parseFloat(item.mrp)
           : getOriginalPrice(item.product);
-        const gstRate = parseFloat(item.gst_rate_display) || getProductGstRate(item.product);
+        const gstRate = parseFloat(item.gst_rate_display) || parseFloat(item.gst_rate) || getProductGstRate(item.product);
         const totalMrp = originalPrice * item.quantity;
         const totalOffer = type === 'Paid' ? (parseFloat(item.total_price) || (parseFloat(item.unit_price) * item.quantity) || 0) : 0;
         const unitOffer = type === 'Paid' ? (parseFloat(item.unit_price) || 0) : 0;
