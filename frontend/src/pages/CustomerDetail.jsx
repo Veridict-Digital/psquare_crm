@@ -1514,21 +1514,27 @@ const CustomerDetail = () => {
                         Not assigned
                       </button>
                       {employees
-                        ?.filter((employee) => employee.role === "Telecaller")
-                        ?.map((employee) => {
-                          const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
-                          const displayName = fullName || employee.username;
-                          return (
-                            <button
-                              key={employee.id}
-                              onClick={() => handleAgentSelect(employee.id)}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 hover:text-slate-900 text-slate-600 transition-colors truncate"
-                              title={displayName}
-                            >
-                              {displayName} ({employee.role})
-                            </button>
-                          );
-                        })}
+  ?.filter((employee) => employee.role === "Telecaller")
+  ?.sort((a, b) => {
+    const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase() || a.username.toLowerCase();
+    const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase() || b.username.toLowerCase();
+    return nameA.localeCompare(nameB);
+  })
+  ?.map((employee) => {
+    const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+    const displayName = fullName || employee.username;
+    return (
+      <button
+        key={employee.id}
+        onClick={() => handleAgentSelect(employee.id)}
+        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 hover:text-slate-900 text-slate-600 transition-colors truncate"
+        title={displayName}
+      >
+        {displayName}
+      </button>
+    );
+  })}
+
                     </div>
                   </div>
                 )}

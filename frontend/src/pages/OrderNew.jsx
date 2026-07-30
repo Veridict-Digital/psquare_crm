@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { toast } from "react-hot-toast";
 import {
   Search,
   Plus,
@@ -462,9 +461,17 @@ const OrderNew = () => {
   const [searchParams] = useSearchParams();
   const urlCustomerId = searchParams.get("customer");
   const urlCustomerName = searchParams.get("customer_name");
+  const isEditModeParam = searchParams.get("mode") === "edit";
   const urlOrderId = searchParams.get("id");
-  const editOrderId = urlOrderId || sessionStorage.getItem("orderEditId");
-  const editMode = searchParams.get("mode") === "edit" || !!editOrderId;
+  const editOrderId = isEditModeParam ? (urlOrderId || sessionStorage.getItem("orderEditId")) : null;
+  const editMode = isEditModeParam && !!editOrderId;
+
+  useEffect(() => {
+    if (!isEditModeParam) {
+      sessionStorage.removeItem("orderEditData");
+      sessionStorage.removeItem("orderEditId");
+    }
+  }, [isEditModeParam]);
 
   const customerDropdownRef = useRef(null);
   const productDropdownRef = useRef(null);
@@ -529,7 +536,7 @@ const OrderNew = () => {
     const defaultData = {
       customer: urlCustomerId || "",
       agent: "",
-      status: "Placed",
+      status: "ordered",
       payment_status: "Advance",
       followup_date: "",
       partial_amount: 0,
@@ -639,7 +646,7 @@ const OrderNew = () => {
     const defaultData = {
       customer: targetId,
       agent: "",
-      status: "Placed",
+      status: "ordered",
       payment_status: "Advance",
       followup_date: "",
       partial_amount: 0,
@@ -1637,8 +1644,6 @@ const OrderNew = () => {
       setSavedDbOrderId(data.id);
       // setShowSuccessModal(true); // Don't show success modal popup
 
-      toast.success(editMode ? "Order updated successfully!" : "Order placed successfully!");
-
       queryClient.invalidateQueries(["orders"]);
       queryClient.invalidateQueries(["customers"]);
       queryClient.invalidateQueries(["customer-details"]);
@@ -1657,7 +1662,7 @@ const OrderNew = () => {
         // Reset order items and combinations, but KEEP customer and agent details
         setFormData(prev => ({
           ...prev,
-          status: "Placed",
+          status: "ordered",
           payment_status: "Advance",
           followup_date: "",
           partial_amount: 0,
@@ -2871,8 +2876,8 @@ const OrderNew = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
                   >
                     <option value="ordered">Ordered</option>
-                    <option value="Preparing">Preparing</option>
                     <option value="Placed">Placed</option>
+                    <option value="Preparing">Preparing</option>
                     <option value="Dispatched">Dispatched</option>
                     <option value="Delivered">Delivered</option>
                     <option value="Cancelled">Cancelled</option>
@@ -3572,7 +3577,6 @@ const OrderNew = () => {
                           document.execCommand("copy");
                           document.body.removeChild(text);
                         }
-                        toast.success("Order ID copied to clipboard!");
                       } catch (err) {
                         console.error("Failed to copy order ID:", err);
                       }
