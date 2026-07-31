@@ -899,14 +899,24 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 }
         all_phones = list(all_phones_dict.values())
 
-        # Get call logs for this customer
-        call_logs = CallLog.objects.filter(customer=customer).select_related('employee').prefetch_related('assumption', 'assumption2', 'assumption3').order_by('-date')
+        # Get call logs for this customer (including all secondary phones & pre-conversion lead calls)
+        from django.db.models import Q
+        phone_numbers = set()
+        if customer.phone:
+            phone_numbers.add(customer.phone)
+        for p in customer.phones.all():
+            if p.phone:
+                phone_numbers.add(p.phone)
+
+        phone_filters = Q(customer=customer)
+        for ph in phone_numbers:
+            clean_ph = "".join(c for c in ph if c.isdigit())
+            if clean_ph:
+                phone_filters |= Q(customer__phone__icontains=clean_ph) | Q(lead__phone__icontains=clean_ph)
+
+        call_logs = CallLog.objects.filter(phone_filters).distinct().select_related('employee').prefetch_related('assumption', 'assumption2', 'assumption3').order_by('-date')
 
         old_order_histories = OldOrderHistory.objects.filter(customer=customer).order_by('-date')
-        
-        # For non-admin, only show their own call logs
-        if user.role != 'Admin':
-            call_logs = call_logs.filter(employee=user)
 
         # Get orders for this customer
         orders = Order.objects.filter(customer=customer).select_related('agent').prefetch_related('items__product').order_by('-id')
@@ -2038,6 +2048,9 @@ class LeadViewSet(viewsets.ModelViewSet):
         customer_serializer = CustomerSerializer(data=customer_data)
         if customer_serializer.is_valid():
             customer = customer_serializer.save()
+
+            # Transfer all existing call logs from lead to newly created customer
+            CallLog.objects.filter(lead=lead).update(customer=customer)
 
             # Update lead status to Converted
             lead.status = 'Converted'
