@@ -1250,7 +1250,7 @@ const CustomerList = () => {
   // Handlers
   const handleEditAppointment = (customer) => {
     setEditingAppointment(customer.id);
-    const date = customer.appointment_date || customer.created_at;
+    const date = customer.appointment_date || "";
     setAppointmentValue(date ? new Date(date).toISOString().split("T")[0] : "");
   };
 

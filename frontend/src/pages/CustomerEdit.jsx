@@ -94,7 +94,7 @@ const CustomerEdit = () => {
         district: customer.district || '',
         tahsil: customer.tahsil || '',
         city: customer.city || '',
-        appointment_date: customer.appointment_date || customer.created_at || '',
+        appointment_date: customer.appointment_date || '',
         gstin_no: customer.gstin_no || '',
       });
     }
@@ -106,7 +106,7 @@ const CustomerEdit = () => {
         const response = await axios.post('/api/customers/', data);
         return response.data;
       } else {
-        const response = await axios.put(`/api/customers/${id}/`, data);
+        const response = await axios.patch(`/api/customers/${id}/`, data);
         return response.data;
       }
     },

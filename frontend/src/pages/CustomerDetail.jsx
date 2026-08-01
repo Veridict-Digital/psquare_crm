@@ -380,9 +380,9 @@ const CustomerDetail = () => {
     }
   };
 
-  // Update customer mutation
+  // Update customer mutation (use PATCH to avoid wiping other fields like appointment_date)
   const updateMutation = useMutation({
-    mutationFn: (data) => axios.put(`/api/customers/${id}/`, data),
+    mutationFn: (data) => axios.patch(`/api/customers/${id}/`, data),
     onMutate: async (newData) => {
       // Cancel any outgoing refetches so they don't overwrite our optimistic update
       await queryClient.cancelQueries({ queryKey: ["customer-details", id] });
