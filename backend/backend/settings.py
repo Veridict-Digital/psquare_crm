@@ -83,6 +83,35 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 
+import os
+import dj_database_url
+
+# ==========================================
+# ACTIVE DATABASE CONFIGURATION (Contabo Local PostgreSQL & env DATABASE_URL)
+# ==========================================
+# DATABASE_URL = os.environ.get('DATABASE_URL')
+
+# if DATABASE_URL:
+#     DATABASES = {
+#         'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+#     }
+# else:
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': 'psquare_crm_db',
+#             'USER': 'psquare_user',
+#             'PASSWORD': 'PsquareSecurePassword123',
+#             'HOST': 'localhost',
+#             'PORT': '5432',
+#         }
+#     }
+
+# ==========================================
+# PREVIOUS DATABASE CONFIGURATIONS (COMMENTED OUT)
+# ==========================================
+
+# --- PREVIOUS MSSQL CONFIG ---
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
@@ -96,6 +125,7 @@ DATABASES = {
     }
 }
 
+# --- PREVIOUS HOSTINGER MYSQL CONFIG ---
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.mysql',
@@ -110,6 +140,7 @@ DATABASES = {
 #     }
 # }
 
+# --- PREVIOUS NEON POSTGRESQL CONFIG ---
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
