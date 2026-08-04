@@ -3,6 +3,7 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: 'http://localhost:8000/',
   // baseURL: 'http://3.108.121.188/',
+  // baseURL: 'http://169.58.124.215/',
   // Remove the default Content-Type header
   // Let each request set its own Content-Type
 });
