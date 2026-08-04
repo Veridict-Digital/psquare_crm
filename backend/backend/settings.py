@@ -28,7 +28,7 @@ SECRET_KEY = '8j2k9m4n6p8q3r5t7v9w1x3y5z7a9b2c4d6e8f0g2h4i6j8k0l2m4n6o8p0q2r4s6t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['your-domain.com', '3.108.121.188', 'localhost']  # Replace with your actual domain and EC2 IP
+ALLOWED_HOSTS = ['your-domain.com', '3.108.121.188', 'localhost','169.58.124.215']  # Replace with your actual domain and EC2 IP
 
 
 # Application definition
@@ -225,7 +225,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://3.108.121.188',
     'http://localhost:3000',
     'http://localhost:5173',
-    'http://localhost:5174'
+    'http://localhost:5174',
+    'http://169.58.124.215/',
 ]
 
 # Email settings for OTP
