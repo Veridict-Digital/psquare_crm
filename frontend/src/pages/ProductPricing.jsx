@@ -485,12 +485,6 @@ const ProductPricing = () => {
               ? product.gst_rate?.id || ""
               : product.gst_rate || "",
           ),
-          gst_rate_display:
-            product.gst_rate_display ||
-            (typeof product.gst_rate === "object"
-              ? `${product.gst_rate?.rate}%`
-              : product.gst_rate) ||
-            "",
           unit:
             product.unit_display ||
             (typeof product.unit === "object"
