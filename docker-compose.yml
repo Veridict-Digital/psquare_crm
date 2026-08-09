@@ -8,6 +8,9 @@ services:
       - media_files:/app/media
       - static_files:/app/staticfiles
     env_file: .env
+    networks:
+      - coolify
+      - internal
 
   frontend:
     build:
@@ -23,6 +26,15 @@ services:
       - static_files:/app/staticfiles:ro
     depends_on:
       - backend
+    networks:
+      - coolify
+      - internal
+
+networks:
+  coolify:
+    external: true
+  internal:
+    driver: bridge
 
 volumes:
   media_files:
