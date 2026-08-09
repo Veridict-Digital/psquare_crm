@@ -1,11 +1,10 @@
 import axios from 'axios';
 
+// In Docker/production VITE_API_BASE_URL is set to '/' at build time so all
+// requests go through the nginx reverse proxy on the same origin.
+// In local dev it falls back to the Django dev server address.
 const api = axios.create({
-  baseURL: 'http://localhost:8000/',
-  // baseURL: 'http://3.108.121.188/',
-  // baseURL: 'http://169.58.124.215/',
-  // Remove the default Content-Type header
-  // Let each request set its own Content-Type
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/',
 });
 
 // Add request interceptor for authentication if needed

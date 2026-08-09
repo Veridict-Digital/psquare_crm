@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-psquare_crm}
+      POSTGRES_USER: ${POSTGRES_USER:-psquare_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-psquare_user} -d ${POSTGRES_DB:-psquare_crm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - media_files:/app/media
+      - static_files:/app/staticfiles
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - media_files:/app/media:ro
+      - static_files:/app/staticfiles:ro
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  media_files:
+  static_files:
