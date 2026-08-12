@@ -123,16 +123,8 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
 
-<<<<<<< HEAD
 _cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()] or [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:5174',
-=======
-CORS_ALLOW_ALL_ORIGINS = True
-
-CORS_ALLOWED_ORIGINS = [
     'https://psquarecosmetics.com',
     'https://psquareherbocos.com',
     'http://3.108.121.188',
@@ -140,7 +132,6 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://169.58.124.215',
->>>>>>> ad0b89c (Allow psquarecosmetics.com and dynamic ALLOWED_HOSTS & CORS in Django settings)
 ]
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
