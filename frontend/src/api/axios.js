@@ -15,13 +15,13 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Only set Content-Type to application/json if it's not FormData
     // and if the Content-Type hasn't been set already
     if (!config.headers['Content-Type'] && !(config.data instanceof FormData)) {
       config.headers['Content-Type'] = 'application/json';
     }
-    
+
     return config;
   },
   (error) => Promise.reject(error)

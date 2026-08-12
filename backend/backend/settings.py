@@ -12,10 +12,15 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1')
 
-ALLOWED_HOSTS = os.environ.get(
-    'ALLOWED_HOSTS',
-    'localhost,127.0.0.1'
-).split(',')
+import os
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('SECRET_KEY', '8j2k9m4n6p8q3r5t7v9w1x3y5z7a9b2c4d6e8f0g2h4i6j8k0l2m4n6o8p0q2r4s6t8u0v2w4x6y8z')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',') if os.environ.get('ALLOWED_HOSTS') else ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -118,11 +123,24 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
 
+<<<<<<< HEAD
 _cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()] or [
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:5174',
+=======
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    'https://psquarecosmetics.com',
+    'https://psquareherbocos.com',
+    'http://3.108.121.188',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://169.58.124.215',
+>>>>>>> ad0b89c (Allow psquarecosmetics.com and dynamic ALLOWED_HOSTS & CORS in Django settings)
 ]
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
