@@ -33,6 +33,21 @@ import {
   UserCircle,
 } from "lucide-react";
 
+// Helper to auto-capitalize the first letter of each word
+const capitalizeWords = (str) => {
+  if (!str || typeof str !== "string") return str;
+  return str.replace(/\b[a-z]/g, (char) => char.toUpperCase());
+};
+
+// Helper to format 10-digit phone number as 3-3-4 (xxx-xxx-xxxx)
+const formatPhone334 = (input) => {
+  if (!input) return "";
+  const digits = input.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
 // Reusable async searchable dropdown for filter fields using React Portal
 const SearchableDropdown = ({
   value,
@@ -563,18 +578,19 @@ const CustomerList = () => {
   });
 
   // Phone check query
+  const cleanPhone = (newContact.phone || "").replace(/\D/g, "");
   const { data: phoneCheckData, isLoading: phoneCheckLoading } = useQuery({
-    queryKey: ["phoneCheck", newContact.phone],
+    queryKey: ["phoneCheck", cleanPhone],
     queryFn: async () => {
-      if (newContact.phone.length >= 10) {
+      if (cleanPhone.length >= 10) {
         const response = await axios.get(
-          `/api/customers/?phone=${newContact.phone}&page_size=1`,
+          `/api/customers/?phone=${cleanPhone}&page_size=1`,
         );
         return response.data;
       }
       return null;
     },
-    enabled: newContact.phone.length >= 10,
+    enabled: cleanPhone.length >= 10,
   });
 
   // GSTIN check query
@@ -709,9 +725,10 @@ const CustomerList = () => {
 
   // Phone validation
   useEffect(() => {
-    if (newContact.phone.length > 0 && newContact.phone.length < 10) {
+    const cleanDigits = (newContact.phone || "").replace(/\D/g, "");
+    if (cleanDigits.length > 0 && cleanDigits.length < 10) {
       setPhoneError("Phone number must be at least 10 digits");
-    } else if (newContact.phone.length === 0) {
+    } else {
       setPhoneError("");
     }
   }, [newContact.phone]);
@@ -1288,14 +1305,15 @@ const CustomerList = () => {
   };
 
   const handleAddCustomer = () => {
-    if (!newContact.phone) {
+    const cleanPhone = (newContact.phone || "").replace(/\D/g, "");
+    if (!cleanPhone) {
       setErrorMessage("Phone is required");
       if (addFormPhoneInputRef.current) {
         addFormPhoneInputRef.current.focus();
       }
       return;
     }
-    if (newContact.phone.length < 10) {
+    if (cleanPhone.length < 10) {
       setErrorMessage("Phone number must be at least 10 digits");
       if (addFormPhoneInputRef.current) {
         addFormPhoneInputRef.current.focus();
@@ -1325,6 +1343,7 @@ const CustomerList = () => {
 
     const submitData = {
       ...newContact,
+      phone: cleanPhone,
       company_type: selectedOrgType?.id || null,
       customer_type: selectedCustomerType?.id || null,
       telecaller_id: newContact.telecaller_id || null,
@@ -2019,18 +2038,12 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.phone}
                 onChange={(e) => {
-                  const value = e.target.value;
-                  if (value && !/^\d*$/.test(value)) {
-                    return;
-                  }
-                  if (value.length > 10) {
-                    return;
-                  }
-                  setNewContact({ ...newContact, phone: value });
+                  const formatted = formatPhone334(e.target.value);
+                  setNewContact({ ...newContact, phone: formatted });
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Phone number"
-                maxLength="10"
+                placeholder="123-456-7890"
+                maxLength="12"
               />
               {phoneError && (
                 <p className="mt-1 text-sm text-red-600">{phoneError}</p>
@@ -2044,7 +2057,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.name}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, name: e.target.value })
+                  setNewContact({ ...newContact, name: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Customer name"
@@ -2058,7 +2071,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.surname}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, surname: e.target.value })
+                  setNewContact({ ...newContact, surname: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Customer surname"
@@ -2086,7 +2099,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.company_name}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, company_name: e.target.value })
+                  setNewContact({ ...newContact, company_name: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Organization name"
@@ -2129,7 +2142,7 @@ const CustomerList = () => {
                     ref={orgTypeInputRef}
                     type="text"
                     value={newOrgType}
-                    onChange={(e) => setNewOrgType(e.target.value)}
+                    onChange={(e) => setNewOrgType(capitalizeWords(e.target.value))}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="New organization type"
                   />
@@ -2196,7 +2209,7 @@ const CustomerList = () => {
                     ref={customerTypeInputRef}
                     type="text"
                     value={newCustomerType}
-                    onChange={(e) => setNewCustomerType(e.target.value)}
+                    onChange={(e) => setNewCustomerType(capitalizeWords(e.target.value))}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="New customer type"
                   />
@@ -2301,7 +2314,7 @@ const CustomerList = () => {
                 onChange={(e) =>
                   setNewContact({
                     ...newContact,
-                    house_flat_no: e.target.value,
+                    house_flat_no: capitalizeWords(e.target.value),
                   })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -2316,7 +2329,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.wing_lane}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, wing_lane: e.target.value })
+                  setNewContact({ ...newContact, wing_lane: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Wing/Lane"
@@ -2332,7 +2345,7 @@ const CustomerList = () => {
                 onChange={(e) =>
                   setNewContact({
                     ...newContact,
-                    society_colony: e.target.value,
+                    society_colony: capitalizeWords(e.target.value),
                   })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -2347,7 +2360,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.landmark}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, landmark: e.target.value })
+                  setNewContact({ ...newContact, landmark: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Landmark"
@@ -2361,7 +2374,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.area}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, area: e.target.value })
+                  setNewContact({ ...newContact, area: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Area"
@@ -2410,7 +2423,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.city}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, city: e.target.value })
+                  setNewContact({ ...newContact, city: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="City"
@@ -2424,7 +2437,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.district}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, district: e.target.value })
+                  setNewContact({ ...newContact, district: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="District"
@@ -2438,7 +2451,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.tahsil}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, tahsil: e.target.value })
+                  setNewContact({ ...newContact, tahsil: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Tahsil"
@@ -2452,7 +2465,7 @@ const CustomerList = () => {
                 type="text"
                 value={newContact.state}
                 onChange={(e) =>
-                  setNewContact({ ...newContact, state: e.target.value })
+                  setNewContact({ ...newContact, state: capitalizeWords(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="State"

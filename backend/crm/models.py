@@ -493,6 +493,7 @@ class Order(models.Model):
         ('Partial', 'Partial'),
         ('Credit', 'Credit'),
         ('Advance', 'Advance'),
+        ('Advance Payment Received', 'Advance Payment Received'),
         ('COD', 'COD'),
     ]
     order_id = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Order ID
@@ -502,7 +503,7 @@ class Order(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Placed')
-    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='Paid')
+    payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, default='Paid')
     followup_date = models.DateField(blank=True, null=True)
     delivery_address = models.TextField(blank=True, null=True)  # Legacy - use structured fields
     # Structured delivery fields matching Customer model

@@ -531,6 +531,23 @@ const OrderNew = () => {
     }
   };
 
+  // Persistent initial order status state for locking lower-rank options
+  const [initialOrderState, setInitialOrderState] = useState(() => {
+    if (editMode) {
+      try {
+        const savedEditData = sessionStorage.getItem("orderEditData");
+        if (savedEditData) {
+          const editData = JSON.parse(savedEditData);
+          return {
+            status: editData.formData?.status || null,
+            payment_status: editData.formData?.payment_status || null,
+          };
+        }
+      } catch (e) {}
+    }
+    return { status: null, payment_status: null };
+  });
+
   // State initialization with edit mode support
   const [formData, setFormData] = useState(() => {
     const defaultData = {
@@ -1648,7 +1665,11 @@ const OrderNew = () => {
       queryClient.invalidateQueries(["customers"]);
       queryClient.invalidateQueries(["customer-details"]);
 
-      if (editMode) {
+      if (editMode && data) {
+        setInitialOrderState({
+          status: data.status,
+          payment_status: data.payment_status,
+        });
         sessionStorage.removeItem("orderEditData");
         sessionStorage.removeItem("orderEditId");
       } else {
@@ -2869,19 +2890,29 @@ const OrderNew = () => {
                     <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
                     Order Status
                   </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="ordered">Ordered</option>
-                    <option value="Placed">Placed</option>
-                    <option value="Preparing">Preparing</option>
-                    <option value="Dispatched">Dispatched</option>
-                    <option value="Delivered">Delivered</option>
-                    <option value="Cancelled">Cancelled</option>
-                  </select>
+                  {(() => {
+                    const ORDER_STATUS_RANK = { ordered: 1, Placed: 1, Pending: 1, Preparing: 2, Processing: 2, Dispatched: 3, Delivered: 4, Cancelled: 4 };
+                    const originalStatus = editMode ? (initialOrderState.status || formData.status) : null;
+                    const originalRank = originalStatus ? (ORDER_STATUS_RANK[originalStatus] || 1) : 1;
+                    const isFinalStatus = editMode && (originalStatus === 'Delivered' || originalStatus === 'Cancelled');
+
+                    return (
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleFormChange}
+                        disabled={isFinalStatus}
+                        className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white ${isFinalStatus ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}`}
+                      >
+                        <option value="ordered" disabled={editMode && originalRank > 1}>Ordered {editMode && originalRank > 1 ? '(Not allowed)' : ''}</option>
+                        <option value="Placed" disabled={editMode && originalRank > 1}>Placed {editMode && originalRank > 1 ? '(Not allowed)' : ''}</option>
+                        <option value="Preparing" disabled={editMode && originalRank > 2}>Preparing {editMode && originalRank > 2 ? '(Not allowed)' : ''}</option>
+                        <option value="Dispatched" disabled={editMode && originalRank > 3}>Dispatched {editMode && originalRank > 3 ? '(Not allowed)' : ''}</option>
+                        <option value="Delivered" disabled={editMode && originalRank > 4}>Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                    );
+                  })()}
                 </div>
 
                 <div>
@@ -2889,18 +2920,29 @@ const OrderNew = () => {
                     <CreditCard className="w-4 h-4 mr-2 text-indigo-500" />
                     Payment Status
                   </label>
-                  <select
-                    name="payment_status"
-                    value={formData.payment_status}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="Credit">Credit</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Partial">Partial</option>
-                    <option value="Advance">Advance</option>
-                    <option value="COD">COD</option>
-                  </select>
+                  {(() => {
+                    const PAYMENT_STATUS_RANK = { Credit: 1, COD: 1, Advance: 2, 'Advance Payment Received': 2, Partial: 3, Paid: 4 };
+                    const originalPaymentStatus = editMode ? (initialOrderState.payment_status || formData.payment_status) : null;
+                    const originalPayRank = originalPaymentStatus ? (PAYMENT_STATUS_RANK[originalPaymentStatus] || 1) : 1;
+                    const isOriginalPaid = editMode && originalPaymentStatus === 'Paid';
+
+                    return (
+                      <select
+                        name="payment_status"
+                        value={formData.payment_status}
+                        onChange={handleFormChange}
+                        disabled={isOriginalPaid}
+                        className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white ${isOriginalPaid ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}`}
+                      >
+                        <option value="Credit" disabled={editMode && originalPayRank > 1}>Credit {editMode && originalPayRank > 1 ? '(Not allowed)' : ''}</option>
+                        <option value="COD" disabled={editMode && originalPayRank > 1}>COD {editMode && originalPayRank > 1 ? '(Not allowed)' : ''}</option>
+                        <option value="Advance" disabled={editMode && originalPayRank > 2}>Advance {editMode && originalPayRank > 2 ? '(Not allowed)' : ''}</option>
+                        <option value="Advance Payment Received" disabled={editMode && originalPayRank > 2}>Advance Payment Received {editMode && originalPayRank > 2 ? '(Not allowed)' : ''}</option>
+                        <option value="Partial" disabled={editMode && originalPayRank > 3}>Partial {editMode && originalPayRank > 3 ? '(Not allowed)' : ''}</option>
+                        <option value="Paid" disabled={editMode && originalPayRank > 4}>Paid</option>
+                      </select>
+                    );
+                  })()}
                 </div>
               </div>
 

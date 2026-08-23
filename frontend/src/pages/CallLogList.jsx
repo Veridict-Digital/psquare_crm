@@ -452,8 +452,21 @@ const CallLogList = () => {
                             )}
                           </div>
                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                           {callLog.customer_phone ? formatPhoneNumber(callLog.customer_phone) : '—'}
+                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                           {callLog.customer_phone ? (
+                             callLog.customer ? (
+                               <Link
+                                 to={`/customers/${callLog.customer}`}
+                                 className="text-blue-600 hover:text-blue-900 font-medium transition-colors duration-200"
+                               >
+                                 {formatPhoneNumber(callLog.customer_phone)}
+                               </Link>
+                             ) : (
+                               <span className="text-gray-900">{formatPhoneNumber(callLog.customer_phone)}</span>
+                             )
+                           ) : (
+                             <span className="text-gray-900">—</span>
+                           )}
                          </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{callLog.employee_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
@@ -555,7 +568,20 @@ const CallLogList = () => {
                   <div className="space-y-3 mb-4">
                      <div className="flex items-center justify-between">
                        <span className="text-sm text-gray-600">Phone:</span>
-                       <span className="text-sm font-medium text-gray-900 font-mono">{callLog.customer_phone ? formatPhoneNumber(callLog.customer_phone) : '—'}</span>
+                       {callLog.customer_phone ? (
+                         callLog.customer ? (
+                           <Link
+                             to={`/customers/${callLog.customer}`}
+                             className="text-sm font-medium text-blue-600 hover:text-blue-900 font-mono transition-colors duration-200"
+                           >
+                             {formatPhoneNumber(callLog.customer_phone)}
+                           </Link>
+                         ) : (
+                           <span className="text-sm font-medium text-gray-900 font-mono">{formatPhoneNumber(callLog.customer_phone)}</span>
+                         )
+                       ) : (
+                         <span className="text-sm font-medium text-gray-900 font-mono">—</span>
+                       )}
                      </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Employee:</span>
@@ -811,7 +837,17 @@ const CallLogList = () => {
                       <User className="w-4 h-4 text-gray-600" />
                       <span className="text-sm font-medium text-gray-600">Customer</span>
                     </div>
-                    <p className="text-sm font-semibold text-gray-900">{selectedCallLog.customer_name}</p>
+                     {selectedCallLog.customer ? (
+                       <Link
+                         to={`/customers/${selectedCallLog.customer}`}
+                         className="text-sm font-semibold text-blue-600 hover:text-blue-900 transition-colors duration-200 block"
+                         onClick={() => setShowNotesModal(false)}
+                       >
+                         {selectedCallLog.customer_name}
+                       </Link>
+                     ) : (
+                       <p className="text-sm font-semibold text-gray-900">{selectedCallLog.customer_name}</p>
+                     )}
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-4">

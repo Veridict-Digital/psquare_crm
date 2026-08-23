@@ -88,6 +88,8 @@ const OrderEdit = () => {
         customer.phone?.includes(customerSearch),
     ) || [];
 
+  const [initialOrderState, setInitialOrderState] = useState({ status: null, payment_status: null });
+
   useEffect(() => {
     if (order) {
       setFormData({
@@ -103,6 +105,10 @@ const OrderEdit = () => {
         delivery_option: order.delivery_address ? 'custom' : 'primary',
         order_date: order.order_date || '',
         created_at: order.created_at ? order.created_at.split('T')[0] : '',
+      });
+      setInitialOrderState({
+        status: order.status,
+        payment_status: order.payment_status,
       });
     }
   }, [order]);
@@ -145,8 +151,15 @@ const OrderEdit = () => {
       const response = await axios.put(`/api/orders/${id}/`, data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setShowSuccessModal(true);
+      if (data) {
+        setInitialOrderState({
+          status: data.status,
+          payment_status: data.payment_status,
+        });
+      }
+      queryClient.invalidateQueries(['order', id]);
       queryClient.invalidateQueries(['orders']);
       queryClient.invalidateQueries(['customers']);
     },
@@ -414,16 +427,28 @@ const OrderEdit = () => {
                 <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
                 Status
               </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleFormChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50"
-              >
-                <option value="Placed">Placed</option>
-                <option value="Dispatched">Dispatched</option>
-                <option value="Delivered">Delivered</option>
-              </select>
+              {(() => {
+                const ORDER_STATUS_RANK = { ordered: 1, Placed: 1, Pending: 1, Preparing: 2, Processing: 2, Dispatched: 3, Delivered: 4, Cancelled: 4 };
+                const originalStatus = initialOrderState.status || order?.status || 'Placed';
+                const originalRank = ORDER_STATUS_RANK[originalStatus] || 1;
+                const isFinalStatus = originalStatus === 'Delivered' || originalStatus === 'Cancelled';
+
+                return (
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleFormChange}
+                    disabled={isFinalStatus}
+                    className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50 ${isFinalStatus ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}`}
+                  >
+                    <option value="Placed" disabled={originalRank > 1}>Placed {originalRank > 1 ? '(Not allowed)' : ''}</option>
+                    <option value="Preparing" disabled={originalRank > 2}>Preparing {originalRank > 2 ? '(Not allowed)' : ''}</option>
+                    <option value="Dispatched" disabled={originalRank > 3}>Dispatched {originalRank > 3 ? '(Not allowed)' : ''}</option>
+                    <option value="Delivered" disabled={originalRank > 4}>Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                );
+              })()}
             </div>
 
             <div>
@@ -431,18 +456,29 @@ const OrderEdit = () => {
                 <CreditCard className="w-4 h-4 mr-2 text-indigo-500" />
                 Payment Status
               </label>
-              <select
-                name="payment_status"
-                value={formData.payment_status}
-                onChange={handleFormChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50"
-              >
-                <option value="Credit">Credit</option>
-                <option value="Paid">Paid</option>
-                <option value="Partial">Partial</option>
-                <option value="Advance">Advance</option>
-                <option value="COD">COD</option>
-              </select>
+              {(() => {
+                const PAYMENT_STATUS_RANK = { Credit: 1, COD: 1, Advance: 2, 'Advance Payment Received': 2, Partial: 3, Paid: 4 };
+                const originalPaymentStatus = initialOrderState.payment_status || order?.payment_status || 'Credit';
+                const originalPayRank = PAYMENT_STATUS_RANK[originalPaymentStatus] || 1;
+                const isOriginalPaid = originalPaymentStatus === 'Paid';
+
+                return (
+                  <select
+                    name="payment_status"
+                    value={formData.payment_status}
+                    onChange={handleFormChange}
+                    disabled={isOriginalPaid}
+                    className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50 ${isOriginalPaid ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}`}
+                  >
+                    <option value="Credit" disabled={originalPayRank > 1}>Credit {originalPayRank > 1 ? '(Not allowed)' : ''}</option>
+                    <option value="COD" disabled={originalPayRank > 1}>COD {originalPayRank > 1 ? '(Not allowed)' : ''}</option>
+                    <option value="Advance" disabled={originalPayRank > 2}>Advance {originalPayRank > 2 ? '(Not allowed)' : ''}</option>
+                    <option value="Advance Payment Received" disabled={originalPayRank > 2}>Advance Payment Received {originalPayRank > 2 ? '(Not allowed)' : ''}</option>
+                    <option value="Partial" disabled={originalPayRank > 3}>Partial {originalPayRank > 3 ? '(Not allowed)' : ''}</option>
+                    <option value="Paid" disabled={originalPayRank > 4}>Paid</option>
+                  </select>
+                );
+              })()}
             </div>
 
             {/* Delivery Address Options */}

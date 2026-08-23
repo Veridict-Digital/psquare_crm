@@ -451,7 +451,7 @@ class OrderSerializer(serializers.ModelSerializer):
         }
         PAYMENT_STATUS_RANK = {
             'Credit': 1, 'COD': 1,
-            'Advance': 2,
+            'Advance': 2, 'Advance Payment Received': 2,
             'Partial': 3,
             'Paid': 4
         }

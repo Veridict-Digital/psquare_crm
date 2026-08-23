@@ -86,6 +86,14 @@ else:
             'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
             'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
             'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+            # 'ENGINE': 'mssql',
+            # 'NAME': 'psquare_crm',
+            # 'HOST': 'localhost',
+            # 'PORT': '',  # Empty for default instances
+            # 'OPTIONS': {
+            #     'driver': 'ODBC Driver 17 for SQL Server',
+            #     'trusted_connection': 'yes',
+            # },
         }
     }
 
@@ -131,8 +139,12 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:5174',
+    'http://localhost:5175',
     'http://169.58.124.215',
 ]
+
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
