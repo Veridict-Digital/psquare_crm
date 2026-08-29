@@ -1550,8 +1550,15 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         if agent:
             queryset = queryset.filter(agent__username=agent)
+        payment_balance = self.request.query_params.get('payment_balance')
+        if payment_balance:
+            from django.db.models import F
+            if payment_balance in ['pending', 'has_pending']:
+                queryset = queryset.filter(total_amount__gt=F('paid_amount'))
+            elif payment_balance in ['fully_paid', 'paid']:
+                queryset = queryset.filter(paid_amount__gte=F('total_amount'))
         if status:
-            queryset = queryset.filter(status=status)
+            queryset = queryset.filter(status__iexact=status)
         if payment_status:
             queryset = queryset.filter(payment_status__iexact=payment_status)
         if date_from:

@@ -2496,7 +2496,6 @@ const CustomerList = () => {
                         submitContact,
                       );
                       setSuccessMessage("Customer updated successfully!");
-                      setShowAddForm(false);
                       setExistingCustomerId(null);
                       setNewContact({
                         name: "",
@@ -2523,6 +2522,11 @@ const CustomerList = () => {
                       queryClient.invalidateQueries({
                         queryKey: ["customers"],
                       });
+                      setTimeout(() => {
+                        if (addFormPhoneInputRef.current) {
+                          addFormPhoneInputRef.current.focus();
+                        }
+                      }, 100);
                     } catch (err) {
                       setErrorMessage("Failed to update customer");
                     }

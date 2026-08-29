@@ -239,6 +239,7 @@ const OrderList = () => {
   const [filterAgent, setFilterAgent] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
+  const [balanceStatus, setBalanceStatus] = useState('');
   const [productName, setProductName] = useState('');
   const [brandName, setBrandName] = useState('');
   const [minPrice, setMinPrice] = useState('');
@@ -273,6 +274,7 @@ const OrderList = () => {
   const [appliedAgent, setAppliedAgent] = useState('');
   const [appliedStatus, setAppliedStatus] = useState('');
   const [appliedPaymentStatus, setAppliedPaymentStatus] = useState('');
+  const [appliedBalanceStatus, setAppliedBalanceStatus] = useState('');
   const [appliedProductName, setAppliedProductName] = useState('');
   const [appliedBrandName, setAppliedBrandName] = useState('');
   const [appliedMinPrice, setAppliedMinPrice] = useState('');
@@ -334,6 +336,7 @@ const OrderList = () => {
       appliedAgent,
       appliedStatus,
       appliedPaymentStatus,
+      appliedBalanceStatus,
       appliedProductName,
       appliedBrandName,
       appliedMinPrice,
@@ -370,6 +373,7 @@ const OrderList = () => {
       if (appliedAgent) params.append('agent', appliedAgent);
       if (appliedStatus) params.append('status', appliedStatus);
       if (appliedPaymentStatus) params.append('payment_status', appliedPaymentStatus);
+      if (appliedBalanceStatus) params.append('payment_balance', appliedBalanceStatus);
       if (appliedProductName) params.append('product_name', appliedProductName);
       if (appliedBrandName) params.append('brand_name', appliedBrandName);
       if (appliedMinPrice) params.append('min_price', appliedMinPrice);
@@ -516,6 +520,7 @@ const OrderList = () => {
       if (appliedAgent) params.append('agent', appliedAgent);
       if (appliedStatus) params.append('status', appliedStatus);
       if (appliedPaymentStatus) params.append('payment_status', appliedPaymentStatus);
+      if (appliedBalanceStatus) params.append('payment_balance', appliedBalanceStatus);
       if (appliedProductName) params.append('product_name', appliedProductName);
       if (appliedBrandName) params.append('brand_name', appliedBrandName);
       if (appliedMinPrice) params.append('min_price', appliedMinPrice);
@@ -593,6 +598,7 @@ const OrderList = () => {
     setAppliedAgent(filterAgent);
     setAppliedStatus(filterStatus);
     setAppliedPaymentStatus(filterPaymentStatus);
+    setAppliedBalanceStatus(balanceStatus);
     setAppliedProductName(productName);
     setAppliedBrandName(brandName);
     setAppliedMinPrice(minPrice);
@@ -633,6 +639,7 @@ const OrderList = () => {
     setFilterAgent('');
     setFilterStatus('');
     setFilterPaymentStatus('');
+    setBalanceStatus('');
     setProductName('');
     setBrandName('');
     setMinPrice('');
@@ -666,6 +673,7 @@ const OrderList = () => {
     setAppliedAgent('');
     setAppliedStatus('');
     setAppliedPaymentStatus('');
+    setAppliedBalanceStatus('');
     setAppliedProductName('');
     setAppliedBrandName('');
     setAppliedMinPrice('');
@@ -776,8 +784,8 @@ const OrderList = () => {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-2">
             {/* ================= ROW 1 (Order Basic Filters) ================= */}
-            {/* Search - Increased width */}
-            <div className="flex flex-col md:col-span-2">
+            {/* Search */}
+            <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Search Order</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -801,6 +809,7 @@ const OrderList = () => {
               >
                 <option value="">All Statuses</option>
                 <option value="Ordered">Ordered</option>
+                <option value="Placed">Placed</option>
                 <option value="Preparing">Preparing</option>
                 <option value="Dispatched">Dispatched</option>
                 <option value="Delivered">Delivered</option>
@@ -817,9 +826,26 @@ const OrderList = () => {
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full bg-white outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
               >
                 <option value="">All Payments</option>
-                <option value="credit">Credit</option>
-                <option value="paid">Paid</option>
-                <option value="partial">Partial</option>
+                <option value="Paid">Paid</option>
+                <option value="Partial">Partial</option>
+                <option value="Credit">Credit</option>
+                <option value="Advance">Advance</option>
+                <option value="Advance Payment Received">Advance Payment Received</option>
+                <option value="COD">COD</option>
+              </select>
+            </div>
+
+            {/* Payment Balance Filter */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Payment Balance</label>
+              <select
+                value={balanceStatus}
+                onChange={(e) => setBalanceStatus(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full bg-white outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+              >
+                <option value="">All Balances</option>
+                <option value="pending">Has Pending Amount</option>
+                <option value="fully_paid">Fully Paid</option>
               </select>
             </div>
 
@@ -838,6 +864,22 @@ const OrderList = () => {
               </div>
             </div>
 
+            {/* Cust Type */}
+            <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Cust. Type</label>
+              <select
+                value={customerCustomerType}
+                onChange={(e) => setCustomerCustomerType(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full bg-white outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
+              >
+                <option value="">All Cust Types</option>
+                {customerTypes?.map(ct => (
+                  <option key={ct.id} value={ct.name}>{ct.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* ================= ROW 2 (Customer Profile Filters) ================= */}
             {/* Agent Filter */}
             <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Order Telecaller</label>
@@ -853,7 +895,6 @@ const OrderList = () => {
               </select>
             </div>
 
-            {/* ================= ROW 2 (Customer Profile Filters) ================= */}
             {/* Cust Phone */}
             <div className="flex flex-col">
               <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Cust. Phone</label>
@@ -909,21 +950,6 @@ const OrderList = () => {
                 <option value="">All Org Types</option>
                 {organizationTypes?.map(org => (
                   <option key={org.id} value={org.name}>{org.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cust Type */}
-            <div className="flex flex-col">
-              <label className="text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Cust. Type</label>
-              <select
-                value={customerCustomerType}
-                onChange={(e) => setCustomerCustomerType(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full bg-white outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
-              >
-                <option value="">All Cust Types</option>
-                {customerTypes?.map(ct => (
-                  <option key={ct.id} value={ct.name}>{ct.name}</option>
                 ))}
               </select>
             </div>
@@ -1292,7 +1318,7 @@ const OrderList = () => {
                                   ? 'bg-yellow-100 text-yellow-800'
                                   : order.payment_status === 'Credit'
                                     ? 'bg-orange-100 text-orange-800'
-                                    : order.payment_status === 'Advance'
+                                    : order.payment_status === 'Advance' || order.payment_status === 'Advance Payment Received'
                                       ? 'bg-blue-100 text-blue-800'
                                       : order.payment_status === 'COD'
                                         ? 'bg-purple-100 text-purple-800'
@@ -1541,7 +1567,7 @@ const OrderList = () => {
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : order.payment_status === 'Credit'
                                   ? 'bg-orange-100 text-orange-800'
-                                  : order.payment_status === 'Advance'
+                                  : order.payment_status === 'Advance' || order.payment_status === 'Advance Payment Received'
                                     ? 'bg-blue-100 text-blue-800'
                                     : order.payment_status === 'COD'
                                       ? 'bg-purple-100 text-purple-800'
