@@ -1156,7 +1156,7 @@ const CustomerList = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["organizationTypes"] });
-      setNewContact({ ...newContact, company_type: data.name });
+      setNewContact((prev) => ({ ...prev, company_type: data.id }));
       setNewOrgType("");
       setShowNewOrgTypeInput(false);
       setSuccessMessage("Organization type added successfully!");
@@ -1333,7 +1333,9 @@ const CustomerList = () => {
     }
 
     const selectedOrgType = organizationTypes?.find(
-      (type) => type.name === newContact.company_type,
+      (type) =>
+        type.id === Number(newContact.company_type) ||
+        type.name === newContact.company_type,
     );
     const selectedCustomerType = customerTypes?.find(
       (type) =>
@@ -1344,8 +1346,8 @@ const CustomerList = () => {
     const submitData = {
       ...newContact,
       phone: cleanPhone,
-      company_type: selectedOrgType?.id || null,
-      customer_type: selectedCustomerType?.id || null,
+      company_type: selectedOrgType ? selectedOrgType.id : (newContact.company_type && !isNaN(Number(newContact.company_type)) ? Number(newContact.company_type) : null),
+      customer_type: selectedCustomerType ? selectedCustomerType.id : (newContact.customer_type && !isNaN(Number(newContact.customer_type)) ? Number(newContact.customer_type) : null),
       telecaller_id: newContact.telecaller_id || null,
       appointment_date: newContact.appointment_date || null,
     };

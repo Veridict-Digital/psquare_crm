@@ -16,7 +16,7 @@ import io
 from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
-from .models import User, Customer, Product, Order, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Language, Community, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
+from .models import User, Customer, Product, Order, OrderItem, CallLog, CustomerAssumption, CustomerAssumption2, CustomerAssumption3, Lead, GSTRate, Category, ProductCombination, CombinationItem, CombinationReward, Phone, OrganizationType, CustomerType, Language, Community, Unit, Brand, BrandCategory, ProductPricing, OldOrderHistory, Role, RoleFeaturePermission
 from .serializers import BrandCategory1Serializer, FlavourSerializer, OldOrderHistorySerializer, ResidualSerializer, UserSerializer, CustomerSerializer, ProductSerializer, OrderSerializer, CallLogSerializer, CustomerAssumptionSerializer, CustomerAssumption2Serializer, CustomerAssumption3Serializer, LeadSerializer, GSTRateSerializer, CategorySerializer, ProductCombinationSerializer, PhoneSerializer, OrganizationTypeSerializer, CustomerTypeSerializer, LanguageSerializer, CommunitySerializer, UnitSerializer, BrandSerializer, BrandCategorySerializer, ProductPricingSerializer, RoleSerializer, RoleFeaturePermissionSerializer
 
 from rest_framework.views import APIView
@@ -79,177 +79,432 @@ class CallLogPagination(PageNumberPagination):
 
 # ========== DASHBOARD VIEW ==========
 class DashboardView(APIView):
+    """360° CRM analytics — all metrics aggregated from the database (no sample data)."""
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        # Get date filters from query parameters
+    @staticmethod
+    def _f(value):
+        return float(value or 0)
+
+    @staticmethod
+    def _pct_change(current, previous):
+        if previous is None or previous == 0:
+            return None if not current else 100.0
+        return round(((current - previous) / abs(previous)) * 100, 1)
+
+    def _resolve_period(self, request):
+        today = timezone.localdate()
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
-
-        # Base queryset for orders
-        orders_queryset = Order.objects.all()
-        if date_from:
-            orders_queryset = orders_queryset.filter(order_date__gte=date_from)
-        if date_to:
-            orders_queryset = orders_queryset.filter(order_date__lte=date_to)
-
-        # Base queryset for customers
-        customers_queryset = Customer.objects.all()
-        if date_from:
-            customers_queryset = customers_queryset.filter(created_at__gte=date_from)
-        if date_to:
-            customers_queryset = customers_queryset.filter(created_at__lte=date_to)
-
-        # Base queryset for call logs
-        calllogs_queryset = CallLog.objects.all()
-        if date_from:
-            calllogs_queryset = calllogs_queryset.filter(date__gte=date_from)
-        if date_to:
-            calllogs_queryset = calllogs_queryset.filter(date__lte=date_to)
-
-        total_revenue = orders_queryset.aggregate(total=Sum('total_amount'))['total'] or 0
-        profit_expr = ExpressionWrapper(F('total_amount') - F('paid_amount'), output_field=DecimalField())
-        total_profit = orders_queryset.aggregate(total=Sum(profit_expr))['total'] or 0
-
-        # Monthly revenue data (filtered by date range or last 6 months)
-        from django.db.models.functions import TruncMonth
+        range_key = request.query_params.get('range', '30d')
 
         if date_from and date_to:
-            # Use the provided date range
-            monthly_revenue = orders_queryset.annotate(month=TruncMonth('order_date'))\
-                .values('month')\
-                .annotate(revenue=Sum('total_amount'))\
-                .order_by('month')
+            start = datetime.datetime.strptime(date_from, '%Y-%m-%d').date()
+            end = datetime.datetime.strptime(date_to, '%Y-%m-%d').date()
         else:
-            # Default to last 6 months if no date range provided
-            six_months_ago = timezone.now() - datetime.timedelta(days=180)
-            monthly_revenue = Order.objects.filter(order_date__gte=six_months_ago)\
-                .annotate(month=TruncMonth('order_date'))\
-                .values('month')\
-                .annotate(revenue=Sum('total_amount'))\
-                .order_by('month')
+            end = today
+            days_map = {'7d': 7, '30d': 30, '90d': 90, '180d': 180, '365d': 365}
+            if range_key == 'all':
+                first_order = Order.objects.order_by('order_date').values_list('order_date', flat=True).first()
+                first_customer = Customer.objects.order_by('created_at').values_list('created_at', flat=True).first()
+                candidates = [d for d in [first_order, first_customer.date() if first_customer else None] if d]
+                start = min(candidates) if candidates else today - datetime.timedelta(days=30)
+            else:
+                start = end - datetime.timedelta(days=days_map.get(range_key, 30) - 1)
 
-        monthly_revenue_data = []
-        for item in monthly_revenue:
-            monthly_revenue_data.append({
-                'month': item['month'].strftime('%b'),
-                'revenue': float(item['revenue'])
+        period_days = max((end - start).days + 1, 1)
+        prev_end = start - datetime.timedelta(days=1)
+        prev_start = prev_end - datetime.timedelta(days=period_days - 1)
+        return start, end, prev_start, prev_end, period_days
+
+    def get(self, request):
+        from django.db.models.functions import TruncMonth, TruncDate
+
+        start, end, prev_start, prev_end, period_days = self._resolve_period(request)
+
+        orders = Order.objects.filter(order_date__gte=start, order_date__lte=end)
+        prev_orders = Order.objects.filter(order_date__gte=prev_start, order_date__lte=prev_end)
+        calls = CallLog.objects.filter(date__date__gte=start, date__date__lte=end)
+        prev_calls = CallLog.objects.filter(date__date__gte=prev_start, date__date__lte=prev_end)
+        customers_created = Customer.objects.filter(created_at__date__gte=start, created_at__date__lte=end)
+        prev_customers_created = Customer.objects.filter(created_at__date__gte=prev_start, created_at__date__lte=prev_end)
+
+        outstanding_expr = ExpressionWrapper(
+            F('total_amount') - F('paid_amount'),
+            output_field=DecimalField(max_digits=14, decimal_places=2),
+        )
+
+        def order_kpis(qs):
+            agg = qs.aggregate(
+                revenue=Sum('total_amount'),
+                collected=Sum('paid_amount'),
+                outstanding=Sum(outstanding_expr),
+                count=Count('id'),
+            )
+            return {
+                'revenue': self._f(agg['revenue']),
+                'collected': self._f(agg['collected']),
+                'outstanding': self._f(agg['outstanding']),
+                'count': agg['count'] or 0,
+            }
+
+        cur = order_kpis(orders)
+        prev = order_kpis(prev_orders)
+
+        delivered = orders.filter(status='Delivered').count()
+        cancelled = orders.filter(status='Cancelled').count()
+        in_pipeline = orders.exclude(status__in=['Delivered', 'Cancelled']).count()
+
+        aov = round(cur['revenue'] / cur['count'], 2) if cur['count'] else 0
+        collection_rate = round((cur['collected'] / cur['revenue']) * 100, 1) if cur['revenue'] else 0
+
+        # Gross profit from line items vs product purchase_price (real COGS when available)
+        line_items = OrderItem.objects.filter(order__in=orders)
+        sales_value = self._f(line_items.aggregate(s=Sum('total_price'))['s'])
+        cogs_rows = (
+            line_items.filter(product__purchase_price__isnull=False)
+            .annotate(
+                line_cogs=ExpressionWrapper(
+                    F('quantity') * F('product__purchase_price'),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                )
+            )
+            .aggregate(c=Sum('line_cogs'))
+        )
+        cogs_value = self._f(cogs_rows['c'])
+        gross_profit = round(sales_value - cogs_value, 2) if sales_value else 0
+        gross_margin = round((gross_profit / sales_value) * 100, 1) if sales_value else 0
+
+        total_customers = Customer.objects.count()
+        total_leads_contacts = Customer.objects.filter(contact_type='Lead').count()
+        total_converted_customers = Customer.objects.filter(contact_type='Customer').count()
+        new_contacts = customers_created.count()
+        prev_new_contacts = prev_customers_created.count()
+        active_customers = orders.values('customer_id').distinct().count()
+        vip_customers = (
+            Customer.objects.annotate(
+                period_value=Sum(
+                    'order__total_amount',
+                    filter=Q(order__order_date__gte=start, order__order_date__lte=end),
+                )
+            )
+            .filter(period_value__gte=50000)
+            .count()
+        )
+
+        total_calls = calls.count()
+        prev_total_calls = prev_calls.count()
+        calls_with_order = calls.filter(order__isnull=False).count()
+        call_conversion = round((calls_with_order / total_calls) * 100, 1) if total_calls else 0
+        completed_calls = calls.filter(status='Completed').count()
+
+        total_products = Product.objects.count()
+        low_stock_qs = Product.objects.filter(stock_qty__lte=10).order_by('stock_qty')[:8]
+        total_users = User.objects.filter(is_active=True).count()
+
+        lead_pipeline = list(
+            Lead.objects.values('status').annotate(count=Count('id')).order_by('status')
+        )
+        total_leads_model = Lead.objects.count()
+
+        today = timezone.localdate()
+        orders_today = Order.objects.filter(order_date=today).count()
+        calls_today = CallLog.objects.filter(date__date=today).count()
+        appointments_today = Customer.objects.filter(appointment_date=today).count()
+        followups_due = Order.objects.filter(
+            followup_date__gte=today,
+            followup_date__lte=today + datetime.timedelta(days=7),
+        ).exclude(status='Cancelled').count()
+
+        # --- Breakdowns ---
+        order_status = [
+            {
+                'status': row['status'],
+                'count': row['count'],
+                'amount': self._f(row['amount']),
+            }
+            for row in orders.values('status')
+            .annotate(count=Count('id'), amount=Sum('total_amount'))
+            .order_by('-count')
+        ]
+
+        payment_status = [
+            {
+                'status': row['payment_status'],
+                'count': row['count'],
+                'amount': self._f(row['amount']),
+            }
+            for row in orders.values('payment_status')
+            .annotate(count=Count('id'), amount=Sum('total_amount'))
+            .order_by('-count')
+        ]
+
+        call_status = [
+            {'status': row['status'], 'count': row['count']}
+            for row in calls.values('status').annotate(count=Count('id')).order_by('-count')
+        ]
+
+        contact_types = [
+            {'type': row['contact_type'], 'count': row['count']}
+            for row in Customer.objects.values('contact_type').annotate(count=Count('id')).order_by('-count')
+        ]
+
+        # Monthly trends within period (or last 6 months if short)
+        monthly_qs = (
+            orders.annotate(month=TruncMonth('order_date'))
+            .values('month')
+            .annotate(
+                revenue=Sum('total_amount'),
+                collected=Sum('paid_amount'),
+                orders_count=Count('id'),
+            )
+            .order_by('month')
+        )
+        customers_by_month = {
+            row['month']: row['customers']
+            for row in customers_created.annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(customers=Count('id'))
+        }
+        monthly_trends = []
+        for row in monthly_qs:
+            if not row['month']:
+                continue
+            monthly_trends.append({
+                'month': row['month'].strftime('%Y-%m'),
+                'label': row['month'].strftime('%b %y'),
+                'revenue': self._f(row['revenue']),
+                'collected': self._f(row['collected']),
+                'orders': row['orders_count'],
+                'customers': customers_by_month.get(row['month'], 0),
             })
 
-        # Order status over time (filtered by date range or last 7 months)
-        if date_from and date_to:
-            # Use the provided date range
-            order_status_data = orders_queryset.annotate(month=TruncMonth('order_date'))\
-                .values('month', 'status')\
-                .annotate(count=Count('id'))\
-                .order_by('month')
-        else:
-            # Default to last 7 months if no date range provided
-            seven_months_ago = timezone.now() - datetime.timedelta(days=210)
-            order_status_data = Order.objects.filter(order_date__gte=seven_months_ago)\
-                .annotate(month=TruncMonth('order_date'))\
-                .values('month', 'status')\
-                .annotate(count=Count('id'))\
-                .order_by('month')
+        # Daily trends (last min(period, 30) days)
+        daily_start = max(start, end - datetime.timedelta(days=29))
+        daily_qs = (
+            Order.objects.filter(order_date__gte=daily_start, order_date__lte=end)
+            .annotate(day=TruncDate('order_date'))
+            .values('day')
+            .annotate(revenue=Sum('total_amount'), orders_count=Count('id'))
+            .order_by('day')
+        )
+        daily_map = {row['day']: row for row in daily_qs}
+        daily_trends = []
+        cursor = daily_start
+        while cursor <= end:
+            row = daily_map.get(cursor)
+            daily_trends.append({
+                'date': cursor.isoformat(),
+                'label': cursor.strftime('%d %b'),
+                'revenue': self._f(row['revenue']) if row else 0,
+                'orders': row['orders_count'] if row else 0,
+            })
+            cursor += datetime.timedelta(days=1)
 
-        status_trends = {}
-        for item in order_status_data:
-            month_key = item['month'].strftime('%Y-%m-%d')
-            if month_key not in status_trends:
-                status_trends[month_key] = {'completed': 0, 'pending': 0, 'cancelled': 0}
-            if item['status'] == 'Delivered':
-                status_trends[month_key]['completed'] = item['count']
-            elif item['status'] == 'Placed':
-                status_trends[month_key]['pending'] = item['count']
-            elif item['status'] == 'Dispatched':
-                status_trends[month_key]['pending'] = status_trends[month_key]['pending'] + item['count']
+        # Order status over months (full status keys)
+        status_month_rows = (
+            orders.annotate(month=TruncMonth('order_date'))
+            .values('month', 'status')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        )
+        order_status_trends = {}
+        for row in status_month_rows:
+            if not row['month']:
+                continue
+            key = row['month'].strftime('%Y-%m')
+            if key not in order_status_trends:
+                order_status_trends[key] = {'label': row['month'].strftime('%b %y')}
+            order_status_trends[key][row['status']] = row['count']
 
-        # Customer segmentation (simplified)
-        total_customers = customers_queryset.count()
-        if date_from and date_to:
-            # Use the provided date range for new customers
-            new_customers = customers_queryset.filter(created_at__gte=date_from, created_at__lte=date_to).count()
-        else:
-            # Default to last 30 days if no date range provided
-            new_customers = Customer.objects.filter(created_at__gte=timezone.now() - datetime.timedelta(days=30)).count()
-        returning_customers = total_customers - new_customers
+        # Top products by revenue in period
+        top_products = [
+            {
+                'id': row['product_id'],
+                'title': row['product__title'],
+                'sku': row['product__sku'],
+                'qty': row['qty'] or 0,
+                'revenue': self._f(row['revenue']),
+                'stock_qty': row['product__stock_qty'],
+            }
+            for row in (
+                OrderItem.objects.filter(order__in=orders, is_free=False)
+                .values('product_id', 'product__title', 'product__sku', 'product__stock_qty')
+                .annotate(qty=Sum('quantity'), revenue=Sum('total_price'))
+                .order_by('-revenue')[:8]
+            )
+        ]
 
-        # VIP customers based on orders within the date range
-        if date_from and date_to:
-            vip_customers = Customer.objects.annotate(
-                total_order_value=Sum('order__total_amount', filter=Q(order__order_date__gte=date_from, order__order_date__lte=date_to))
-            ).filter(total_order_value__gte=50000).count()
-        else:
-            # Default to all time if no date range provided
-            vip_customers = Customer.objects.annotate(
-                total_order_value=Sum('order__total_amount')
-            ).filter(total_order_value__gte=50000).count()
-
-        customer_segments = [new_customers, returning_customers, vip_customers]
-
-        # Performance trends (filtered by date range or last 7 months)
-        if date_from and date_to:
-            # Use the provided date range
-            performance_data = orders_queryset.annotate(month=TruncMonth('order_date'))\
-                .values('month')\
-                .annotate(
-                    revenue=Sum('total_amount'),
-                    orders=Count('id')
-                )\
-                .order_by('month')
-
-            customers_trend = customers_queryset.annotate(month=TruncMonth('created_at'))\
-                .values('month')\
-                .annotate(customers=Count('id'))\
-                .order_by('month')
-        else:
-            # Default to last 7 months if no date range provided
-            seven_months_ago = timezone.now() - datetime.timedelta(days=210)
-            performance_data = Order.objects.filter(order_date__gte=seven_months_ago)\
-                .annotate(month=TruncMonth('order_date'))\
-                .values('month')\
-                .annotate(
-                    revenue=Sum('total_amount'),
-                    orders=Count('id')
-                )\
-                .order_by('month')
-
-            customers_trend = Customer.objects.filter(created_at__gte=seven_months_ago)\
-                .annotate(month=TruncMonth('created_at'))\
-                .values('month')\
-                .annotate(customers=Count('id'))\
-                .order_by('month')
-
-        performance_trends = []
-        for item in performance_data:
-            month_key = item['month'].strftime('%b')
-            customers_count = next((c['customers'] for c in customers_trend if c['month'] == item['month']), 0)
-            performance_trends.append({
-                'month': month_key,
-                'revenue': float(item['revenue']),
-                'orders': item['orders'],
-                'customers': customers_count
+        # Top agents by order revenue
+        top_agents = []
+        for row in (
+            orders.filter(agent__isnull=False)
+            .values('agent_id', 'agent__username', 'agent__first_name', 'agent__last_name')
+            .annotate(orders_count=Count('id'), revenue=Sum('total_amount'))
+            .order_by('-revenue')[:8]
+        ):
+            name = f"{row['agent__first_name'] or ''} {row['agent__last_name'] or ''}".strip() or row['agent__username']
+            agent_calls = calls.filter(employee_id=row['agent_id']).count()
+            top_agents.append({
+                'id': row['agent_id'],
+                'name': name,
+                'orders': row['orders_count'],
+                'revenue': self._f(row['revenue']),
+                'calls': agent_calls,
             })
 
-        # If no data, provide sample data
-        if not performance_trends:
-            performance_trends = [
-                {'month': 'Jan', 'revenue': 30000, 'orders': 20, 'customers': 10},
-                {'month': 'Feb', 'revenue': 40000, 'orders': 29, 'customers': 15},
-                {'month': 'Mar', 'revenue': 35000, 'orders': 37, 'customers': 20},
-                {'month': 'Apr', 'revenue': 50000, 'orders': 36, 'customers': 25},
-                {'month': 'May', 'revenue': 49000, 'orders': 44, 'customers': 30},
-                {'month': 'Jun', 'revenue': 60000, 'orders': 45, 'customers': 35},
-                {'month': 'Jul', 'revenue': 70000, 'orders': 50, 'customers': 40}
+        # Geo — top delivery / customer states
+        top_states = [
+            {
+                'state': row['delivery_state'] or 'Unknown',
+                'orders': row['orders_count'],
+                'revenue': self._f(row['revenue']),
+            }
+            for row in (
+                orders.exclude(delivery_state__isnull=True)
+                .exclude(delivery_state='')
+                .values('delivery_state')
+                .annotate(orders_count=Count('id'), revenue=Sum('total_amount'))
+                .order_by('-revenue')[:8]
+            )
+        ]
+        if not top_states:
+            top_states = [
+                {
+                    'state': row['customer__state'] or 'Unknown',
+                    'orders': row['orders_count'],
+                    'revenue': self._f(row['revenue']),
+                }
+                for row in (
+                    orders.exclude(customer__state__isnull=True)
+                    .exclude(customer__state='')
+                    .values('customer__state')
+                    .annotate(orders_count=Count('id'), revenue=Sum('total_amount'))
+                    .order_by('-revenue')[:8]
+                )
             ]
 
+        recent_orders = [
+            {
+                'id': o.id,
+                'order_id': o.order_id,
+                'customer_name': (o.customer.name or '') + (f" {o.customer.surname}" if o.customer.surname else ''),
+                'total_amount': self._f(o.total_amount),
+                'paid_amount': self._f(o.paid_amount),
+                'status': o.status,
+                'payment_status': o.payment_status,
+                'order_date': o.order_date.isoformat() if o.order_date else None,
+            }
+            for o in orders.select_related('customer').order_by('-order_date', '-id')[:8]
+        ]
+
+        low_stock = [
+            {
+                'id': p.id,
+                'title': p.title,
+                'sku': p.sku,
+                'stock_qty': p.stock_qty,
+            }
+            for p in low_stock_qs
+        ]
+
+        # Call outcome tags (assumptions) within period — query from CallLog side
+        outcome_counts = {}
+        if calls.exists():
+            for field in ('assumption', 'assumption2', 'assumption3'):
+                name_key = f'{field}__name'
+                for row in (
+                    calls.filter(**{f'{field}__isnull': False})
+                    .values(name_key)
+                    .annotate(count=Count('id', distinct=True))
+                ):
+                    name = row.get(name_key)
+                    if name:
+                        outcome_counts[name] = outcome_counts.get(name, 0) + row['count']
+        call_outcomes = [
+            {'name': name, 'count': count}
+            for name, count in sorted(outcome_counts.items(), key=lambda x: -x[1])[:8]
+        ]
+
+        kpis = {
+            'revenue': cur['revenue'],
+            'collected': cur['collected'],
+            'outstanding': cur['outstanding'],
+            'orders': cur['count'],
+            'delivered_orders': delivered,
+            'cancelled_orders': cancelled,
+            'pipeline_orders': in_pipeline,
+            'aov': aov,
+            'collection_rate': collection_rate,
+            'gross_profit': gross_profit,
+            'gross_margin': gross_margin,
+            'customers_total': total_customers,
+            'customers_new': new_contacts,
+            'customers_active': active_customers,
+            'customers_vip': vip_customers,
+            'leads_contacts': total_leads_contacts,
+            'converted_customers': total_converted_customers,
+            'leads_pipeline': total_leads_model,
+            'calls': total_calls,
+            'calls_completed': completed_calls,
+            'calls_converted': calls_with_order,
+            'call_conversion_rate': call_conversion,
+            'products': total_products,
+            'users': total_users,
+            'orders_today': orders_today,
+            'calls_today': calls_today,
+            'appointments_today': appointments_today,
+            'followups_due': followups_due,
+        }
+
+        kpi_changes = {
+            'revenue': self._pct_change(cur['revenue'], prev['revenue']),
+            'orders': self._pct_change(cur['count'], prev['count']),
+            'collected': self._pct_change(cur['collected'], prev['collected']),
+            'customers_new': self._pct_change(new_contacts, prev_new_contacts),
+            'calls': self._pct_change(total_calls, prev_total_calls),
+        }
+
         return Response({
-            'total_revenue': float(total_revenue),
-            'total_profit': float(total_profit),
-            'monthly_revenue': monthly_revenue_data,
-            'order_status_trends': status_trends,
-            'customer_segments': customer_segments,
-            'performance_trends': performance_trends,
+            'period': {
+                'from': start.isoformat(),
+                'to': end.isoformat(),
+                'days': period_days,
+                'prev_from': prev_start.isoformat(),
+                'prev_to': prev_end.isoformat(),
+            },
+            'kpis': kpis,
+            'kpi_changes': kpi_changes,
+            'order_status': order_status,
+            'payment_status': payment_status,
+            'call_status': call_status,
+            'contact_types': contact_types,
+            'lead_pipeline': lead_pipeline,
+            'monthly_trends': monthly_trends,
+            'daily_trends': daily_trends,
+            'order_status_trends': order_status_trends,
+            'top_products': top_products,
+            'top_agents': top_agents,
+            'top_states': top_states,
+            'recent_orders': recent_orders,
+            'low_stock': low_stock,
+            'call_outcomes': call_outcomes,
+            # Backward-compatible aliases used by older clients
+            'total_revenue': cur['revenue'],
+            'total_profit': cur['outstanding'],
+            'monthly_revenue': [
+                {'month': m['label'], 'revenue': m['revenue']} for m in monthly_trends
+            ],
+            'customer_segments': [new_contacts, max(total_customers - new_contacts, 0), vip_customers],
+            'performance_trends': [
+                {
+                    'month': m['label'],
+                    'revenue': m['revenue'],
+                    'orders': m['orders'],
+                    'customers': m['customers'],
+                }
+                for m in monthly_trends
+            ],
         })
 
 # ========== USER VIEWSET ==========
@@ -992,6 +1247,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         if not phone_number:
             return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Normalize phone number before checking/creating
+        from .models import normalize_phone
+        phone_number = normalize_phone(phone_number)
 
         if Phone.objects.filter(phone=phone_number).exists():
             return Response({'error': 'Phone number already exists'}, status=status.HTTP_400_BAD_REQUEST)
@@ -2030,6 +2289,11 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         phone = request.data.get('phone')
+        if phone:
+            from .models import normalize_phone
+            phone = normalize_phone(phone)
+            # Update request data with normalized phone
+            request.data['phone'] = phone
         if phone and Customer.objects.filter(phone=phone).exists():
             return Response({'error': 'Phone number already exists as a customer'}, status=status.HTTP_400_BAD_REQUEST)
         return super().create(request, *args, **kwargs)
@@ -2038,14 +2302,18 @@ class LeadViewSet(viewsets.ModelViewSet):
     def convert_to_customer(self, request, pk=None):
         lead = self.get_object()
 
+        # Normalize the lead phone for comparison
+        from .models import normalize_phone
+        normalized_phone = normalize_phone(lead.phone)
+
         # Check if phone already exists as customer
-        if Customer.objects.filter(phone=lead.phone).exists():
+        if Customer.objects.filter(phone=normalized_phone).exists():
             return Response({'error': 'Phone number already exists as a customer'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Create customer from lead data
         customer_data = {
             'name': lead.name or 'Unknown',
-            'phone': lead.phone,
+            'phone': normalized_phone,
             'email': lead.email,
             'pincode': None,
             'address': None,

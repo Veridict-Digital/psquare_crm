@@ -64,6 +64,13 @@ class CustomerSerializer(serializers.ModelSerializer):
             return None
         return value
 
+    def validate_phone(self, value):
+        """Normalize phone number - strip all non-digit characters."""
+        from .models import normalize_phone
+        if value:
+            return normalize_phone(value)
+        return value
+
     def validate_pincode(self, value):
         if not value or str(value).strip() == "" or str(value).strip() == "000000":
             return None
@@ -554,6 +561,13 @@ class CustomerAssumption3Serializer(serializers.ModelSerializer):
 
 class LeadSerializer(serializers.ModelSerializer):
     agent_name = serializers.CharField(source='agent.username', read_only=True)
+
+    def validate_phone(self, value):
+        """Normalize phone number - strip all non-digit characters."""
+        from .models import normalize_phone
+        if value:
+            return normalize_phone(value)
+        return value
 
     class Meta:
         model = Lead

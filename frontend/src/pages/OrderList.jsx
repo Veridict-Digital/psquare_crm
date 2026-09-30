@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, DollarSign, ShoppingCart, Truck, AlertCircle, Plus, X, IndianRupee, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -234,84 +234,223 @@ const OrderList = () => {
   const { hasPermission } = useAuth();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user.role === "Admin";
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Helper to read param from URL or sessionStorage fallback
+  const getInitialParam = (key, defaultVal = '') => {
+    const val = searchParams.get(key);
+    if (val !== null && val !== '') return val;
+    try {
+      const saved = sessionStorage.getItem('orderListFilters');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed[key] !== undefined && parsed[key] !== null && parsed[key] !== '') {
+          return parsed[key];
+        }
+      }
+    } catch (e) {}
+    return defaultVal;
+  };
+
   // Filter States - Draft/Pending
-  const [search, setSearch] = useState('');
-  const [filterAgent, setFilterAgent] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
-  const [balanceStatus, setBalanceStatus] = useState('');
-  const [productName, setProductName] = useState('');
-  const [brandName, setBrandName] = useState('');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [minItems, setMinItems] = useState('');
-  const [maxItems, setMaxItems] = useState('');
-  const [pendingDateFrom, setPendingDateFrom] = useState('');
-  const [pendingDateTo, setPendingDateTo] = useState('');
+  const [search, setSearch] = useState(() => getInitialParam('search'));
+  const [filterAgent, setFilterAgent] = useState(() => getInitialParam('agent'));
+  const [filterStatus, setFilterStatus] = useState(() => getInitialParam('status'));
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState(() => getInitialParam('payment_status'));
+  const [balanceStatus, setBalanceStatus] = useState(() => getInitialParam('payment_balance'));
+  const [productName, setProductName] = useState(() => getInitialParam('product_name'));
+  const [brandName, setBrandName] = useState(() => getInitialParam('brand_name'));
+  const [minPrice, setMinPrice] = useState(() => getInitialParam('min_price'));
+  const [maxPrice, setMaxPrice] = useState(() => getInitialParam('max_price'));
+  const [minItems, setMinItems] = useState(() => getInitialParam('min_items'));
+  const [maxItems, setMaxItems] = useState(() => getInitialParam('max_items'));
+  const [pendingDateFrom, setPendingDateFrom] = useState(() => getInitialParam('date_from'));
+  const [pendingDateTo, setPendingDateTo] = useState(() => getInitialParam('date_to'));
 
   // Customer-specific Filter States - Draft/Pending
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerSurname, setCustomerSurname] = useState('');
-  const [customerOrgName, setCustomerOrgName] = useState('');
-  const [customerOrgType, setCustomerOrgType] = useState('');
-  const [customerCustomerType, setCustomerCustomerType] = useState('');
-  const [customerTelecaller, setCustomerTelecaller] = useState('');
+  const [customerPhone, setCustomerPhone] = useState(() => getInitialParam('customer_phone'));
+  const [customerName, setCustomerName] = useState(() => getInitialParam('customer_name'));
+  const [customerSurname, setCustomerSurname] = useState(() => getInitialParam('customer_surname'));
+  const [customerOrgName, setCustomerOrgName] = useState(() => getInitialParam('customer_org_name'));
+  const [customerOrgType, setCustomerOrgType] = useState(() => getInitialParam('customer_org_type'));
+  const [customerCustomerType, setCustomerCustomerType] = useState(() => getInitialParam('customer_customer_type'));
+  const [customerTelecaller, setCustomerTelecaller] = useState(() => getInitialParam('customer_telecaller'));
 
-  const [customerHouseFlatNo, setCustomerHouseFlatNo] = useState('');
-  const [customerWingLane, setCustomerWingLane] = useState('');
-  const [customerSocietyColony, setCustomerSocietyColony] = useState('');
-  const [customerLandmark, setCustomerLandmark] = useState('');
-  const [customerArea, setCustomerArea] = useState('');
-  const [customerCity, setCustomerCity] = useState('');
-  const [customerDistrict, setCustomerDistrict] = useState('');
-  const [customerTahsil, setCustomerTahsil] = useState('');
-  const [customerState, setCustomerState] = useState('');
-  const [customerPincode, setCustomerPincode] = useState('');
+  const [customerHouseFlatNo, setCustomerHouseFlatNo] = useState(() => getInitialParam('customer_house_flat_no'));
+  const [customerWingLane, setCustomerWingLane] = useState(() => getInitialParam('customer_wing_lane'));
+  const [customerSocietyColony, setCustomerSocietyColony] = useState(() => getInitialParam('customer_society_colony'));
+  const [customerLandmark, setCustomerLandmark] = useState(() => getInitialParam('customer_landmark'));
+  const [customerArea, setCustomerArea] = useState(() => getInitialParam('customer_area'));
+  const [customerCity, setCustomerCity] = useState(() => getInitialParam('customer_city'));
+  const [customerDistrict, setCustomerDistrict] = useState(() => getInitialParam('customer_district'));
+  const [customerTahsil, setCustomerTahsil] = useState(() => getInitialParam('customer_tahsil'));
+  const [customerState, setCustomerState] = useState(() => getInitialParam('customer_state'));
+  const [customerPincode, setCustomerPincode] = useState(() => getInitialParam('customer_pincode'));
 
   // Applied Filter States
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [appliedAgent, setAppliedAgent] = useState('');
-  const [appliedStatus, setAppliedStatus] = useState('');
-  const [appliedPaymentStatus, setAppliedPaymentStatus] = useState('');
-  const [appliedBalanceStatus, setAppliedBalanceStatus] = useState('');
-  const [appliedProductName, setAppliedProductName] = useState('');
-  const [appliedBrandName, setAppliedBrandName] = useState('');
-  const [appliedMinPrice, setAppliedMinPrice] = useState('');
-  const [appliedMaxPrice, setAppliedMaxPrice] = useState('');
-  const [appliedMinItems, setAppliedMinItems] = useState('');
-  const [appliedMaxItems, setAppliedMaxItems] = useState('');
-  const [appliedDateFrom, setAppliedDateFrom] = useState('');
-  const [appliedDateTo, setAppliedDateTo] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState(() => getInitialParam('search'));
+  const [appliedAgent, setAppliedAgent] = useState(() => getInitialParam('agent'));
+  const [appliedStatus, setAppliedStatus] = useState(() => getInitialParam('status'));
+  const [appliedPaymentStatus, setAppliedPaymentStatus] = useState(() => getInitialParam('payment_status'));
+  const [appliedBalanceStatus, setAppliedBalanceStatus] = useState(() => getInitialParam('payment_balance'));
+  const [appliedProductName, setAppliedProductName] = useState(() => getInitialParam('product_name'));
+  const [appliedBrandName, setAppliedBrandName] = useState(() => getInitialParam('brand_name'));
+  const [appliedMinPrice, setAppliedMinPrice] = useState(() => getInitialParam('min_price'));
+  const [appliedMaxPrice, setAppliedMaxPrice] = useState(() => getInitialParam('max_price'));
+  const [appliedMinItems, setAppliedMinItems] = useState(() => getInitialParam('min_items'));
+  const [appliedMaxItems, setAppliedMaxItems] = useState(() => getInitialParam('max_items'));
+  const [appliedDateFrom, setAppliedDateFrom] = useState(() => getInitialParam('date_from'));
+  const [appliedDateTo, setAppliedDateTo] = useState(() => getInitialParam('date_to'));
 
   // Applied Customer-specific Filter States
-  const [appliedCustomerPhone, setAppliedCustomerPhone] = useState('');
-  const [appliedCustomerName, setAppliedCustomerName] = useState('');
-  const [appliedCustomerSurname, setAppliedCustomerSurname] = useState('');
-  const [appliedCustomerOrgName, setAppliedCustomerOrgName] = useState('');
-  const [appliedCustomerOrgType, setAppliedCustomerOrgType] = useState('');
-  const [appliedCustomerCustomerType, setAppliedCustomerCustomerType] = useState('');
-  const [appliedCustomerTelecaller, setAppliedCustomerTelecaller] = useState('');
+  const [appliedCustomerPhone, setAppliedCustomerPhone] = useState(() => getInitialParam('customer_phone'));
+  const [appliedCustomerName, setAppliedCustomerName] = useState(() => getInitialParam('customer_name'));
+  const [appliedCustomerSurname, setAppliedCustomerSurname] = useState(() => getInitialParam('customer_surname'));
+  const [appliedCustomerOrgName, setAppliedCustomerOrgName] = useState(() => getInitialParam('customer_org_name'));
+  const [appliedCustomerOrgType, setAppliedCustomerOrgType] = useState(() => getInitialParam('customer_org_type'));
+  const [appliedCustomerCustomerType, setAppliedCustomerCustomerType] = useState(() => getInitialParam('customer_customer_type'));
+  const [appliedCustomerTelecaller, setAppliedCustomerTelecaller] = useState(() => getInitialParam('customer_telecaller'));
 
-  const [appliedCustomerHouseFlatNo, setAppliedCustomerHouseFlatNo] = useState('');
-  const [appliedCustomerWingLane, setAppliedCustomerWingLane] = useState('');
-  const [appliedCustomerSocietyColony, setAppliedCustomerSocietyColony] = useState('');
-  const [appliedCustomerLandmark, setAppliedCustomerLandmark] = useState('');
-  const [appliedCustomerArea, setAppliedCustomerArea] = useState('');
-  const [appliedCustomerCity, setAppliedCustomerCity] = useState('');
-  const [appliedCustomerDistrict, setAppliedCustomerDistrict] = useState('');
-  const [appliedCustomerTahsil, setAppliedCustomerTahsil] = useState('');
-  const [appliedCustomerState, setAppliedCustomerState] = useState('');
-  const [appliedCustomerPincode, setAppliedCustomerPincode] = useState('');
+  const [appliedCustomerHouseFlatNo, setAppliedCustomerHouseFlatNo] = useState(() => getInitialParam('customer_house_flat_no'));
+  const [appliedCustomerWingLane, setAppliedCustomerWingLane] = useState(() => getInitialParam('customer_wing_lane'));
+  const [appliedCustomerSocietyColony, setAppliedCustomerSocietyColony] = useState(() => getInitialParam('customer_society_colony'));
+  const [appliedCustomerLandmark, setAppliedCustomerLandmark] = useState(() => getInitialParam('customer_landmark'));
+  const [appliedCustomerArea, setAppliedCustomerArea] = useState(() => getInitialParam('customer_area'));
+  const [appliedCustomerCity, setAppliedCustomerCity] = useState(() => getInitialParam('customer_city'));
+  const [appliedCustomerDistrict, setAppliedCustomerDistrict] = useState(() => getInitialParam('customer_district'));
+  const [appliedCustomerTahsil, setAppliedCustomerTahsil] = useState(() => getInitialParam('customer_tahsil'));
+  const [appliedCustomerState, setAppliedCustomerState] = useState(() => getInitialParam('customer_state'));
+  const [appliedCustomerPincode, setAppliedCustomerPincode] = useState(() => getInitialParam('customer_pincode'));
 
-  const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [viewMode, setViewMode] = useState(() => getInitialParam('view_mode', 'table')); // 'table' or 'card'
+  const [currentPage, setCurrentPage] = useState(() => {
+    const p = getInitialParam('page');
+    return p ? parseInt(p, 10) : 1;
+  });
+  const [pageSize, setPageSize] = useState(() => {
+    const s = getInitialParam('page_size');
+    return s ? parseInt(s, 10) : 15;
+  });
   const [allAgents, setAllAgents] = useState([]);
   const [exporting, setExporting] = useState(false);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Function to update URL and sessionStorage with current filters
+  const updateURLParams = useCallback(() => {
+    const params = new URLSearchParams();
+
+    if (appliedSearch) params.set('search', appliedSearch);
+    if (appliedAgent) params.set('agent', appliedAgent);
+    if (appliedStatus) params.set('status', appliedStatus);
+    if (appliedPaymentStatus) params.set('payment_status', appliedPaymentStatus);
+    if (appliedBalanceStatus) params.set('payment_balance', appliedBalanceStatus);
+    if (appliedProductName) params.set('product_name', appliedProductName);
+    if (appliedBrandName) params.set('brand_name', appliedBrandName);
+    if (appliedMinPrice) params.set('min_price', appliedMinPrice);
+    if (appliedMaxPrice) params.set('max_price', appliedMaxPrice);
+    if (appliedMinItems) params.set('min_items', appliedMinItems);
+    if (appliedMaxItems) params.set('max_items', appliedMaxItems);
+    if (appliedDateFrom) params.set('date_from', appliedDateFrom);
+    if (appliedDateTo) params.set('date_to', appliedDateTo);
+
+    // Customer filters
+    if (appliedCustomerPhone) params.set('customer_phone', appliedCustomerPhone);
+    if (appliedCustomerName) params.set('customer_name', appliedCustomerName);
+    if (appliedCustomerSurname) params.set('customer_surname', appliedCustomerSurname);
+    if (appliedCustomerOrgName) params.set('customer_org_name', appliedCustomerOrgName);
+    if (appliedCustomerOrgType) params.set('customer_org_type', appliedCustomerOrgType);
+    if (appliedCustomerCustomerType) params.set('customer_customer_type', appliedCustomerCustomerType);
+    if (appliedCustomerTelecaller) params.set('customer_telecaller', appliedCustomerTelecaller);
+
+    if (appliedCustomerHouseFlatNo) params.set('customer_house_flat_no', appliedCustomerHouseFlatNo);
+    if (appliedCustomerWingLane) params.set('customer_wing_lane', appliedCustomerWingLane);
+    if (appliedCustomerSocietyColony) params.set('customer_society_colony', appliedCustomerSocietyColony);
+    if (appliedCustomerLandmark) params.set('customer_landmark', appliedCustomerLandmark);
+    if (appliedCustomerArea) params.set('customer_area', appliedCustomerArea);
+    if (appliedCustomerCity) params.set('customer_city', appliedCustomerCity);
+    if (appliedCustomerDistrict) params.set('customer_district', appliedCustomerDistrict);
+    if (appliedCustomerTahsil) params.set('customer_tahsil', appliedCustomerTahsil);
+    if (appliedCustomerState) params.set('customer_state', appliedCustomerState);
+    if (appliedCustomerPincode) params.set('customer_pincode', appliedCustomerPincode);
+
+    if (currentPage !== 1) params.set('page', currentPage);
+    if (pageSize !== 15) params.set('page_size', pageSize);
+    if (viewMode !== 'table') params.set('view_mode', viewMode);
+
+    setSearchParams(params, { replace: true });
+
+    // Store in sessionStorage so filters are never lost on sidebar or cross-page navigation
+    const filterObj = {};
+    for (const [key, value] of params.entries()) {
+      filterObj[key] = value;
+    }
+    if (Object.keys(filterObj).length > 0) {
+      sessionStorage.setItem('orderListFilters', JSON.stringify(filterObj));
+    } else {
+      sessionStorage.removeItem('orderListFilters');
+    }
+  }, [
+    appliedSearch,
+    appliedAgent,
+    appliedStatus,
+    appliedPaymentStatus,
+    appliedBalanceStatus,
+    appliedProductName,
+    appliedBrandName,
+    appliedMinPrice,
+    appliedMaxPrice,
+    appliedMinItems,
+    appliedMaxItems,
+    appliedDateFrom,
+    appliedDateTo,
+    appliedCustomerPhone,
+    appliedCustomerName,
+    appliedCustomerSurname,
+    appliedCustomerOrgName,
+    appliedCustomerOrgType,
+    appliedCustomerCustomerType,
+    appliedCustomerTelecaller,
+    appliedCustomerHouseFlatNo,
+    appliedCustomerWingLane,
+    appliedCustomerSocietyColony,
+    appliedCustomerLandmark,
+    appliedCustomerArea,
+    appliedCustomerCity,
+    appliedCustomerDistrict,
+    appliedCustomerTahsil,
+    appliedCustomerState,
+    appliedCustomerPincode,
+    currentPage,
+    pageSize,
+    viewMode,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    updateURLParams();
+  }, [updateURLParams]);
+
+  // Sync state with URL search params (handles back/forward buttons)
+  useEffect(() => {
+    const page = searchParams.get("page");
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    if (parsedPage !== currentPage) {
+      setCurrentPage(parsedPage);
+    }
+
+    const size = searchParams.get("page_size");
+    const parsedSize = size ? parseInt(size, 10) : 15;
+    if (parsedSize !== pageSize) {
+      setPageSize(parsedSize);
+    }
+
+    const vm = searchParams.get("view_mode");
+    if (vm && vm !== viewMode) {
+      setViewMode(vm);
+    }
+  }, [searchParams]);
 
   // Queries for customer filter dropdowns
   const { data: organizationTypes } = useQuery({
@@ -704,6 +843,11 @@ const OrderList = () => {
     setAppliedCustomerPincode('');
 
     setCurrentPage(1);
+
+    // Specifically remove from URL and sessionStorage
+    sessionStorage.removeItem('orderListFilters');
+    setSearchParams(new URLSearchParams(), { replace: true });
+
     setTimeout(() => {
       refetch();
     }, 0);

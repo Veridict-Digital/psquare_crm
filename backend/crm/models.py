@@ -81,6 +81,14 @@ class Community(models.Model):
     def __str__(self):
         return self.name
 
+import re
+
+def normalize_phone(phone):
+    """Strip all non-digit characters from a phone number for consistent storage."""
+    if not phone:
+        return phone
+    return re.sub(r'\D', '', str(phone))
+
 class Customer(models.Model):
     CONTACT_TYPES = [
         ('Customer', 'Customer'),
@@ -95,7 +103,7 @@ class Customer(models.Model):
     community = models.ForeignKey(Community, on_delete=models.SET_NULL, null=True, blank=True)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=15, unique=True)
     gstin_no = models.CharField(max_length=15, blank=True, null=True, unique=True)
     contact_type = models.CharField(max_length=20, choices=CONTACT_TYPES, default='Customer')
     # Structured Address Fields
@@ -118,6 +126,10 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
+        # Normalize phone number - strip all non-digit characters
+        if self.phone:
+            self.phone = normalize_phone(self.phone)
+
         # Convert empty string/whitespace gstin_no to None before saving to avoid uniqueness constraint violation
         if self.gstin_no == "" or (self.gstin_no and str(self.gstin_no).strip() == ""):
             self.gstin_no = None
@@ -138,7 +150,7 @@ class Customer(models.Model):
 
         super().save(*args, **kwargs)
 
-        # Create Phone instance if phone is provided and no Phone exists for this customer
+        # Create Phone instance if phone is provided and no Phone exists for this customer (normalized comparison)
         if self.phone and not Phone.objects.filter(customer=self, phone=self.phone).exists():
             Phone.objects.create(customer=self, phone=self.phone, is_primary=True)
 
@@ -150,6 +162,9 @@ class Phone(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
+        # Normalize phone number - strip all non-digit characters
+        if self.phone:
+            self.phone = normalize_phone(self.phone)
         # Ensure only one primary phone per customer
         if self.is_primary:
             Phone.objects.filter(customer=self.customer, is_primary=True).update(is_primary=False)

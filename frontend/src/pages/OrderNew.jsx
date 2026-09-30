@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPortal } from "react-dom";
+import toast from "react-hot-toast";
 import {
   Search,
   Plus,
@@ -655,6 +656,65 @@ const OrderNew = () => {
   const [filterGift, setFilterGift] = useState(false);
   const [comboSortOrder, setComboSortOrder] = useState('desc');
   const [showQuotationModal, setShowQuotationModal] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [lastSavedSignature, setLastSavedSignature] = useState("");
+  const isInitialMount = useRef(true);
+
+  // Helper to produce a deterministic signature representing the current order state
+  const getOrderStateSignature = useCallback((form, items, combos) => {
+    if (!form) return "";
+    const addr = form.delivery_address || {};
+    return JSON.stringify({
+      status: form.status || "",
+      payment_status: form.payment_status || "",
+      followup_date: form.followup_date || "",
+      partial_amount: String(form.partial_amount || 0),
+      delivery_option: form.delivery_option || "primary",
+      order_date: form.order_date || "",
+      agent: String(form.agent || ""),
+      addr: [
+        addr.house_flat_no || "",
+        addr.wing_lane || "",
+        addr.society_colony || "",
+        addr.landmark || "",
+        addr.area || "",
+        addr.pincode || "",
+        addr.state || "",
+        addr.district || "",
+        addr.tahsil || "",
+        addr.city || "",
+      ].join("|"),
+      items: (items || []).map(i => ({
+        product: i.product,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        is_free: !!i.is_free,
+        is_gift: !!i.is_gift,
+        combo_id: i.combo_id || null,
+      })),
+      combos: (combos || []).map(c => ({
+        id: c.comboId || c.combo_id || c.id,
+        quantity: c.quantity || 1,
+      })),
+    });
+  }, []);
+
+  // Capture initial snapshot on mount for editMode
+  useEffect(() => {
+    if (editMode && isInitialMount.current) {
+      isInitialMount.current = false;
+      const initialSig = getOrderStateSignature(formData, orderItems, appliedCombos);
+      setLastSavedSignature(initialSig);
+    }
+  }, [editMode, formData, orderItems, appliedCombos, getOrderStateSignature]);
+
+  // Combined dirty check: order has changes if manual flag is true or signature differs from last saved
+  const isOrderDirty = useMemo(() => {
+    if (!editMode) return true;
+    if (!lastSavedSignature) return hasChanges;
+    const currentSig = getOrderStateSignature(formData, orderItems, appliedCombos);
+    return currentSig !== lastSavedSignature || hasChanges;
+  }, [editMode, lastSavedSignature, formData, orderItems, appliedCombos, getOrderStateSignature, hasChanges]);
 
   // Helper to switch drafts between customers
   const loadDraftForCustomer = (custId) => {
@@ -875,6 +935,7 @@ const OrderNew = () => {
   // ========== FORM HANDLERS ==========
   const handleFormChange = (e) => {
     const { name, value } = e.target;
+    if (editMode) setHasChanges(true);
     if (name.startsWith('delivery_address.')) {
       const field = name.split('.')[1];
       setFormData((prev) => ({
@@ -1010,6 +1071,7 @@ const OrderNew = () => {
 
   // Apply combo - adds items to order
   const applyCombo = useCallback((combo) => {
+    if (editMode) setHasChanges(true);
     const requiredItems = combo.items || [];
     const rewardItems = combo.rewards || [];
     const giftItems = combo.gifts || [];
@@ -1160,6 +1222,7 @@ const OrderNew = () => {
   }, [products]);
 
   const updateComboQuantity = useCallback((comboId, newQuantity, combo) => {
+    if (editMode) setHasChanges(true);
     if (newQuantity <= 0) {
       removeCombo(comboId);
       return;
@@ -1335,6 +1398,7 @@ const OrderNew = () => {
   }, [products, appliedCombos]);
 
   const removeCombo = useCallback((comboId) => {
+    if (editMode) setHasChanges(true);
     const combo = combinations?.find(c => c.id === comboId);
     if (!combo) return;
 
@@ -1421,6 +1485,7 @@ const OrderNew = () => {
   }, [combinations, appliedCombos]);
 
   const addProduct = useCallback(() => {
+    if (editMode) setHasChanges(true);
     if (!selectedProduct || quantity <= 0 || !products) return;
 
     const product = products.find(
@@ -1465,10 +1530,12 @@ const OrderNew = () => {
   }, [selectedProduct, quantity, products]);
 
   const removeProduct = useCallback((productId) => {
+    if (editMode) setHasChanges(true);
     setOrderItems((prev) => prev.filter((item) => item.product !== productId));
-  }, []);
+  }, [editMode]);
 
   const updateQuantity = useCallback((productId, newQuantity) => {
+    if (editMode) setHasChanges(true);
     if (newQuantity <= 0) {
       removeProduct(productId);
       return;
@@ -1666,12 +1733,26 @@ const OrderNew = () => {
       queryClient.invalidateQueries(["customer-details"]);
 
       if (editMode && data) {
+        const newSig = getOrderStateSignature(formData, orderItems, appliedCombos);
+        setLastSavedSignature(newSig);
+        setHasChanges(false);
         setInitialOrderState({
           status: data.status,
           payment_status: data.payment_status,
         });
-        sessionStorage.removeItem("orderEditData");
-        sessionStorage.removeItem("orderEditId");
+        toast.success("Order updated successfully!");
+
+        // Update sessionStorage draft with newly saved data
+        const updatedEditData = {
+          formData: {
+            ...formData,
+            status: data.status,
+            payment_status: data.payment_status,
+          },
+          orderItems,
+          appliedCombos,
+        };
+        sessionStorage.setItem("orderEditData", JSON.stringify(updatedEditData));
       } else {
         const targetId = formData.customer ? formData.customer.toString() : "";
         // Only clear items and combinations drafts, keep form data draft
@@ -3406,11 +3487,12 @@ const OrderNew = () => {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={mutation.isLoading}
+                disabled={mutation.isLoading || (editMode && !isOrderDirty)}
+                title={editMode && !isOrderDirty ? "No changes detected. Modify the order to enable update." : ""}
                 className="w-full mt-6 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               >
                 <CheckCircle className="w-5 h-5" />
-                <span>{mutation.isLoading ? (editMode ? "Updating Order..." : "Placing Order...") : (editMode ? "Update Order" : "Place Order")}</span>
+                <span>{mutation.isLoading ? (editMode ? "Updating Order..." : "Placing Order...") : (editMode ? (isOrderDirty ? "Update Order" : "No Changes") : "Place Order")}</span>
               </button>
             </div>
           </div>

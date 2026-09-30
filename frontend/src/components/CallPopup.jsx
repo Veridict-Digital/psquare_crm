@@ -126,10 +126,11 @@ const CallPopup = () => {
   useEffect(() => {
     if (isVisible && !isMinimized) {
       const focusTimer = setTimeout(() => {
-        if (isEmbedded && embeddedNotesRef.current) {
-          embeddedNotesRef.current.focus();
-        } else if (!isEmbedded && floatingNotesRef.current) {
-          floatingNotesRef.current.focus();
+        const textarea = isEmbedded ? embeddedNotesRef.current : floatingNotesRef.current;
+        if (textarea) {
+          textarea.focus();
+          const length = textarea.value.length;
+          textarea.setSelectionRange(length, length);
         }
       }, 100);
       return () => clearTimeout(focusTimer);
@@ -288,6 +289,10 @@ const CallPopup = () => {
                 ref={embeddedNotesRef}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                onFocus={(e) => {
+                  const length = e.target.value.length;
+                  e.target.setSelectionRange(length, length);
+                }}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-hidden"
                 rows="8"
                 placeholder="Add notes about the call..."
@@ -774,6 +779,10 @@ const CallPopup = () => {
                 ref={floatingNotesRef}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                onFocus={(e) => {
+                  const length = e.target.value.length;
+                  e.target.setSelectionRange(length, length);
+                }}
                 className="w-full p-2 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/50 placeholder-gray-400 resize-none overflow-hidden"
                 rows="10"
                 placeholder="Call notes..."
