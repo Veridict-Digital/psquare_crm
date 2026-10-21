@@ -339,7 +339,12 @@ const CustomerList = () => {
 
   // UI states
   const [viewMode, setViewMode] = useState("table");
-  const [viewType, setViewType] = useState(() => searchParams.get("view_type") || "all");
+  const [viewType, setViewType] = useState(() => {
+    const vt = searchParams.get("view_type");
+    if (vt === "leads") return "leads";
+    // Default / legacy "all" → appointments
+    return "appointments";
+  });
   const [currentPage, setCurrentPage] = useState(() => {
     const page = searchParams.get("page");
     return page ? parseInt(page) : 1;
@@ -465,7 +470,7 @@ const CustomerList = () => {
     if (filterPincode) params.set("pincode", filterPincode);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
-    if (viewType && viewType !== "all") params.set("view_type", viewType);
+    if (viewType) params.set("view_type", viewType);
     if (currentPage !== 1) params.set("page", currentPage);
     if (pageSize !== 15) params.set("page_size", pageSize);
 
@@ -1933,20 +1938,8 @@ const CustomerList = () => {
                 </div>
               </div>
 
-              {/* View Type Toggle (All / Appointments / Leads) */}
+              {/* View Type Toggle (Appointments / Leads) */}
               <div className="flex items-center bg-gray-100 rounded-lg p-1 h-10">
-                <button
-                  onClick={() => {
-                    setViewType("all");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "all"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                    }`}
-                >
-                  All
-                </button>
                 <button
                   onClick={() => {
                     setViewType("appointments");
