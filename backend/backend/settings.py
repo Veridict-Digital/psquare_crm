@@ -89,20 +89,20 @@ else:
     # Local development fallback (update to match your local setup)
     DATABASES = {
         'default': {
-            # 'ENGINE': 'django.db.backends.postgresql',
-            # 'NAME': os.environ.get('POSTGRES_DB', 'psquare_crm'),
-            # 'USER': os.environ.get('POSTGRES_USER', 'psquare_user'),
-            # 'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
-            # 'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            # 'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-            'ENGINE': 'mssql',
-            'NAME': 'psquare_crm',
-            'HOST': 'localhost',
-            'PORT': '',  # Empty for default instances
-            'OPTIONS': {
-                'driver': 'ODBC Driver 17 for SQL Server',
-                'trusted_connection': 'yes',
-            },
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', 'psquare_crm'),
+            'USER': os.environ.get('POSTGRES_USER', 'psquare_user'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+            # 'ENGINE': 'mssql',
+            # 'NAME': 'psquare_crm',
+            # 'HOST': 'localhost',
+            # 'PORT': '',  # Empty for default instances
+            # 'OPTIONS': {
+            #     'driver': 'ODBC Driver 17 for SQL Server',
+            #     'trusted_connection': 'yes',
+            # },
         }
     }
 
