@@ -339,7 +339,7 @@ const CustomerList = () => {
 
   // UI states
   const [viewMode, setViewMode] = useState("table");
-  const [viewType, setViewType] = useState(() => searchParams.get("view_type") || "customers");
+  const [viewType, setViewType] = useState(() => searchParams.get("view_type") || "all");
   const [currentPage, setCurrentPage] = useState(() => {
     const page = searchParams.get("page");
     return page ? parseInt(page) : 1;
@@ -465,7 +465,7 @@ const CustomerList = () => {
     if (filterPincode) params.set("pincode", filterPincode);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
-    if (viewType !== "customers") params.set("view_type", viewType);
+    if (viewType && viewType !== "all") params.set("view_type", viewType);
     if (currentPage !== 1) params.set("page", currentPage);
     if (pageSize !== 15) params.set("page_size", pageSize);
 
@@ -550,7 +550,7 @@ const CustomerList = () => {
       if (filterTime) params.append("time", filterTime);
 
       if (!phoneSearch && !nameSearch && !surnameSearch) {
-        if (viewType === "customers") {
+        if (viewType === "appointments" || viewType === "customers") {
           params.append("has_appointment", "true");
         } else if (viewType === "leads") {
           params.append("has_appointment", "false");
@@ -1483,7 +1483,7 @@ const CustomerList = () => {
       if (filterPincode) params.append("pincode", filterPincode);
 
       if (!phoneSearch && !nameSearch && !surnameSearch) {
-        if (viewType === "customers") {
+        if (viewType === "appointments" || viewType === "customers") {
           params.append("has_appointment", "true");
         } else if (viewType === "leads") {
           params.append("has_appointment", "false");
@@ -1933,14 +1933,26 @@ const CustomerList = () => {
                 </div>
               </div>
 
-              {/* View Type Toggle (Appointments / Leads) */}
+              {/* View Type Toggle (All / Appointments / Leads) */}
               <div className="flex items-center bg-gray-100 rounded-lg p-1 h-10">
                 <button
                   onClick={() => {
-                    setViewType("customers");
+                    setViewType("all");
                     setCurrentPage(1);
                   }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "customers"
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "all"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                    }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => {
+                    setViewType("appointments");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewType === "appointments" || viewType === "customers"
                     ? "bg-white text-blue-600 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                     }`}

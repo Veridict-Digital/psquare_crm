@@ -565,7 +565,9 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(user)
             return Response(serializer.data)
         elif request.method == 'PUT':
-            serializer = self.get_serializer(user, data=request.data, partial=True)
+            data = request.data.copy()
+            data.pop('role', None)  # Prevent privilege escalation
+            serializer = self.get_serializer(user, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             if 'password' in request.data and request.data['password']:
@@ -881,8 +883,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
             # Admin sees ALL customers
             queryset = Customer.objects.all()
         else:
-            # Telecaller/Employee sees ONLY customers assigned to them
-            queryset = Customer.objects.filter(agent=user)
+            # Telecaller/Employee sees customers assigned to them AND unassigned customers
+            queryset = Customer.objects.filter(models.Q(agent=user) | models.Q(agent__isnull=True))
         
         # ========== OPTIMIZE QUERYSET ==========
         queryset = queryset.select_related('company_type', 'customer_type', 'agent')
@@ -1080,7 +1082,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         
         # ========== ADD ROLE-BASED UPDATE PROTECTION ==========
         user = request.user
-        if user.role != 'Admin' and instance.agent != user:
+        if user.role != 'Admin' and instance.agent and instance.agent != user:
             return Response(
                 {'error': 'You can only update customers assigned to you'},
                 status=status.HTTP_403_FORBIDDEN
@@ -1126,8 +1128,12 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        self.perform_destroy(instance)
+        # Soft-delete → recycle bin (cascades orders & phones)
+        instance.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def perform_destroy(self, instance):
+        instance.delete(user=self.request.user)
 
     @action(detail=True, methods=['get'])
     def details(self, request, pk=None):
@@ -1135,7 +1141,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         
         # ========== ADD ROLE-BASED ACCESS PROTECTION ==========
         user = request.user
-        if user.role != 'Admin' and customer.agent != user:
+        if user.role != 'Admin' and customer.agent and customer.agent != user:
             return Response(
                 {'error': 'You can only view customers assigned to you'},
                 status=status.HTTP_403_FORBIDDEN
@@ -1176,12 +1182,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
         # Get orders for this customer
         orders = Order.objects.filter(customer=customer).select_related('agent').prefetch_related('items__product').order_by('-id')
 
-        # Calculate summary statistics
+        # Calculate summary statistics (exclude Cancelled from paid/pending)
+        active_orders = orders.exclude(status='Cancelled')
+        cancelled_qs = orders.filter(status='Cancelled')
+
         total_calls = call_logs.count()
         total_orders = orders.count()
-        total_order_value = orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
-        total_paid = orders.aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0
+        total_order_value = active_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        total_paid = active_orders.aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0
         total_pending = total_order_value - total_paid
+        cancelled_orders = cancelled_qs.count()
+        cancelled_amount = cancelled_qs.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
         unique_employees = call_logs.values('employee').distinct().count()
 
         # Serialize data
@@ -1224,6 +1235,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'total_order_value': float(total_order_value),
                 'total_paid': float(total_paid),
                 'total_pending': float(total_pending),
+                'cancelled_orders': cancelled_orders,
+                'cancelled_amount': float(cancelled_amount),
                 'unique_employees': unique_employees,
             },
             'call_logs': call_logs_data,
@@ -1442,6 +1455,9 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def perform_destroy(self, instance):
+        instance.delete(user=self.request.user)
 
     @action(detail=False, methods=['post'], url_path='bulk-import', parser_classes=[MultiPartParser, FormParser])
     def bulk_import(self, request):
@@ -1765,6 +1781,9 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = OrderPagination
 
+    def perform_destroy(self, instance):
+        instance.delete(user=self.request.user)
+
     def get_queryset(self):
         user = self.request.user
         queryset = Order.objects.select_related('customer', 'agent', 'created_by').all().order_by('-id')
@@ -2042,6 +2061,9 @@ class CallLogViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = CallLogPagination
 
+    def perform_destroy(self, instance):
+        instance.delete(user=self.request.user)
+
     def get_queryset(self):
         queryset = CallLog.objects.select_related('order', 'employee', 'customer', 'lead').all()
         
@@ -2175,6 +2197,31 @@ class CallLogViewSet(viewsets.ModelViewSet):
             'avg_duration_seconds': avg_duration_formatted
         })
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', True)  # Always partial to protect existing foreign keys
+        instance = self.get_object()
+        data = request.data.copy()
+
+        # Preserve existing relationships if not explicitly provided
+        if 'customer' not in data and instance.customer:
+            data['customer'] = instance.customer.id
+        if 'lead' not in data and instance.lead:
+            data['lead'] = instance.lead.id
+        if 'employee' not in data and instance.employee:
+            data['employee'] = instance.employee.id
+        elif not instance.employee and request.user.is_authenticated:
+            data['employee'] = request.user.id
+
+        # Convert duration from seconds if passed as integer
+        if 'duration' in data and (isinstance(data['duration'], (int, float)) or (isinstance(data['duration'], str) and data['duration'].isdigit())):
+            from datetime import timedelta
+            data['duration'] = timedelta(seconds=int(data['duration']))
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
         # Check if there's an order_id provided
         order_id = self.request.data.get('order_id')
@@ -2195,27 +2242,36 @@ class CallLogViewSet(viewsets.ModelViewSet):
         data = request.data.copy()
         data['employee'] = request.user.id
         
-        # CRITICAL: Require customer ID
         customer_id = data.get('customer')
+        lead_id = data.get('lead')
         
-        if not customer_id:
+        if not customer_id and not lead_id:
             return Response(
-                {'error': 'Customer ID is required. Cannot save call log without customer.'}, 
+                {'error': 'Customer or Lead ID is required. Cannot save call log without customer or lead.'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Validate customer exists
-        try:
-            customer = Customer.objects.get(id=customer_id)
-            data['customer'] = customer.id
-        except Customer.DoesNotExist:
-            return Response(
-                {'error': f'Customer with id {customer_id} does not exist'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Remove lead field
-        data.pop('lead', None)
+        # Validate customer or lead exists
+        if customer_id:
+            try:
+                customer = Customer.objects.get(id=customer_id)
+                data['customer'] = customer.id
+            except Customer.DoesNotExist:
+                return Response(
+                    {'error': f'Customer with id {customer_id} does not exist'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            data.pop('lead', None)
+        elif lead_id:
+            try:
+                lead = Lead.objects.get(id=lead_id)
+                data['lead'] = lead.id
+            except Lead.DoesNotExist:
+                return Response(
+                    {'error': f'Lead with id {lead_id} does not exist'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            data.pop('customer', None)
         
         # Set status
         if 'status' not in data or not data['status']:
@@ -2229,7 +2285,7 @@ class CallLogViewSet(viewsets.ModelViewSet):
         
         # IMPORTANT: Check if this is an edit operation
         call_id = data.get('call_id')
-        is_editing = data.get('is_editing', False)  # Frontend should send this flag
+        is_editing = data.get('is_editing', False)
         
         existing_call_log = None
         
@@ -2237,25 +2293,27 @@ class CallLogViewSet(viewsets.ModelViewSet):
         if call_id and is_editing:
             try:
                 existing_call_log = CallLog.objects.get(call_id=call_id)
-                print(f"Editing existing call log: {call_id}")
             except CallLog.DoesNotExist:
-                print(f"Call log with call_id {call_id} not found, creating new")
                 pass
         
         if existing_call_log:
             # UPDATE existing call log
-            # Remove fields that shouldn't be updated
             data.pop('created_at', None)
             data.pop('date', None)
             
             # Don't change call_id
             if 'call_id' in data:
                 data.pop('call_id')
+                
+            # Preserve existing customer/lead if not provided
+            if 'customer' not in data and existing_call_log.customer:
+                data['customer'] = existing_call_log.customer.id
+            if 'lead' not in data and existing_call_log.lead:
+                data['lead'] = existing_call_log.lead.id
             
             serializer = self.get_serializer(existing_call_log, data=data, partial=True)
         else:
             # CREATE new call log
-            # Remove is_editing flag before saving
             data.pop('is_editing', None)
             serializer = self.get_serializer(data=data)
         
@@ -2473,6 +2531,10 @@ class PhoneViewSet(viewsets.ModelViewSet):
     queryset = Phone.objects.all()
     serializer_class = PhoneSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        instance.delete(user=self.request.user)
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 

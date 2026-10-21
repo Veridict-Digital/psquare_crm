@@ -36,11 +36,13 @@ const CallLogEdit = () => {
 
   const mutation = useMutation({
     mutationFn: async (data) => {
-      const response = await axios.put(`/api/calllogs/${id}/`, data);
+      const response = await axios.patch(`/api/calllogs/${id}/`, data);
       return response.data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries(['callLogs']);
       queryClient.invalidateQueries(['calllogs']);
+      queryClient.invalidateQueries(['call-logs']);
       navigate('/calllogs');
     },
   });

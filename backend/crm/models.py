@@ -5,6 +5,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from .soft_delete import SoftDeleteModel
 
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True, help_text="Name of the custom role (e.g., 'Data Entry')")
@@ -89,11 +90,13 @@ def normalize_phone(phone):
         return phone
     return re.sub(r'\D', '', str(phone))
 
-class Customer(models.Model):
+class Customer(SoftDeleteModel):
     CONTACT_TYPES = [
         ('Customer', 'Customer'),
         ('Lead', 'Lead'),
     ]
+    soft_unique_fields = ['phone', 'gstin_no']
+
     name = models.CharField(max_length=100, blank=True, null=True)
     surname = models.CharField(max_length=100, blank=True, null=True)
     company_name = models.CharField(max_length=100, blank=True, null=True)
@@ -154,7 +157,33 @@ class Customer(models.Model):
         if self.phone and not Phone.objects.filter(customer=self, phone=self.phone).exists():
             Phone.objects.create(customer=self, phone=self.phone, is_primary=True)
 
-class Phone(models.Model):
+    def delete(self, using=None, keep_parents=False, user=None, hard=False):
+        if hard:
+            return super().delete(using=using, keep_parents=keep_parents, user=user, hard=True)
+        # Soft-cascade related orders & phones into recycle bin
+        for order in Order.objects.filter(customer=self):
+            order.delete(user=user)
+        for phone in Phone.objects.filter(customer=self):
+            phone.delete(user=user)
+        return super().delete(using=using, keep_parents=keep_parents, user=user, hard=False)
+
+    def restore(self, user=None):
+        super().restore(user=user)
+        # Restore phones & orders soft-deleted with this customer
+        for phone in Phone.deleted_objects.filter(customer_id=self.pk):
+            try:
+                phone.restore(user=user)
+            except ValueError:
+                pass
+        for order in Order.deleted_objects.filter(customer_id=self.pk):
+            try:
+                order.restore(user=user)
+            except ValueError:
+                pass
+
+class Phone(SoftDeleteModel):
+    soft_unique_fields = ['phone']
+
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='phones')
     phone = models.CharField(max_length=15, unique=True)
     contact_person = models.CharField(max_length=100, blank=True, null=True)
@@ -293,7 +322,8 @@ class BrandCategory1(models.Model):
     def __str__(self):
         return self.name
 
-class Product(models.Model):
+class Product(SoftDeleteModel):
+    soft_unique_fields = ['pid', 'sku']
 
     pid = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Product ID
     sku = models.CharField(max_length=50, unique=True ,blank=True, null=True)  # Stock Keeping Unit
@@ -494,7 +524,9 @@ class ProductPricing(models.Model):
         
         super().save(*args, **kwargs)
 
-class Order(models.Model):
+class Order(SoftDeleteModel):
+    soft_unique_fields = ['order_id']
+
     STATUS_CHOICES = [
         ('ordered', 'Ordered'),
         ('Preparing', 'Preparing'),
@@ -513,7 +545,7 @@ class Order(models.Model):
     ]
     order_id = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Unique Order ID
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    agent = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_orders')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -569,7 +601,8 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    # PROTECT: never wipe order history if a product is hard-purged from recycle bin
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.IntegerField()
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2)
@@ -647,7 +680,9 @@ class CustomerAssumption3(models.Model):
     def __str__(self):
         return self.name
 
-class CallLog(models.Model):
+class CallLog(SoftDeleteModel):
+    soft_unique_fields = ['call_id']
+
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
         ('In Progress', 'In Progress'),
@@ -671,24 +706,19 @@ class CallLog(models.Model):
     
     def clean(self):
         from django.core.exceptions import ValidationError
-        # FORCE: Every call log MUST have a customer
-        if not self.customer:
-            raise ValidationError('Customer is required for all call logs')
+        if not self.customer and not self.lead:
+            raise ValidationError('Customer or Lead is required for all call logs')
     
-def save(self, *args, **kwargs):
-    self.clean()
-    # ONLY generate call_id if it doesn't exist (new record)
-    if not self.call_id:
-        import uuid
-        self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
-    # DO NOT regenerate call_id for existing records
-    super().save(*args, **kwargs)
+    def save(self, *args, **kwargs):
+        self.clean()
+        if not self.call_id:
+            import uuid
+            self.call_id = f"CALL{uuid.uuid4().hex[:8].upper()}"
+        super().save(*args, **kwargs)
     
     def __str__(self):
-        if self.customer:
-            return f"Call Log #{self.call_id} - {self.customer.name}"
-        else:
-            return f"Call Log #{self.call_id} (Orphaned - Error)"
+        target = self.customer.name if self.customer else (self.lead.name if self.lead else 'Unassigned')
+        return f"Call Log #{self.call_id} - {target}"
 
 class Lead(models.Model):
     STATUS_CHOICES = [

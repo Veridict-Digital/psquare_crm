@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import FlavourViewSet, PackingUnitViewSet, ResidualViewSet, UserViewSet, CustomerViewSet, ProductViewSet, OrderViewSet, CallLogViewSet, LoginView, RegisterView, DashboardView, CustomerAssumptionViewSet, CustomerAssumption2ViewSet, CustomerAssumption3ViewSet, LeadViewSet, GSTRateViewSet, CategoryViewSet, OrganizationTypeViewSet, ProductCombinationViewSet, UnitViewSet, CustomerTypeViewSet, BrandViewSet, BrandCategoryViewSet,BrandCategory1ViewSet, ProductPricingViewSet, PhoneViewSet, OldOrderHistoryViewSet, RoleViewSet, RolePermissionViewSet, LanguageViewSet, CommunityViewSet
+from .recycle_bin import RecycleBinListView, RecycleBinRestoreView, RecycleBinPurgeView, AuditLogListView
 from .auth_views import send_registration_otp, verify_registration_otp, send_password_reset_otp, verify_password_reset_otp
 
 router = DefaultRouter()
@@ -40,6 +41,10 @@ urlpatterns = [
     path('api/login/', LoginView.as_view(), name='login'),
     path('api/register/', RegisterView.as_view(), name='register'),
     path('api/dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('api/recycle-bin/', RecycleBinListView.as_view(), name='recycle-bin'),
+    path('api/recycle-bin/restore/', RecycleBinRestoreView.as_view(), name='recycle-bin-restore'),
+    path('api/recycle-bin/purge/', RecycleBinPurgeView.as_view(), name='recycle-bin-purge'),
+    path('api/audit-logs/', AuditLogListView.as_view(), name='audit-logs'),
     path('api/send_registration_otp/', send_registration_otp, name='send_registration_otp'),
     path('api/verify_registration_otp/', verify_registration_otp, name='verify_registration_otp'),
     path('api/send_password_reset_otp/', send_password_reset_otp, name='send_password_reset_otp'),

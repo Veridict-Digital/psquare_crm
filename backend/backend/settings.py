@@ -5,6 +5,12 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / '.env')
+except ImportError:
+    pass
+
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
     '8j2k9m4n6p8q3r5t7v9w1x3y5z7a9b2c4d6e8f0g2h4i6j8k0l2m4n6o8p0q2r4s6t8u0v2w4x6y8z'
@@ -34,7 +40,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'django_filters',
     'corsheaders',
-    'crm',
+    'auditlog',
+    'crm.apps.CrmConfig',
 ]
 
 MIDDLEWARE = [
@@ -44,8 +51,10 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'crm.middleware.JWTAuthenticationMiddleware',  # JWT before auditlog so actor is set
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'auditlog.middleware.AuditlogMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -80,20 +89,20 @@ else:
     # Local development fallback (update to match your local setup)
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('POSTGRES_DB', 'psquare_crm'),
-            'USER': os.environ.get('POSTGRES_USER', 'psquare_user'),
-            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
-            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-            # 'ENGINE': 'mssql',
-            # 'NAME': 'psquare_crm',
-            # 'HOST': 'localhost',
-            # 'PORT': '',  # Empty for default instances
-            # 'OPTIONS': {
-            #     'driver': 'ODBC Driver 17 for SQL Server',
-            #     'trusted_connection': 'yes',
-            # },
+            # 'ENGINE': 'django.db.backends.postgresql',
+            # 'NAME': os.environ.get('POSTGRES_DB', 'psquare_crm'),
+            # 'USER': os.environ.get('POSTGRES_USER', 'psquare_user'),
+            # 'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+            # 'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            # 'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+            'ENGINE': 'mssql',
+            'NAME': 'psquare_crm',
+            'HOST': 'localhost',
+            'PORT': '',  # Empty for default instances
+            'OPTIONS': {
+                'driver': 'ODBC Driver 17 for SQL Server',
+                'trusted_connection': 'yes',
+            },
         }
     }
 

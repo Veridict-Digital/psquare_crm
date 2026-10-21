@@ -605,7 +605,10 @@ const CallPopup = () => {
 
                 {isAssumptionOpen && (
                   <div className="p-2 border-t border-gray-100">
-                    <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1">
+                    <div
+                      data-slow-scroll
+                      className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1"
+                    >
                       {assumptions?.map(assumption => (
                         <label
                           key={assumption.id}
@@ -669,7 +672,10 @@ const CallPopup = () => {
 
                 {isCallStatusOpen && (
                   <div className="p-2 border-t border-gray-100">
-                    <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1">
+                    <div
+                      data-slow-scroll
+                      className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1"
+                    >
                       {assumptions2?.map(assumption => (
                         <label
                           key={assumption.id}
@@ -733,7 +739,10 @@ const CallPopup = () => {
 
                 {isPaymentStatusOpen && (
                   <div className="p-2 border-t border-gray-100">
-                    <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1">
+                    <div
+                      data-slow-scroll
+                      className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1"
+                    >
                       {assumptions3?.map(assumption => (
                         <label
                           key={assumption.id}

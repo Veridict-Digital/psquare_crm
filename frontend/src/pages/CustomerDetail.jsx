@@ -531,12 +531,13 @@ const CustomerDetail = () => {
         order_id: callData.order_id || null,
         duration: durationSeconds, // Send as seconds (number)
         status: "Completed",
+        customer: id,
       };
 
       console.log("Sending update data:", updateData);
 
-      // Make the PUT request to update existing call log
-      const response = await axios.put(
+      // Make the PATCH request to update existing call log safely
+      const response = await axios.patch(
         `/api/calllogs/${callLogId}/`,
         updateData,
       );
@@ -633,27 +634,27 @@ const CustomerDetail = () => {
   };
 
   const handleAgentSelect = (agentId) => {
-    updateMutation.mutate({ agent: agentId });
+    updateMutation.mutate({ agent: agentId || null });
     setShowAgentDropdown(false);
   };
 
   const handleOrgTypeSelect = (orgTypeId) => {
-    updateMutation.mutate({ company_type: orgTypeId });
+    updateMutation.mutate({ company_type: orgTypeId || null });
     setShowOrgTypeDropdown(false);
   };
 
   const handleCustomerTypeSelect = (customerType) => {
-    updateMutation.mutate({ customer_type: customerType });
+    updateMutation.mutate({ customer_type: customerType || null });
     setShowCustomerTypeDropdown(false);
   };
 
   const handleLanguageSelect = (languageId) => {
-    updateMutation.mutate({ language: languageId });
+    updateMutation.mutate({ language: languageId || null });
     setShowLanguageDropdown(false);
   };
 
   const handleCommunitySelect = (communityId) => {
-    updateMutation.mutate({ community: communityId });
+    updateMutation.mutate({ community: communityId || null });
     setShowCommunityDropdown(false);
   };
 
@@ -751,8 +752,8 @@ const CustomerDetail = () => {
       `}</style>
       <div className="container mx-auto px-4 max-w-full min-h-screen overflow-y-auto">
         {/* Header */}
-        <div className="mb-1">
-          <div className="flex flex-wrap lg:flex-nowrap justify-between items-start lg:items-center gap-4">
+        <div className="mb-3">
+          <div className="flex flex-wrap lg:flex-nowrap justify-between items-start gap-4 pt-1.5">
             {/* Left side: Avatar + Name + Phones - Fixed width */}
             <div className="flex items-start lg:items-center space-x-4 flex-shrink-0 w-full lg:w-auto">
               {/* Avatar */}
@@ -771,6 +772,7 @@ const CustomerDetail = () => {
                     <div className="relative">
                       <input
                         type="text"
+                        key={customer?.id ? `${customer.id}-name` : "name"}
                         defaultValue={customer?.name || ""}
                         onChange={handleCapitalizeInput}
                         onKeyDown={(e) => {
@@ -779,6 +781,7 @@ const CustomerDetail = () => {
                           }
                         }}
                         onBlur={(e) => {
+                          if (!customer) return;
                           const capitalizedValue = capitalizeWords(e.target.value);
                           e.target.value = capitalizedValue;
                           if (capitalizedValue !== (customer?.name || "")) {
@@ -794,6 +797,7 @@ const CustomerDetail = () => {
                     <div className="relative">
                       <input
                         type="text"
+                        key={customer?.id ? `${customer.id}-surname` : "surname"}
                         defaultValue={customer?.surname || ""}
                         onChange={handleCapitalizeInput}
                         onKeyDown={(e) => {
@@ -802,6 +806,7 @@ const CustomerDetail = () => {
                           }
                         }}
                         onBlur={(e) => {
+                          if (!customer) return;
                           const capitalizedValue = capitalizeWords(e.target.value);
                           e.target.value = capitalizedValue;
                           if (capitalizedValue !== (customer?.surname || "")) {
@@ -1305,11 +1310,11 @@ const CustomerDetail = () => {
                 </div>
                 <div className="flex justify-between items-center text-[11px] leading-tight">
                   <span className="font-semibold text-slate-400 uppercase tracking-wider">Paid:</span>
-                  <span className="font-extrabold text-emerald-600">₹{summary?.total_paid?.toFixed(2) || "0.00"}</span>
+                  <span className="font-extrabold text-emerald-600">₹{Math.round(summary?.total_paid || 0).toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between items-center text-[11px] leading-tight">
                   <span className="font-semibold text-slate-400 uppercase tracking-wider">Pending:</span>
-                  <span className="font-extrabold text-amber-600">₹{summary?.total_pending?.toFixed(2) || "0.00"}</span>
+                  <span className="font-extrabold text-amber-600">₹{Math.round(summary?.total_pending || 0).toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -1541,195 +1546,209 @@ const CustomerDetail = () => {
               </div>
             </div>
 
-            {/* Right side: Buttons - Fixed width, wrap on mobile */}
-            <div className="flex flex-wrap gap-2 items-center justify-end flex-shrink-0">
-              {!showAddPhone ? (
-                <button
-                  onClick={() => {
-                    setShowAddPhone(true);
-                    setTimeout(() => {
-                      const phoneInput = document.getElementById("new-phone-input");
-                      if (phoneInput) phoneInput.focus();
-                    }, 100);
-                  }}
-                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Phone
-                </button>
-              ) : (
-                <div className="flex flex-col space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <input
-                      id="new-phone-input"
-                      type="text"
-                      value={newPhoneNumber}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        if (value.length <= 10) {
-                          setNewPhoneNumber(value);
-
-                          // Clear previous errors
-                          if (phoneError === "Phone number must be 10 digits.") {
-                            setPhoneError("");
-                          }
-
-                          // Validation for length
-                          if (value.length > 0 && value.length < 10) {
-                            setPhoneError("Phone number must be 10 digits.");
-                          } else if (value.length === 10) {
-                            // Check if phone number already exists
-                            setPhoneError(""); // Clear length error first
-
-                            // 1. Check against current customer's existing phone numbers
-                            const phoneExistsLocally = customer?.all_phones?.some(
-                              (phoneObj) => phoneObj.phone === value
-                            );
-
-                            if (phoneExistsLocally) {
-                              setPhoneError("Phone number already exists");
-                            } else {
-                              // 2. Perform global duplicate check in entire database
-                              setIsCheckingPhone(true);
-                              axios.get(`/api/customers/?phone=${value}`)
-                                .then((res) => {
-                                  const results = res.data?.results || res.data || [];
-                                  if (results.length > 0) {
-                                    setPhoneError("Phone number already exists");
-                                  } else {
-                                    setPhoneError(""); // Clear error if not duplicate
-                                  }
-                                })
-                                .catch((err) => {
-                                  console.error("Duplicate check failed:", err);
-                                })
-                                .finally(() => {
-                                  setIsCheckingPhone(false);
-                                });
-                            }
-                          } else {
-                            setPhoneError("");
-                          }
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
-                            addPhoneMutation.mutate({ phone: newPhoneNumber });
-                          } else if (newPhoneNumber.length !== 10) {
-                            setPhoneError("Phone number must be 10 digits.");
-                          }
-                        } else if (e.key === "Escape") {
-                          setShowAddPhone(false);
-                          setNewPhoneNumber("");
-                          setPhoneError("");
-                        }
-                      }}
-                      placeholder="Enter 10-digit number"
-                      className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
-                      maxLength={10}
-                      autoFocus
-                      disabled={addPhoneMutation.isPending || isCheckingPhone}
-                    />
-
-                    {/* Save and Cancel Buttons */}
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => {
-                          if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
-                            addPhoneMutation.mutate({ phone: newPhoneNumber });
-                          } else if (newPhoneNumber.length !== 10) {
-                            setPhoneError("Phone number must be 10 digits.");
-                          }
-                        }}
-                        disabled={
-                          !newPhoneNumber ||
-                          newPhoneNumber.length !== 10 ||
-                          !!phoneError ||
-                          isCheckingPhone ||
-                          addPhoneMutation.isPending
-                        }
-                        className="inline-flex items-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        <Save className="h-3 w-3 mr-1" />
-                        Save
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowAddPhone(false);
-                          setNewPhoneNumber("");
-                          setPhoneError("");
-                        }}
-                        disabled={addPhoneMutation.isPending}
-                        className="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        X
-                      </button>
-                    </div>
-                  </div>
-
-                  {isCheckingPhone && (
-                    <div className="text-sm text-blue-500 ml-7">Verifying duplicate phone number...</div>
-                  )}
-
-                  {addPhoneMutation.isPending && (
-                    <div className="text-sm text-blue-500 ml-7">Adding phone number...</div>
-                  )}
-
-                  {/* Show error message */}
-                  {phoneError && (
-                    <div className="text-sm text-red-500 mt-1 ml-7">
-                      {phoneError}
-                    </div>
-                  )}
+            {/* Right side: Cancelled KPIs on top, action buttons shifted down */}
+            <div className="flex flex-col items-stretch justify-between flex-shrink-0 self-stretch gap-3 pb-2 min-w-0">
+              <div className="flex items-stretch gap-2 w-full">
+                <div className="flex-1 bg-white border border-rose-200/80 hover:border-rose-300 px-3 py-1.5 rounded-lg shadow-sm flex items-center justify-between gap-3 min-w-0">
+                  <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider whitespace-nowrap">
+                    Cancelled
+                  </span>
+                  <span className="text-sm font-extrabold text-rose-600 tabular-nums">
+                    {summary?.cancelled_orders || 0}
+                  </span>
                 </div>
-              )}
+                <div className="flex-[1.4] bg-white border border-rose-200/80 hover:border-rose-300 px-3 py-1.5 rounded-lg shadow-sm flex items-center justify-between gap-3 min-w-0">
+                  <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider whitespace-nowrap">
+                    Canc. Amt
+                  </span>
+                  <span className="text-sm font-extrabold text-rose-600 tabular-nums truncate">
+                    ₹{Math.round(summary?.cancelled_amount || 0).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
 
-              {hasPermission('make_calls') && (
+              <div className="flex flex-wrap gap-2 items-center justify-end w-full mt-auto">
+                {!showAddPhone ? (
+                  <button
+                    onClick={() => {
+                      setShowAddPhone(true);
+                      setTimeout(() => {
+                        const phoneInput = document.getElementById("new-phone-input");
+                        if (phoneInput) phoneInput.focus();
+                      }, 100);
+                    }}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Phone
+                  </button>
+                ) : (
+                  <div className="flex flex-col space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <input
+                        id="new-phone-input"
+                        type="text"
+                        value={newPhoneNumber}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "");
+                          if (value.length <= 10) {
+                            setNewPhoneNumber(value);
+
+                            if (phoneError === "Phone number must be 10 digits.") {
+                              setPhoneError("");
+                            }
+
+                            if (value.length > 0 && value.length < 10) {
+                              setPhoneError("Phone number must be 10 digits.");
+                            } else if (value.length === 10) {
+                              setPhoneError("");
+
+                              const phoneExistsLocally = customer?.all_phones?.some(
+                                (phoneObj) => phoneObj.phone === value
+                              );
+
+                              if (phoneExistsLocally) {
+                                setPhoneError("Phone number already exists");
+                              } else {
+                                setIsCheckingPhone(true);
+                                axios.get(`/api/customers/?phone=${value}`)
+                                  .then((res) => {
+                                    const results = res.data?.results || res.data || [];
+                                    if (results.length > 0) {
+                                      setPhoneError("Phone number already exists");
+                                    } else {
+                                      setPhoneError("");
+                                    }
+                                  })
+                                  .catch((err) => {
+                                    console.error("Duplicate check failed:", err);
+                                  })
+                                  .finally(() => {
+                                    setIsCheckingPhone(false);
+                                  });
+                              }
+                            } else {
+                              setPhoneError("");
+                            }
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
+                              addPhoneMutation.mutate({ phone: newPhoneNumber });
+                            } else if (newPhoneNumber.length !== 10) {
+                              setPhoneError("Phone number must be 10 digits.");
+                            }
+                          } else if (e.key === "Escape") {
+                            setShowAddPhone(false);
+                            setNewPhoneNumber("");
+                            setPhoneError("");
+                          }
+                        }}
+                        placeholder="Enter 10-digit number"
+                        className="px-2 py-1 border border-gray-300 rounded text-sm w-40 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                        maxLength={10}
+                        autoFocus
+                        disabled={addPhoneMutation.isPending || isCheckingPhone}
+                      />
+
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => {
+                            if (newPhoneNumber && newPhoneNumber.length === 10 && !phoneError && !isCheckingPhone && !addPhoneMutation.isPending) {
+                              addPhoneMutation.mutate({ phone: newPhoneNumber });
+                            } else if (newPhoneNumber.length !== 10) {
+                              setPhoneError("Phone number must be 10 digits.");
+                            }
+                          }}
+                          disabled={
+                            !newPhoneNumber ||
+                            newPhoneNumber.length !== 10 ||
+                            !!phoneError ||
+                            isCheckingPhone ||
+                            addPhoneMutation.isPending
+                          }
+                          className="inline-flex items-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        >
+                          <Save className="h-3 w-3 mr-1" />
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowAddPhone(false);
+                            setNewPhoneNumber("");
+                            setPhoneError("");
+                          }}
+                          disabled={addPhoneMutation.isPending}
+                          className="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        >
+                          X
+                        </button>
+                      </div>
+                    </div>
+
+                    {isCheckingPhone && (
+                      <div className="text-sm text-blue-500 ml-7">Verifying duplicate phone number...</div>
+                    )}
+
+                    {addPhoneMutation.isPending && (
+                      <div className="text-sm text-blue-500 ml-7">Adding phone number...</div>
+                    )}
+
+                    {phoneError && (
+                      <div className="text-sm text-red-500 mt-1 ml-7">
+                        {phoneError}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {hasPermission('make_calls') && (
+                  <button
+                    onClick={() => {
+                      const callData = {
+                        ...customer,
+                        id: customer?.id,
+                        customer_id: customer?.id,
+                        timer: 0,
+                        notes: "",
+                        selectedAssumption: [],
+                        selectedAssumption2: [],
+                        selectedAssumption3: [],
+                      };
+                      openPopup(callData);
+                    }}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Call
+                  </button>
+                )}
+                <button
+                  onClick={() => navigate(`/orders/new?customer=${customer?.id}&customer_name=${encodeURIComponent(customer?.name || "")}`)}
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm whitespace-nowrap"
+                >
+                  <ShoppingBag className="h-4 w-4 mr-2" />
+                  Order
+                </button>
                 <button
                   onClick={() => {
-                    const callData = {
-                      ...customer,
-                      id: customer?.id,
-                      customer_id: customer?.id,
-                      timer: 0,
-                      notes: "",
-                      selectedAssumption: [],
-                      selectedAssumption2: [],
-                      selectedAssumption3: [],
-                    };
-                    openPopup(callData);
+                    if (
+                      window.confirm(
+                        `Are you sure you want to delete customer "${customer?.name}"? This action cannot be undone.`,
+                      )
+                    ) {
+                      deleteMutation.mutate();
+                    }
                   }}
-                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg shadow-green-500/25 text-sm whitespace-nowrap"
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white font-medium rounded-lg hover:from-red-600 hover:to-rose-700 transition-all duration-200 shadow-lg shadow-red-500/25 text-sm whitespace-nowrap"
                 >
-                  <Phone className="h-4 w-4 mr-2" />
-                  Call
+                  <Trash2 className="h-4 w-4 mr-2 items-center" />
+                  Del
                 </button>
-              )}
-              <button
-                onClick={() => navigate(`/orders/new?customer=${customer?.id}&customer_name=${encodeURIComponent(customer?.name || "")}`)}
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm whitespace-nowrap"
-              >
-                <ShoppingBag className="h-4 w-4 mr-2" />
-                Order
-              </button>
-              <button
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Are you sure you want to delete customer "${customer?.name}"? This action cannot be undone.`,
-                    )
-                  ) {
-                    deleteMutation.mutate();
-                  }
-                }}
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white font-medium rounded-lg hover:from-red-600 hover:to-rose-700 transition-all duration-200 shadow-lg shadow-red-500/25 text-sm whitespace-nowrap"
-              >
-                <Trash2 className="h-4 w-4 mr-2 items-center" />
-                Del
-              </button>
+              </div>
             </div>
           </div>
           {/* Secondary info below */}
@@ -1743,6 +1762,7 @@ const CustomerDetail = () => {
                 type="text"
                 key={customer?.company_name}
                 defaultValue={customer?.company_name || ""}
+                title={customer?.company_name || ""}
                 onChange={handleCapitalizeInput}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -1757,7 +1777,7 @@ const CustomerDetail = () => {
                   }
                 }}
                 placeholder="Not set"
-                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none"
+                className="flex-1 w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all focus:outline-none truncate"
               />
             </div>
 
@@ -1767,8 +1787,9 @@ const CustomerDetail = () => {
                 Org Type:
               </div>
               <div
-                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all"
+                className="flex-1 flex items-center justify-between cursor-pointer w-full hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold text-slate-800 transition-all min-w-0"
                 onClick={() => setShowOrgTypeDropdown(!showOrgTypeDropdown)}
+                title={customer?.company_type_display || ""}
               >
                 <span className="truncate">
                   {customer?.company_type_display || "Not set"}
@@ -2158,6 +2179,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-house_flat_no` : "house_flat_no"}
                   defaultValue={customer?.house_flat_no || ""}
                   title={customer?.house_flat_no || ""}
                   onChange={handleCapitalizeInput}
@@ -2167,6 +2189,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.house_flat_no || "")) {
@@ -2187,6 +2210,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-wing_lane` : "wing_lane"}
                   defaultValue={customer?.wing_lane || ""}
                   title={customer?.wing_lane || ""}
                   onChange={handleCapitalizeInput}
@@ -2196,6 +2220,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.wing_lane || "")) {
@@ -2216,6 +2241,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-society_colony` : "society_colony"}
                   defaultValue={customer?.society_colony || ""}
                   title={customer?.society_colony || ""}
                   onChange={handleCapitalizeInput}
@@ -2225,6 +2251,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.society_colony || "")) {
@@ -2245,6 +2272,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-landmark` : "landmark"}
                   defaultValue={customer?.landmark || ""}
                   title={customer?.landmark || ""}
                   onChange={handleCapitalizeInput}
@@ -2254,6 +2282,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.landmark || "")) {
@@ -2274,6 +2303,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-area` : "area"}
                   defaultValue={customer?.area || ""}
                   title={customer?.area || ""}
                   onChange={handleCapitalizeInput}
@@ -2283,6 +2313,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.area || "")) {
@@ -2303,6 +2334,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-pincode` : "pincode"}
                   defaultValue={customer?.pincode || ""}
                   title={customer?.pincode || ""}
                   onKeyDown={(e) => {
@@ -2311,6 +2343,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const value = e.target.value
                       .replace(/\D/g, "")
                       .slice(0, 6);
@@ -2323,7 +2356,6 @@ const CustomerDetail = () => {
                     }
                   }}
                   onChange={(e) => {
-                    // Allow only digits and limit to 6 characters while typing
                     const value = e.target.value
                       .replace(/\D/g, "")
                       .slice(0, 6);
@@ -2342,6 +2374,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-city` : "city"}
                   defaultValue={customer?.city || ""}
                   title={customer?.city || ""}
                   onChange={handleCapitalizeInput}
@@ -2351,6 +2384,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.city || "")) {
@@ -2371,6 +2405,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-tahsil` : "tahsil"}
                   defaultValue={customer?.tahsil || ""}
                   title={customer?.tahsil || ""}
                   onChange={handleCapitalizeInput}
@@ -2380,6 +2415,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.tahsil || "")) {
@@ -2400,6 +2436,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-district` : "district"}
                   defaultValue={customer?.district || ""}
                   title={customer?.district || ""}
                   onChange={handleCapitalizeInput}
@@ -2409,6 +2446,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.district || "")) {
@@ -2429,6 +2467,7 @@ const CustomerDetail = () => {
                 </label>
                 <input
                   type="text"
+                  key={customer?.id ? `${customer.id}-state` : "state"}
                   defaultValue={customer?.state || ""}
                   title={customer?.state || ""}
                   onChange={handleCapitalizeInput}
@@ -2438,6 +2477,7 @@ const CustomerDetail = () => {
                     }
                   }}
                   onBlur={(e) => {
+                    if (!customer) return;
                     const capitalizedValue = capitalizeWords(e.target.value);
                     e.target.value = capitalizedValue;
                     if (capitalizedValue !== (customer?.state || "")) {

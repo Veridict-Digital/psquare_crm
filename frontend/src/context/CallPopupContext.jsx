@@ -493,8 +493,10 @@ export const CallPopupProvider = ({ children }) => {
             }
 
             console.log('Ending call with data:', callLogData);
-            await axios.put(`/api/calllogs/${latestCallId}/`, callLogData);
+            await axios.patch(`/api/calllogs/${latestCallId}/`, callLogData);
             queryClient.invalidateQueries(['call-logs']);
+            queryClient.invalidateQueries(['callLogs']);
+            queryClient.invalidateQueries(['calllogs']);
             queryClient.invalidateQueries(['customer-details']);
             resetCallState();
         } catch (error) {

@@ -29,8 +29,10 @@ import Profile from './pages/Profile';
 import LeadList from './pages/LeadList';
 import ProductCombinations from './pages/ProductCombinations';
 import ProductPricing from './pages/ProductPricing';
+import RecycleBin from './pages/RecycleBin';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { useGlobalSlowScroll } from './hooks/useSlowScroll';
 
 const queryClient = new QueryClient();
 
@@ -71,6 +73,7 @@ const FeatureGuard = ({ feature, children }) => {
 
 const AppContent = () => {
   const { isOpen } = useSidebar();
+  useGlobalSlowScroll();
 
   return (
     <>
@@ -101,6 +104,7 @@ const AppContent = () => {
           <Route path="/calllogs" element={<FeatureGuard feature="make_calls"><CallLogList /></FeatureGuard>} />
           <Route path="/calllogs/edit/:id" element={<FeatureGuard feature="make_calls"><CallLogEdit /></FeatureGuard>} />
           <Route path="/leads" element={<FeatureGuard feature="view_customers"><LeadList /></FeatureGuard>} />
+          <Route path="/recycle-bin" element={<RecycleBin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

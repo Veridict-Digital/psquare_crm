@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   Building2,
+  Trash2,
 } from 'lucide-react';
 
 const Navigation = () => {
@@ -43,10 +44,14 @@ const Navigation = () => {
       { path: '/product-combinations', label: "Combo's", icon: Gift, feature: 'manage_combos' },
       { path: '/users', label: 'Users', icon: Users, feature: 'manage_users' },
       { path: '/calllogs', label: 'Call Logs', icon: Phone, feature: 'make_calls' },
+      // { path: '/recycle-bin', label: 'Recycle Bin', icon: Trash2, adminOnly: true },
       { path: '/profile', label: 'Profile', icon: User },
     ];
 
-    return allItems.filter(item => !item.feature || hasPermission(item.feature));
+    return allItems.filter((item) => {
+      if (item.adminOnly) return user?.role === 'Admin';
+      return !item.feature || hasPermission(item.feature);
+    });
   };
 
   const navItems = getNavItems();

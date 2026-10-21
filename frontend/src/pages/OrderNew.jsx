@@ -508,6 +508,16 @@ const OrderNew = () => {
     return isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
   };
 
+  // Treat sale_rate of 0 as unset so we fall back to product.price
+  const getProductSaleRate = (product) => {
+    if (!product) return 0;
+    const saleRate = product.pricing?.sale_rate;
+    if (saleRate !== undefined && saleRate !== null && safeParseFloat(saleRate) > 0) {
+      return safeParseFloat(saleRate);
+    }
+    return safeParseFloat(product.price || 0);
+  };
+
   // Get active customer ID on mount
   const initialCustomerId = useMemo(() => {
     if (editMode) return "";
@@ -1568,13 +1578,17 @@ const OrderNew = () => {
       // Loop over required items to find their regular values
       const comboItemsDetails = combo.items?.map((item) => {
         const product = products?.find((p) => p.id === item.product);
-        const mrpVal = product?.pricing?.mrp !== undefined && product?.pricing?.mrp !== null
-          ? safeParseFloat(product.pricing.mrp)
-          : safeParseFloat(product?.mrp || product?.price || 0);
+        const mrpVal = (() => {
+          const pricingMrp = product?.pricing?.mrp;
+          if (pricingMrp !== undefined && pricingMrp !== null && safeParseFloat(pricingMrp) > 0) {
+            return safeParseFloat(pricingMrp);
+          }
+          const productMrp = safeParseFloat(product?.mrp);
+          if (productMrp > 0) return productMrp;
+          return safeParseFloat(product?.price || 0);
+        })();
 
-        const saleVal = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null
-          ? safeParseFloat(product.pricing.sale_rate)
-          : safeParseFloat(product?.price || 0);
+        const saleVal = getProductSaleRate(product);
 
         const regularPricePerUnit = item.offer_price && safeParseFloat(item.offer_price) > 0
           ? safeParseFloat(item.offer_price)
@@ -1638,12 +1652,11 @@ const OrderNew = () => {
 
       // Standalone unit price is the sale rate of the product
       const product = products?.find((p) => p.id === item.product);
-      const productSaleRate = product?.pricing?.sale_rate !== undefined && product?.pricing?.sale_rate !== null
-        ? safeParseFloat(product.pricing.sale_rate)
-        : safeParseFloat(product?.price || 0);
+      const productSaleRate = getProductSaleRate(product);
 
-      // If the item already had a unit_price, use it as fallback for standalone
-      const standaloneUnitPrice = item.unit_price !== undefined ? safeParseFloat(item.unit_price) : productSaleRate;
+      // If the item already had a positive unit_price, use it as fallback for standalone
+      const existingUnit = safeParseFloat(item.unit_price);
+      const standaloneUnitPrice = existingUnit > 0 ? existingUnit : productSaleRate;
 
       const comboTotal = comboBilledTotal[item.product] || 0;
       const standaloneTotal = standaloneQty * standaloneUnitPrice;
@@ -1984,13 +1997,15 @@ const OrderNew = () => {
 
   const getOriginalPrice = (productId) => {
     const productObj = products?.find(p => p.id === productId);
-    if (productObj) {
-      if (productObj.pricing?.mrp !== undefined && productObj.pricing?.mrp !== null) {
-        return parseFloat(productObj.pricing.mrp);
-      }
-      return parseFloat(productObj.mrp || productObj.price || 0);
+    if (!productObj) return 0;
+    // Prefer pricing.mrp only when it is a real positive value (0 = unset)
+    const pricingMrp = productObj.pricing?.mrp;
+    if (pricingMrp !== undefined && pricingMrp !== null && safeParseFloat(pricingMrp) > 0) {
+      return safeParseFloat(pricingMrp);
     }
-    return 0;
+    const productMrp = safeParseFloat(productObj.mrp);
+    if (productMrp > 0) return productMrp;
+    return safeParseFloat(productObj.price || 0);
   };
 
   const getProductGstRate = (productId) => {
@@ -2019,149 +2034,75 @@ const OrderNew = () => {
     return productObj ? productObj.title : '';
   };
 
-  const getAllAppliedCombosInvoiceItems = () => {
-    const invoiceItems = [];
-    let sNo = 1;
+  /**
+   * Quotation lines must use the SAME prices as the order form (`pricedOrderItems`).
+   * Previously quotation rebuilt from combo.offer_price only, which ignored sale_rate,
+   * manual_combo_price redistribution, and standalone lines — causing intermittent mismatches.
+   */
+  const getQuotationInvoiceItemsFromOrder = () => {
+    const grouped = {};
 
-    appliedCombos.forEach((ac) => {
-      const combo = combinations?.find(c => String(c.id) === String(ac.comboId || ac.combo_id));
-      if (!combo) return;
-      const quantity = ac.quantity || 1;
+    pricedOrderItems.forEach((item) => {
+      const pid = item.product;
+      if (pid === undefined || pid === null) return;
 
-      // 1. Paid items
-      (combo.items || []).forEach((item) => {
-        const itemQty = item.quantity_required * quantity;
-        const unitMrp = getOriginalPrice(item.product);
-        const totalMrp = unitMrp * itemQty;
-        const unitOffer = parseFloat(item.offer_price) || 0;
-        const totalOffer = unitOffer * itemQty;
-        const gstRate = getProductGstRate(item.product);
+      const qty = safeParseFloat(item.quantity, 0);
+      if (qty <= 0) return;
 
-        const taxableOffer = totalOffer / (1 + gstRate / 100);
-        const gstOfferAmount = totalOffer - taxableOffer;
+      const unitMrp = getOriginalPrice(pid);
+      const gstRate = getProductGstRate(pid);
 
-        invoiceItems.push({
-          sNo: sNo++,
-          productId: item.product,
-          productName: getProductTitle(item.product),
-          qty: itemQty,
-          unitMrp: unitMrp,
-          totalMrp: totalMrp,
-          unitOffer: unitOffer,
-          totalOffer: totalOffer,
-          gstRate: gstRate,
-          taxableOffer: taxableOffer,
-          gstAmount: gstOfferAmount,
-          type: 'Paid',
-          hsn: getProductHsn(item.product)
-        });
-      });
-
-      // 2. Free items
-      (combo.rewards || []).forEach((reward) => {
-        const itemQty = reward.quantity_free * quantity;
-        const unitMrp = getOriginalPrice(reward.product);
-        const totalMrp = unitMrp * itemQty;
-        const gstRate = getProductGstRate(reward.product);
-
-        const taxableMrp = totalMrp / (1 + gstRate / 100);
-        const gstMrpAmount = totalMrp - taxableMrp;
-
-        invoiceItems.push({
-          sNo: sNo++,
-          productId: reward.product,
-          productName: getProductTitle(reward.product),
-          qty: itemQty,
-          unitMrp: unitMrp,
-          totalMrp: totalMrp,
+      if (!grouped[pid]) {
+        grouped[pid] = {
+          productId: pid,
+          productName: getProductTitle(pid) || item.product_title || '',
+          hsn: getProductHsn(pid) || item.hsn || '',
+          billedQty: 0,
+          freeQty: 0,
+          giftQty: 0,
+          unitMrp,
           unitOffer: 0,
           totalOffer: 0,
-          gstRate: gstRate,
-          taxableOffer: taxableMrp,
-          gstAmount: gstMrpAmount,
-          type: 'Free',
-          hsn: getProductHsn(reward.product)
-        });
-      });
+          gstRate,
+          taxableOffer: 0,
+          gstAmount: 0,
+        };
+      }
 
-      // 3. Gift items
-      (combo.gifts || []).forEach((gift) => {
-        const giftQtyVal = gift.quantity_free || gift.quantity || 1;
-        const itemQty = giftQtyVal * quantity;
-        const unitMrp = getOriginalPrice(gift.product);
-        const totalMrp = unitMrp * itemQty;
-        const gstRate = getProductGstRate(gift.product);
+      if (item.is_free) {
+        grouped[pid].freeQty += qty;
+        return;
+      }
+      if (item.is_gift) {
+        grouped[pid].giftQty += qty;
+        return;
+      }
 
-        const taxableMrp = totalMrp / (1 + gstRate / 100);
-        const gstMrpAmount = totalMrp - taxableMrp;
+      const unitOffer = safeParseFloat(item.unit_price, 0);
+      const totalOffer = roundToTwoDecimals(unitOffer * qty);
+      const taxableOffer = gstRate > 0 ? totalOffer / (1 + gstRate / 100) : totalOffer;
+      const gstAmount = totalOffer - taxableOffer;
 
-        invoiceItems.push({
-          sNo: sNo++,
-          productId: gift.product,
-          productName: getProductTitle(gift.product),
-          qty: itemQty,
-          unitMrp: unitMrp,
-          totalMrp: totalMrp,
-          unitOffer: 0,
-          totalOffer: 0,
-          gstRate: gstRate,
-          taxableOffer: taxableMrp,
-          gstAmount: gstMrpAmount,
-          type: 'Gift',
-          hsn: getProductHsn(gift.product)
-        });
-      });
+      grouped[pid].billedQty += qty;
+      grouped[pid].totalOffer += totalOffer;
+      grouped[pid].taxableOffer += taxableOffer;
+      grouped[pid].gstAmount += gstAmount;
     });
 
-    return invoiceItems;
+    return Object.values(grouped).map((row, idx) => ({
+      ...row,
+      // Weighted average rate when same product appears across combos/standalone
+      unitOffer: row.billedQty > 0 ? row.totalOffer / row.billedQty : 0,
+      totalMrp: row.unitMrp * (row.billedQty + row.freeQty + row.giftQty),
+      sNo: idx + 1,
+    }));
   };
 
   // Quotation Modal Component
-  // Quotation Modal Component
   const QuotationModal = () => {
-    if (appliedCombos.length === 0) return null;
+    if (appliedCombos.length === 0 && pricedOrderItems.length === 0) return null;
 
-    const getRolledUpInvoiceItems = () => {
-      const rawItems = getAllAppliedCombosInvoiceItems();
-      const grouped = {};
-      rawItems.forEach(item => {
-        const pid = item.productId;
-        if (!grouped[pid]) {
-          grouped[pid] = {
-            productId: pid,
-            productName: item.productName,
-            hsn: item.hsn,
-            billedQty: 0,
-            freeQty: 0,
-            giftQty: 0,
-            unitMrp: item.unitMrp,
-            unitOffer: 0,
-            totalOffer: 0,
-            gstRate: item.gstRate,
-            taxableOffer: 0,
-            gstAmount: 0
-          };
-        }
-        if (item.type === 'Paid') {
-          grouped[pid].billedQty += item.qty;
-          grouped[pid].unitOffer = item.unitOffer;
-          grouped[pid].totalOffer += item.totalOffer;
-          grouped[pid].taxableOffer += item.taxableOffer;
-          grouped[pid].gstAmount += item.gstAmount;
-        } else if (item.type === 'Free') {
-          grouped[pid].freeQty += item.qty;
-        } else if (item.type === 'Gift') {
-          grouped[pid].giftQty += item.qty;
-        }
-      });
-
-      return Object.values(grouped).map((item, idx) => ({
-        ...item,
-        sNo: idx + 1
-      }));
-    };
-
-    const invoiceItems = getRolledUpInvoiceItems()
+    const invoiceItems = getQuotationInvoiceItemsFromOrder()
       .sort((a, b) => (a.productName || "").localeCompare(b.productName || ""))
       .map((item, idx) => ({
         ...item,

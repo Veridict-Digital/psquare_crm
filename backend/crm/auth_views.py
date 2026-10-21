@@ -41,8 +41,9 @@ def verify_registration_otp(request):
     email = request.data.get('email')
     otp = request.data.get('otp')
     username = request.data.get('username')
-    password = request.data.get('password')
     role = request.data.get('role', 'Employee')
+    if role == 'Admin':
+        role = 'Employee'  # Never allow public registration as Admin
 
     if not all([email, otp, username, password]):
         return Response({'error': 'All fields are required'}, status=status.HTTP_400_BAD_REQUEST)

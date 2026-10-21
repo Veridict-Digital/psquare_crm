@@ -16,6 +16,11 @@ const formatPhoneNumber = (phone) => {
   return phone;
 };
 
+const formatPaymentStatusLabel = (status) => {
+  if (status === 'Advance Payment Received') return 'Adv pay rec';
+  return status || '';
+};
+
 const SearchableDropdown = ({
   value,
   onChange,
@@ -1468,7 +1473,7 @@ const OrderList = () => {
                                         ? 'bg-purple-100 text-purple-800'
                                         : 'bg-red-100 text-red-800'
                               }`}>
-                              {order.payment_status}
+                              {formatPaymentStatusLabel(order.payment_status)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900 max-w-sm break-words" title={getDeliveryAddress(order)}>
@@ -1717,7 +1722,7 @@ const OrderList = () => {
                                       ? 'bg-purple-100 text-purple-800'
                                       : 'bg-red-100 text-red-800'
                             }`}>
-                            {order.payment_status}
+                            {formatPaymentStatusLabel(order.payment_status)}
                           </span>
                         </div>
                       </div>
