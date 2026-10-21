@@ -4,7 +4,7 @@ import axios from 'axios';
 // requests go through the nginx reverse proxy on the same origin.
 // In local dev it falls back to the Django dev server address.
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000/' : '/'),
 });
 
 // Add request interceptor for authentication if needed
