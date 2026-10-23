@@ -604,6 +604,9 @@ const OrderList = () => {
       }
     }
 
+    // Use stored delivery_option (default primary for older orders)
+    const deliveryOption = order.delivery_option === 'custom' ? 'custom' : 'primary';
+
     // 2. Format the form data
     const formData = {
       customer: order.customer.toString(),
@@ -613,7 +616,7 @@ const OrderList = () => {
       followup_date: order.followup_date || "",
       partial_amount: order.paid_amount || 0,
       delivery_address: deliveryAddress,
-      delivery_option: order.delivery_option || "primary",
+      delivery_option: deliveryOption,
       order_date: order.order_date || new Date().toISOString().split('T')[0],
       created_at: order.created_at || new Date().toISOString().split('T')[0],
     };
@@ -858,10 +861,53 @@ const OrderList = () => {
     }, 0);
   };
 
-  // Helper: Get delivery address from order with fallback to customer primary address
+  // Prefer order delivery address (incl. custom) over live customer primary address
   const getDeliveryAddress = (order) => {
-    // 1. Primary: use customer live address from customer_details if present
-    if (order && order.customer_details) {
+    if (!order) return 'N/A';
+
+    const fromStructured = [
+      order.delivery_house_flat_no,
+      order.delivery_wing_lane,
+      order.delivery_society_colony,
+      order.delivery_landmark,
+      order.delivery_area,
+      order.delivery_city,
+      order.delivery_district,
+      order.delivery_tahsil,
+      order.delivery_state,
+      order.delivery_pincode,
+    ].filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+    if (fromStructured.length > 0) return fromStructured.join(', ');
+
+    if (order.delivery_address) {
+      if (typeof order.delivery_address === 'string' && order.delivery_address.trim().length > 0 && order.delivery_address.trim().toLowerCase() !== 'n/a') {
+        const raw = order.delivery_address.trim();
+        try {
+          const parsed = JSON.parse(raw);
+          if (typeof parsed === 'object' && parsed !== null) {
+            const addressParts = Object.values(parsed).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+            if (addressParts.length > 0) return addressParts.join(', ');
+          }
+        } catch (e) {
+          try {
+            const parsed = JSON.parse(raw.replace(/'/g, '"'));
+            if (typeof parsed === 'object' && parsed !== null) {
+              const addressParts = Object.values(parsed).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+              if (addressParts.length > 0) return addressParts.join(', ');
+            }
+          } catch (err) {
+            return raw;
+          }
+        }
+        return raw;
+      }
+      if (typeof order.delivery_address === 'object' && order.delivery_address !== null) {
+        const addressParts = Object.values(order.delivery_address).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+        if (addressParts.length > 0) return addressParts.join(', ');
+      }
+    }
+
+    if (order.customer_details) {
       const addressParts = [
         order.customer_details.house_flat_no,
         order.customer_details.wing_lane,
@@ -874,35 +920,6 @@ const OrderList = () => {
         order.customer_details.pincode,
       ].filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
       if (addressParts.length > 0) return addressParts.join(', ');
-    }
-
-    // 2. Fallback: use order's stored custom delivery_address
-    if (order && order.delivery_address) {
-      if (typeof order.delivery_address === 'string' && order.delivery_address.trim().length > 0 && order.delivery_address.trim().toLowerCase() !== 'n/a') {
-        try {
-          const parsed = JSON.parse(order.delivery_address);
-          if (typeof parsed === 'object' && parsed !== null) {
-            const addressParts = Object.values(parsed).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
-            if (addressParts.length > 0) return addressParts.join(', ');
-          }
-        } catch (e) {
-          try {
-            // Try fallback: replacing single quotes with double quotes for single-quoted Python dict representation
-            const parsed = JSON.parse(order.delivery_address.replace(/'/g, '"'));
-            if (typeof parsed === 'object' && parsed !== null) {
-              const addressParts = Object.values(parsed).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
-              if (addressParts.length > 0) return addressParts.join(', ');
-            }
-          } catch (err) {
-            return order.delivery_address.trim();
-          }
-        }
-        return order.delivery_address.trim();
-      }
-      if (typeof order.delivery_address === 'object' && order.delivery_address !== null) {
-        const addressParts = Object.values(order.delivery_address).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
-        if (addressParts.length > 0) return addressParts.join(', ');
-      }
     }
     return 'N/A';
   };
@@ -975,6 +992,7 @@ const OrderList = () => {
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full bg-white outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm h-10"
               >
                 <option value="">All Payments</option>
+                <option value="No Status">No Status</option>
                 <option value="Paid">Paid</option>
                 <option value="Partial">Partial</option>
                 <option value="Credit">Credit</option>
@@ -1471,7 +1489,9 @@ const OrderList = () => {
                                       ? 'bg-blue-100 text-blue-800'
                                       : order.payment_status === 'COD'
                                         ? 'bg-purple-100 text-purple-800'
-                                        : 'bg-red-100 text-red-800'
+                                        : order.payment_status === 'No Status'
+                                          ? 'bg-slate-100 text-slate-600'
+                                          : 'bg-red-100 text-red-800'
                               }`}>
                               {formatPaymentStatusLabel(order.payment_status)}
                             </span>
@@ -1720,7 +1740,9 @@ const OrderList = () => {
                                     ? 'bg-blue-100 text-blue-800'
                                     : order.payment_status === 'COD'
                                       ? 'bg-purple-100 text-purple-800'
-                                      : 'bg-red-100 text-red-800'
+                                      : order.payment_status === 'No Status'
+                                        ? 'bg-slate-100 text-slate-600'
+                                        : 'bg-red-100 text-red-800'
                             }`}>
                             {formatPaymentStatusLabel(order.payment_status)}
                           </span>

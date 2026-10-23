@@ -123,6 +123,9 @@ const OrderDetail = () => {
       }
     }
 
+    // Use stored delivery_option (default primary for older orders)
+    const deliveryOption = order.delivery_option === 'custom' ? 'custom' : 'primary';
+
     // 2. Format the form data
     const formData = {
       customer: order.customer.toString(),
@@ -132,7 +135,7 @@ const OrderDetail = () => {
       followup_date: order.followup_date || "",
       partial_amount: order.paid_amount || 0,
       delivery_address: deliveryAddress,
-      delivery_option: order.delivery_option || "primary",
+      delivery_option: deliveryOption,
       order_date: order.order_date || new Date().toISOString().split('T')[0],
       created_at: order.created_at || new Date().toISOString().split('T')[0],
     };
@@ -295,10 +298,53 @@ const OrderDetail = () => {
       : 'bg-rose-100 text-rose-800';
   };
 
-  // Helper: Get delivery address from order
+  // Helper: Prefer order delivery address (incl. custom) over live customer address
   const getDeliveryAddress = () => {
-    // 1. Primary: use customer live address from customer_details if present
-    if (order && order.customer_details) {
+    if (!order) return null;
+
+    const fromStructured = [
+      order.delivery_house_flat_no,
+      order.delivery_wing_lane,
+      order.delivery_society_colony,
+      order.delivery_landmark,
+      order.delivery_area,
+      order.delivery_city,
+      order.delivery_district,
+      order.delivery_tahsil,
+      order.delivery_state,
+      order.delivery_pincode,
+    ].filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+    if (fromStructured.length > 0) return fromStructured.join(', ');
+
+    if (order.delivery_address) {
+      if (typeof order.delivery_address === 'string' && order.delivery_address.trim().length > 0) {
+        const raw = order.delivery_address.trim();
+        try {
+          const parsed = JSON.parse(raw);
+          if (typeof parsed === 'object' && parsed !== null) {
+            const addressParts = Object.values(parsed).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+            if (addressParts.length > 0) return addressParts.join(', ');
+          }
+        } catch (e) {
+          try {
+            const parsed = JSON.parse(raw.replace(/'/g, '"'));
+            if (typeof parsed === 'object' && parsed !== null) {
+              const addressParts = Object.values(parsed).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+              if (addressParts.length > 0) return addressParts.join(', ');
+            }
+          } catch (err) {
+            return raw;
+          }
+        }
+        return raw;
+      }
+      if (typeof order.delivery_address === 'object' && order.delivery_address !== null) {
+        const addressParts = Object.values(order.delivery_address).filter(Boolean).map(v => String(v).trim()).filter(v => v !== '');
+        if (addressParts.length > 0) return addressParts.join(', ');
+      }
+    }
+
+    if (order.customer_details) {
       const addressParts = [
         order.customer_details.house_flat_no,
         order.customer_details.wing_lane,
@@ -313,37 +359,6 @@ const OrderDetail = () => {
       if (addressParts.length > 0) return addressParts.join(', ');
     }
 
-    // 2. Fallback: use order's stored custom delivery_address
-    if (order && order.delivery_address) {
-      if (typeof order.delivery_address === 'string' && order.delivery_address.length > 0) {
-        // Try to parse if it looks like a JSON object
-        try {
-          const parsed = JSON.parse(order.delivery_address);
-          if (typeof parsed === 'object' && parsed !== null) {
-            const addressParts = Object.values(parsed).filter(Boolean);
-            return addressParts.length > 0 ? addressParts.join(', ') : null;
-          }
-        } catch (e) {
-          try {
-            // Try fallback: replacing single quotes with double quotes for single-quoted Python dict representation
-            const parsed = JSON.parse(order.delivery_address.replace(/'/g, '"'));
-            if (typeof parsed === 'object' && parsed !== null) {
-              const addressParts = Object.values(parsed).filter(Boolean);
-              return addressParts.length > 0 ? addressParts.join(', ') : null;
-            }
-          } catch (err) {
-            // Not a JSON string, just return as is
-            return order.delivery_address;
-          }
-        }
-        return order.delivery_address;
-      }
-      if (typeof order.delivery_address === 'object' && order.delivery_address !== null) {
-        // Only show the values, not the keys
-        const addressParts = Object.values(order.delivery_address).filter(Boolean);
-        return addressParts.length > 0 ? addressParts.join(', ') : null;
-      }
-    }
     return null;
   };
 

@@ -536,6 +536,7 @@ class Order(SoftDeleteModel):
         ('Cancelled', 'Cancelled')
     ]
     PAYMENT_STATUS_CHOICES = [
+        ('No Status', 'No Status'),
         ('Paid', 'Full Paid'),
         ('Partial', 'Partial'),
         ('Credit', 'Credit'),
@@ -550,9 +551,19 @@ class Order(SoftDeleteModel):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Placed')
-    payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, default='Paid')
+    payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, default='No Status')
     followup_date = models.DateField(blank=True, null=True)
     delivery_address = models.TextField(blank=True, null=True)  # Legacy - use structured fields
+    DELIVERY_OPTION_CHOICES = [
+        ('primary', 'Primary Address'),
+        ('custom', 'Custom Address'),
+    ]
+    delivery_option = models.CharField(
+        max_length=20,
+        choices=DELIVERY_OPTION_CHOICES,
+        default='primary',
+        blank=True,
+    )
     # Structured delivery fields matching Customer model
     delivery_house_flat_no = models.CharField(max_length=50, blank=True, null=True)
     delivery_wing_lane = models.CharField(max_length=100, blank=True, null=True)

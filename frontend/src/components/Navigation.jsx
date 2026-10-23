@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
+import { useCallPopup } from '../context/CallPopupContext';
 import {
   LayoutDashboard,
   Calendar,
@@ -21,12 +22,25 @@ import {
 const Navigation = () => {
   const { isAuthenticated, logout, user, hasPermission } = useAuth();
   const { isOpen, toggleSidebar } = useSidebar();
+  const { isVisible, isRunning, isEndingCall, endCall } = useCallPopup();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleBack = async () => {
+    // Same as Call Popup "End Call": save & close before leaving the page
+    if ((isVisible || isRunning) && !isEndingCall) {
+      try {
+        await endCall();
+      } catch (err) {
+        console.error('Failed to end call on back navigation:', err);
+      }
+    }
+    navigate(-1);
   };
 
   if (!isAuthenticated) {
@@ -82,12 +96,13 @@ const Navigation = () => {
           </button>
         </div>
 
-        {/* Back Button */}
+        {/* Back Button — ends/saves active call popup first */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
+          disabled={isEndingCall}
           className={`flex items-center gap-3 w-full px-3 py-3 mb-6 rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200 group ${
             !isOpen ? 'justify-center' : ''
-          }`}
+          } ${isEndingCall ? 'opacity-60 cursor-wait' : ''}`}
           title={!isOpen ? 'Go Back' : ''}
         >
           <ArrowLeft className="h-5 w-5 text-gray-400 group-hover:text-white" />

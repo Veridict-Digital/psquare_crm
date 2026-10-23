@@ -103,6 +103,15 @@ else:
             #     'driver': 'ODBC Driver 17 for SQL Server',
             #     'trusted_connection': 'yes',
             # },
+            # 'ENGINE': 'mssql',
+            # 'NAME': 'psquare_crm',
+            # 'HOST': 'localhost',
+            # 'PORT': '',  # Empty for default instances
+            # 'OPTIONS': {
+            #     'driver': 'ODBC Driver 17 for SQL Server',
+            #     'trusted_connection': 'yes',
+            # },
+            
         }
     }
 

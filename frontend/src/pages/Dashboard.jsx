@@ -54,6 +54,7 @@ const STATUS_COLORS = {
   Paid: '#0f766e',
   Partial: '#f59e0b',
   Credit: '#e11d48',
+  'No Status': '#64748b',
   Advance: '#0284c7',
   'Advance Payment Received': '#0369a1',
   COD: '#ea580c',

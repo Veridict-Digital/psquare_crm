@@ -565,7 +565,7 @@ const OrderNew = () => {
       customer: urlCustomerId || "",
       agent: "",
       status: "ordered",
-      payment_status: "Advance",
+      payment_status: "No Status",
       followup_date: "",
       partial_amount: 0,
       delivery_address: {
@@ -734,7 +734,7 @@ const OrderNew = () => {
       customer: targetId,
       agent: "",
       status: "ordered",
-      payment_status: "Advance",
+      payment_status: "No Status",
       followup_date: "",
       partial_amount: 0,
       delivery_address: {
@@ -886,7 +886,8 @@ const OrderNew = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Auto-assign agent and set address based on customer selection
+  // Auto-assign agent and set address based on customer selection.
+  // Never overwrite a custom delivery address (edit mode or user-entered).
   useEffect(() => {
     if (formData.customer) {
       // Find the selected customer in either urlCustomer or customers list
@@ -898,40 +899,36 @@ const OrderNew = () => {
 
       if (selectedCustomer) {
         setFormData((prev) => {
-          // Avoid setting state if nothing changed (prevents potential loops)
-          if (prev.agent === selectedCustomer.agent) return prev;
-          return {
-            ...prev,
-            agent: selectedCustomer.agent || "",
-          };
-        });
+          let next = prev;
+          if (prev.agent !== selectedCustomer.agent) {
+            next = { ...next, agent: selectedCustomer.agent || "" };
+          }
 
-        if (formData.delivery_option === "primary") {
-          setFormData((prev) => {
-            // Avoid setting state if address is already loaded/matched
-            if (
+          if (prev.delivery_option === "primary") {
+            const alreadyMatched =
               prev.delivery_address.pincode === selectedCustomer.pincode &&
-              prev.delivery_address.city === selectedCustomer.city
-            ) {
-              return prev;
+              prev.delivery_address.city === selectedCustomer.city;
+            if (!alreadyMatched) {
+              next = {
+                ...next,
+                delivery_address: {
+                  house_flat_no: selectedCustomer.house_flat_no || '',
+                  wing_lane: selectedCustomer.wing_lane || '',
+                  society_colony: selectedCustomer.society_colony || '',
+                  landmark: selectedCustomer.landmark || '',
+                  area: selectedCustomer.area || '',
+                  pincode: selectedCustomer.pincode || '',
+                  state: selectedCustomer.state || '',
+                  district: selectedCustomer.district || '',
+                  tahsil: selectedCustomer.tahsil || '',
+                  city: selectedCustomer.city || '',
+                },
+              };
             }
-            return {
-              ...prev,
-              delivery_address: {
-                house_flat_no: selectedCustomer.house_flat_no || '',
-                wing_lane: selectedCustomer.wing_lane || '',
-                society_colony: selectedCustomer.society_colony || '',
-                landmark: selectedCustomer.landmark || '',
-                area: selectedCustomer.area || '',
-                pincode: selectedCustomer.pincode || '',
-                state: selectedCustomer.state || '',
-                district: selectedCustomer.district || '',
-                tahsil: selectedCustomer.tahsil || '',
-                city: selectedCustomer.city || '',
-              }
-            };
-          });
-        }
+          }
+
+          return next === prev ? prev : next;
+        });
 
         setCustomerKPIs({
           totalOrders: Math.floor(Math.random() * 50) + 1,
@@ -1778,7 +1775,7 @@ const OrderNew = () => {
         setFormData(prev => ({
           ...prev,
           status: "ordered",
-          payment_status: "Advance",
+          payment_status: "No Status",
           followup_date: "",
           partial_amount: 0,
           order_date: new Date().toISOString().split('T')[0],
@@ -1822,6 +1819,7 @@ const OrderNew = () => {
       status: formData.status,
       payment_status: formData.payment_status,
       ...(formData.followup_date && { followup_date: formData.followup_date }),
+      delivery_option: formData.delivery_option || 'primary',
       delivery_address: formData.delivery_address,
       total_amount: totals.total,
       paid_amount: formData.payment_status === "Paid" ? totals.total :
@@ -2943,9 +2941,9 @@ const OrderNew = () => {
                     Payment Status
                   </label>
                   {(() => {
-                    const PAYMENT_STATUS_RANK = { Credit: 1, COD: 1, Advance: 2, 'Advance Payment Received': 2, Partial: 3, Paid: 4 };
+                    const PAYMENT_STATUS_RANK = { 'No Status': 0, Credit: 1, COD: 1, Advance: 2, 'Advance Payment Received': 2, Partial: 3, Paid: 4 };
                     const originalPaymentStatus = editMode ? (initialOrderState.payment_status || formData.payment_status) : null;
-                    const originalPayRank = originalPaymentStatus ? (PAYMENT_STATUS_RANK[originalPaymentStatus] || 1) : 1;
+                    const originalPayRank = originalPaymentStatus ? (PAYMENT_STATUS_RANK[originalPaymentStatus] ?? 0) : 0;
                     const isOriginalPaid = editMode && originalPaymentStatus === 'Paid';
 
                     return (
@@ -2956,6 +2954,7 @@ const OrderNew = () => {
                         disabled={isOriginalPaid}
                         className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white ${isOriginalPaid ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}`}
                       >
+                        <option value="No Status" disabled={editMode && originalPayRank > 0}>No Status {editMode && originalPayRank > 0 ? '(Not allowed)' : ''}</option>
                         <option value="Credit" disabled={editMode && originalPayRank > 1}>Credit {editMode && originalPayRank > 1 ? '(Not allowed)' : ''}</option>
                         <option value="COD" disabled={editMode && originalPayRank > 1}>COD {editMode && originalPayRank > 1 ? '(Not allowed)' : ''}</option>
                         <option value="Advance" disabled={editMode && originalPayRank > 2}>Advance {editMode && originalPayRank > 2 ? '(Not allowed)' : ''}</option>

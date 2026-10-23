@@ -102,7 +102,7 @@ const OrderEdit = () => {
         followup_date: order.followup_date || '',
         partial_amount: (order.payment_status === 'Partial' ? order.paid_amount : 0) || 0,
         delivery_address: order.delivery_address || '',
-        delivery_option: order.delivery_address ? 'custom' : 'primary',
+        delivery_option: order.delivery_option === 'custom' ? 'custom' : 'primary',
         order_date: order.order_date || '',
         created_at: order.created_at ? order.created_at.split('T')[0] : '',
       });
@@ -245,6 +245,7 @@ const OrderEdit = () => {
       status: formData.status,
       payment_status: formData.payment_status,
       ...(formData.followup_date && { followup_date: formData.followup_date }),
+      delivery_option: formData.delivery_option || 'primary',
       delivery_address: formData.delivery_address,
       total_amount: parseFloat(formData.total_amount),
       paid_amount:
@@ -457,9 +458,9 @@ const OrderEdit = () => {
                 Payment Status
               </label>
               {(() => {
-                const PAYMENT_STATUS_RANK = { Credit: 1, COD: 1, Advance: 2, 'Advance Payment Received': 2, Partial: 3, Paid: 4 };
-                const originalPaymentStatus = initialOrderState.payment_status || order?.payment_status || 'Credit';
-                const originalPayRank = PAYMENT_STATUS_RANK[originalPaymentStatus] || 1;
+                const PAYMENT_STATUS_RANK = { 'No Status': 0, Credit: 1, COD: 1, Advance: 2, 'Advance Payment Received': 2, Partial: 3, Paid: 4 };
+                const originalPaymentStatus = initialOrderState.payment_status || order?.payment_status || 'No Status';
+                const originalPayRank = PAYMENT_STATUS_RANK[originalPaymentStatus] ?? 0;
                 const isOriginalPaid = originalPaymentStatus === 'Paid';
 
                 return (
@@ -470,6 +471,7 @@ const OrderEdit = () => {
                     disabled={isOriginalPaid}
                     className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:bg-gray-50 ${isOriginalPaid ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}`}
                   >
+                    <option value="No Status" disabled={originalPayRank > 0}>No Status {originalPayRank > 0 ? '(Not allowed)' : ''}</option>
                     <option value="Credit" disabled={originalPayRank > 1}>Credit {originalPayRank > 1 ? '(Not allowed)' : ''}</option>
                     <option value="COD" disabled={originalPayRank > 1}>COD {originalPayRank > 1 ? '(Not allowed)' : ''}</option>
                     <option value="Advance" disabled={originalPayRank > 2}>Advance {originalPayRank > 2 ? '(Not allowed)' : ''}</option>

@@ -457,6 +457,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'Delivered': 4, 'Cancelled': 4
         }
         PAYMENT_STATUS_RANK = {
+            'No Status': 0,
             'Credit': 1, 'COD': 1,
             'Advance': 2, 'Advance Payment Received': 2,
             'Partial': 3,
@@ -532,7 +533,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['id', 'order_id', 'customer', 'customer_details', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'delivery_house_flat_no', 'delivery_wing_lane', 'delivery_society_colony', 'delivery_landmark', 'delivery_area', 'delivery_pincode', 'delivery_state', 'delivery_district', 'delivery_tahsil', 'delivery_city', 'order_date', 'created_at', 'customer_name', 'agent_name', 'created_by', 'created_by_name', 'items', 'applied_combos']
+        fields = ['id', 'order_id', 'customer', 'customer_details', 'agent', 'total_amount', 'paid_amount', 'status', 'payment_status', 'followup_date', 'delivery_address', 'delivery_option', 'delivery_house_flat_no', 'delivery_wing_lane', 'delivery_society_colony', 'delivery_landmark', 'delivery_area', 'delivery_pincode', 'delivery_state', 'delivery_district', 'delivery_tahsil', 'delivery_city', 'order_date', 'created_at', 'customer_name', 'agent_name', 'created_by', 'created_by_name', 'items', 'applied_combos']
         read_only_fields = ['created_by', 'created_by_name']
         extra_kwargs = {
             'agent': {'required': False},
