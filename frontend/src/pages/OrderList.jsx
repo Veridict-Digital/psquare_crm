@@ -4,16 +4,20 @@ import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, DollarSign, ShoppingCart, Truck, AlertCircle, Plus, X, IndianRupee, FileSpreadsheet } from 'lucide-react';
+import {
+  Eye, Package, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List,
+  DollarSign, ShoppingCart, Truck, AlertCircle, Plus, X, IndianRupee, FileSpreadsheet,
+  Hash, Building2, Phone, User, MapPin, CreditCard, Wallet, Settings2,
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { sortAlphabetically, selectSortedByName } from '../utils/alphabetical';
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
-  const cleaned = phone.toString().replace(/\D/g, "");
-  if (cleaned.length === 10) {
-    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  }
-  return phone;
+  const digits = phone.toString().replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
 const formatPaymentStatusLabel = (status) => {
@@ -42,9 +46,15 @@ const SearchableDropdown = ({
   const fetchTimeoutRef = useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
+  const isPhoneField = fetchUrl.includes("unique_phones");
+
   useEffect(() => {
-    setInputValue(value || "");
-  }, [value]);
+    if (isPhoneField) {
+      setInputValue(formatPhoneNumber(value || ""));
+    } else {
+      setInputValue(value || "");
+    }
+  }, [value, isPhoneField]);
 
   const updateCoords = useCallback(() => {
     if (inputRef.current) {
@@ -74,7 +84,11 @@ const SearchableDropdown = ({
       clearTimeout(fetchTimeoutRef.current);
     }
 
-    if (!isTyping || !inputValue || inputValue.trim().length < minLength) {
+    const queryValue = isPhoneField
+      ? String(inputValue || "").replace(/\D/g, "")
+      : inputValue;
+
+    if (!isTyping || !queryValue || queryValue.trim().length < minLength) {
       setOptions([]);
       setShowDropdown(false);
       setLoading(false);
@@ -85,7 +99,7 @@ const SearchableDropdown = ({
 
     fetchTimeoutRef.current = setTimeout(async () => {
       try {
-        const response = await axios.get(`${fetchUrl}?q=${encodeURIComponent(inputValue)}`);
+        const response = await axios.get(`${fetchUrl}?q=${encodeURIComponent(queryValue)}`);
 
         let optionsArray = [];
         if (Array.isArray(response.data)) {
@@ -98,8 +112,11 @@ const SearchableDropdown = ({
           optionsArray = Object.values(response.data).find(val => Array.isArray(val)) || [];
         }
 
-        setOptions(optionsArray);
-        if (isTyping && optionsArray.length > 0) {
+        const sorted = sortAlphabetically(optionsArray, (item) =>
+          typeof item === 'string' ? item : item?.name ?? item?.label ?? String(item ?? '')
+        );
+        setOptions(sorted);
+        if (isTyping && sorted.length > 0) {
           setShowDropdown(true);
         }
       } catch (err) {
@@ -116,7 +133,7 @@ const SearchableDropdown = ({
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [inputValue, fetchUrl, minLength, isTyping]);
+  }, [inputValue, fetchUrl, minLength, isTyping, isPhoneField]);
 
   const handleKeyDown = (e) => {
     if (!showDropdown) return;
@@ -147,7 +164,7 @@ const SearchableDropdown = ({
     setHighlighted(-1);
     setOptions([]);
 
-    const formatted = fetchUrl.includes("unique_phones") ? formatPhoneNumber(option) : option;
+    const formatted = isPhoneField ? formatPhoneNumber(option) : option;
     setInputValue(formatted);
     onChange(formatted);
   };
@@ -174,16 +191,21 @@ const SearchableDropdown = ({
       <input
         ref={inputRef}
         type="text"
+        inputMode={isPhoneField ? "numeric" : undefined}
         value={inputValue}
         onChange={(e) => {
-          const newValue = e.target.value;
+          const raw = e.target.value;
+          const newValue = isPhoneField ? formatPhoneNumber(raw) : raw;
           setInputValue(newValue);
           setIsTyping(true);
           onChange(newValue);
           setHighlighted(-1);
         }}
         onFocus={() => {
-          if (inputValue && inputValue.length >= minLength && !showDropdown) {
+          const len = isPhoneField
+            ? String(inputValue || "").replace(/\D/g, "").length
+            : (inputValue || "").length;
+          if (len >= minLength && !showDropdown) {
             setIsTyping(true);
           }
         }}
@@ -193,11 +215,11 @@ const SearchableDropdown = ({
           }, 200);
         }}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder}
+        placeholder={placeholder || (isPhoneField ? "xxx-xxx-xxxx" : "")}
         className={`w-full px-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all bg-gray-50 hover:bg-white h-10 shadow-sm ${className}`}
         disabled={disabled}
         autoComplete="off"
-        maxLength={maxLength}
+        maxLength={isPhoneField ? 12 : maxLength}
       />
       {loading && (
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -225,7 +247,7 @@ const SearchableDropdown = ({
               }}
               onMouseEnter={() => setHighlighted(idx)}
             >
-              {fetchUrl.includes("unique_phones") ? formatPhoneNumber(option) : option}
+              {isPhoneField ? formatPhoneNumber(option) : option}
             </li>
           ))}
         </ul>,
@@ -457,20 +479,23 @@ const OrderList = () => {
     }
   }, [searchParams]);
 
-  // Queries for customer filter dropdowns
+  // Queries for customer filter dropdowns (A→Z)
   const { data: organizationTypes } = useQuery({
     queryKey: ['organizationTypes'],
     queryFn: () => axios.get('/api/organizationtypes/').then((res) => res.data),
+    select: selectSortedByName,
   });
 
   const { data: customerTypes } = useQuery({
     queryKey: ['customerTypes'],
     queryFn: () => axios.get('/api/customertypes/').then((res) => res.data),
+    select: selectSortedByName,
   });
 
   const { data: employees } = useQuery({
     queryKey: ['employees'],
     queryFn: () => axios.get('/api/users/employees/').then((res) => res.data),
+    select: selectSortedByName,
   });
 
   const { data: orders, isLoading, error, refetch } = useQuery({
@@ -937,7 +962,7 @@ const OrderList = () => {
   );
 
   return (
-    <div className="h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex flex-col overflow-hidden">
+    <div className="h-screen soft-page flex flex-col overflow-hidden">
       <div className="container mx-auto px-4 py-2 max-w-full flex-1 flex flex-col min-h-0">
         {/* Filters and Search - Static Top Section */}
         <div
@@ -946,7 +971,7 @@ const OrderList = () => {
               handleApplyFilters();
             }
           }}
-          className="flex-none bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3"
+          className="flex-none soft-panel p-3 mb-3"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-2">
             {/* ================= ROW 1 (Order Basic Filters) ================= */}
@@ -1401,25 +1426,25 @@ const OrderList = () => {
         {/* Content Section - Flexible and Scrollable */}
         <div className="flex-1 min-h-0 flex flex-col">
           {viewMode === 'table' ? (
-            <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-0">
-              <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+            <div className="flex-1 soft-table-wrap flex flex-col min-h-0">
+              <div className="flex-1 overflow-auto">
                 <table className="min-w-full divide-y divide-gray-200 border-collapse">
-                  <thead className="bg-[#1a2332] sticky top-0 z-10">
+                  <thead className="soft-thead sticky top-0 z-10">
                     <tr>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Order ID</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Order Date</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Customer</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Org Name</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Org Type</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Phone</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Agent</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Total Amount</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Paid Amount</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Pending Amount</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Status</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Payment Status</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Delivery Address</th>
-                      <th className="sticky top-0 z-10 bg-[#1a2332] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">Actions</th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Hash strokeWidth={2.2} />Order</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Calendar strokeWidth={2.2} />Date</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><User strokeWidth={2.2} />Customer</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Building2 strokeWidth={2.2} />Org</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Package strokeWidth={2.2} />Type</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Phone strokeWidth={2.2} />Phone</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Users strokeWidth={2.2} />Agent</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><IndianRupee strokeWidth={2.2} />Total</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Wallet strokeWidth={2.2} />Paid</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><AlertCircle strokeWidth={2.2} />Pending</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><CheckCircle strokeWidth={2.2} />Status</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><CreditCard strokeWidth={2.2} />Payment</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><MapPin strokeWidth={2.2} />Address</span></th>
+                      <th className="sticky top-0 z-10 soft-thead soft-th px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Settings2 strokeWidth={2.2} />Actions</span></th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1708,7 +1733,7 @@ const OrderList = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-1">
                 {finalFilteredOrders?.length > 0 ? (
                   finalFilteredOrders.map(order => (
-                    <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                    <div key={order.id} className="soft-panel p-6 hover:shadow-soft-lg transition-all duration-300 transform hover:-translate-y-1">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-3">
                           <div className="bg-green-100 p-2 rounded-full">

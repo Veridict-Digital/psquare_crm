@@ -18,6 +18,7 @@ import {
   Trash2,
   AlertCircle,
 } from "lucide-react";
+import { selectSortedByName } from "../utils/alphabetical";
 
 const ProductEdit = () => {
   const { id } = useParams();
@@ -291,6 +292,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/gstrates/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: categories, refetch: refetchCategories } = useQuery({
@@ -299,6 +301,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/categories/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: units, refetch: refetchUnits } = useQuery({
@@ -307,6 +310,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/units/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: packingUnits, refetch: refetchPackingUnits } = useQuery({
@@ -315,6 +319,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/packing-units/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: brands, refetch: refetchBrands } = useQuery({
@@ -323,6 +328,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/brands/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: brandCategories, refetch: refetchBrandCategories } = useQuery({
@@ -331,6 +337,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/brand-categories/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: flavours, refetch: refetchFlavours } = useQuery({
@@ -339,6 +346,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/flavours/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: residuals, refetch: refetchResiduals } = useQuery({
@@ -347,6 +355,7 @@ const ProductEdit = () => {
       const response = await axios.get("/api/residuals/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: brandCategories1, refetch: refetchBrandCategories1 } = useQuery(

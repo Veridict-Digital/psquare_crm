@@ -11,6 +11,13 @@ import {
   History,
   Eye,
   X,
+  Layers,
+  FileText,
+  User,
+  Clock,
+  Settings2,
+  Tag,
+  ArrowLeftRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -147,7 +154,7 @@ const RecycleBin = () => {
           type="button"
           onClick={() => setTab('bin')}
           className={`px-4 py-2 text-sm font-semibold rounded-lg ${
-            tab === 'bin' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600'
+            tab === 'bin' ? 'bg-blue-500 text-white shadow-soft' : 'bg-white border border-gray-200 text-gray-600'
           }`}
         >
           Recycle Bin ({results.length})
@@ -156,7 +163,7 @@ const RecycleBin = () => {
           type="button"
           onClick={() => setTab('audit')}
           className={`px-4 py-2 text-sm font-semibold rounded-lg inline-flex items-center gap-1.5 ${
-            tab === 'audit' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600'
+            tab === 'audit' ? 'bg-blue-500 text-white shadow-soft' : 'bg-white border border-gray-200 text-gray-600'
           }`}
         >
           <History className="w-4 h-4" />
@@ -183,7 +190,7 @@ const RecycleBin = () => {
             </select>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="soft-table-wrap">
             {isLoading ? (
               <div className="p-10 text-center text-slate-400">Loading…</div>
             ) : results.length === 0 ? (
@@ -191,13 +198,13 @@ const RecycleBin = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-500 text-left">
+                  <thead className="soft-thead text-left">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">Type</th>
-                      <th className="px-4 py-3 font-semibold">Record</th>
-                      <th className="px-4 py-3 font-semibold">Deleted by</th>
-                      <th className="px-4 py-3 font-semibold">Deleted at</th>
-                      <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Layers strokeWidth={2.2} />Type</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><FileText strokeWidth={2.2} />Record</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><User strokeWidth={2.2} />Deleted by</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Clock strokeWidth={2.2} />Deleted at</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white text-right"><span className="soft-th-inner"><Settings2 strokeWidth={2.2} />Actions</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -254,7 +261,7 @@ const RecycleBin = () => {
       )}
 
       {tab === 'audit' && (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="soft-table-wrap">
           {auditLoading ? (
             <div className="p-10 text-center text-slate-400">Loading audit log…</div>
           ) : auditResults.length === 0 ? (
@@ -262,14 +269,14 @@ const RecycleBin = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-slate-500 text-left">
+                <thead className="soft-thead text-left">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">When</th>
-                    <th className="px-4 py-3 font-semibold">Who</th>
-                    <th className="px-4 py-3 font-semibold">Action</th>
-                    <th className="px-4 py-3 font-semibold">Model</th>
-                    <th className="px-4 py-3 font-semibold">Object</th>
-                    <th className="px-4 py-3 font-semibold text-right">Detail</th>
+                    <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Clock strokeWidth={2.2} />When</span></th>
+                    <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><User strokeWidth={2.2} />Who</span></th>
+                    <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><History strokeWidth={2.2} />Action</span></th>
+                    <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Layers strokeWidth={2.2} />Model</span></th>
+                    <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><FileText strokeWidth={2.2} />Object</span></th>
+                    <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white text-right"><span className="soft-th-inner"><Eye strokeWidth={2.2} />Detail</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -402,11 +409,11 @@ const RecycleBin = () => {
                 ) : (
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-slate-500 text-left">
+                      <thead className="soft-thead text-left">
                         <tr>
-                          <th className="px-3 py-2 font-semibold">Field</th>
-                          <th className="px-3 py-2 font-semibold">From</th>
-                          <th className="px-3 py-2 font-semibold">To</th>
+                          <th className="soft-th px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Tag strokeWidth={2.2} />Field</span></th>
+                          <th className="soft-th px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><ArrowLeftRight strokeWidth={2.2} />From</span></th>
+                          <th className="soft-th px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><ArrowLeftRight strokeWidth={2.2} />To</span></th>
                         </tr>
                       </thead>
                       <tbody>

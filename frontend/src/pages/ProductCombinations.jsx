@@ -17,9 +17,15 @@ import {
   X,
   Percent,
   Package,
+  Gift,
+  IndianRupee,
+  Calculator,
+  Settings2,
+  ShoppingBag,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "../api/axios";
+import { selectSortedByName } from "../utils/alphabetical";
 const toast = Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {}, info: () => {} });
 import { useSidebar } from "../context/SidebarContext";
 
@@ -972,30 +978,35 @@ const ProductCombinations = () => {
     filterMaxPrice: "",
   });
 
-  // Queries for filters
+  // Queries for filters (A→Z)
   const { data: flavours } = useQuery({
     queryKey: ["flavours"],
     queryFn: async () => (await axios.get("/api/flavours/")).data,
+    select: selectSortedByName,
   });
 
   const { data: residuals } = useQuery({
     queryKey: ["residuals"],
     queryFn: async () => (await axios.get("/api/residuals/")).data,
+    select: selectSortedByName,
   });
 
   const { data: brandCategories1 } = useQuery({
     queryKey: ["brandCategories1"],
     queryFn: async () => (await axios.get("/api/brand-categories-1/")).data,
+    select: selectSortedByName,
   });
 
   const { data: gstRates } = useQuery({
     queryKey: ["gstRates"],
     queryFn: async () => (await axios.get("/api/gstrates/")).data,
+    select: selectSortedByName,
   });
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => (await axios.get("/api/categories/")).data,
+    select: selectSortedByName,
   });
 
   const { data: categories1 } = useQuery({
@@ -1008,6 +1019,7 @@ const ProductCombinations = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: categories2 } = useQuery({
@@ -1020,6 +1032,7 @@ const ProductCombinations = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: categories3 } = useQuery({
@@ -1032,6 +1045,7 @@ const ProductCombinations = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: categories4 } = useQuery({
@@ -1044,16 +1058,19 @@ const ProductCombinations = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: brands } = useQuery({
     queryKey: ["brands"],
     queryFn: async () => (await axios.get("/api/brands/")).data,
+    select: selectSortedByName,
   });
 
   const { data: brandCategories } = useQuery({
     queryKey: ["brandCategories"],
     queryFn: async () => (await axios.get("/api/brand-categories/")).data,
+    select: selectSortedByName,
   });
   const [editingChargeField, setEditingChargeField] = useState(null);
   // Handle keyboard navigation for charge fields
@@ -2925,7 +2942,7 @@ const ProductCombinations = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen soft-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-2"></div>
           <p className="text-gray-600">Loading Combo's...</p>
@@ -2937,7 +2954,7 @@ const ProductCombinations = () => {
   const formCalculations = getFormCalculations();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen soft-page p-4">
       <div className="max-w-full mx-auto">
         {/* Filter Bar with Replicated Product Filters */}
         <div
@@ -2946,7 +2963,7 @@ const ProductCombinations = () => {
               handleApplyFilters();
             }
           }}
-          className="mb-2 w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+          className="mb-2 w-full soft-panel p-6"
         >
           {/* Row 1: Combo Search and SKU/Title/HSN */}
           <div className="grid grid-cols-12 gap-3 mb-4">
@@ -3863,46 +3880,65 @@ const ProductCombinations = () => {
         </div>
 
         {/* Main Table */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="soft-table-wrap">
           <div
             ref={tableContainerRef}
             className="overflow-auto"
-            style={{ maxHeight: "calc(100vh - 170px)" }}
+            style={{ maxHeight: "calc(100vh - 170px)", scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             <style>{`
   .combo-table {
     width: 100%;
-    border-collapse: collapse;  /* Change from 'separate' to 'collapse' */
+    border-collapse: collapse;
     background: white;
   }
 
   .combo-table th,
   .combo-table td {
-    border: 1px solid #e5e7eb;  /* Add border to all th and td */
     vertical-align: top;
+  }
+
+  .combo-table td {
+    border: 1px solid #e5e7eb;
+  }
+
+  .combo-table thead {
+    background: linear-gradient(160deg, #14264a 0%, #1a3560 55%, #1e3a6e 100%);
   }
 
   .combo-table th {
     position: sticky;
     top: 0;
     z-index: 20;
-    background: #1a2332;
-    color: white;
-    font-size: 12px;
+    background: transparent;
+    color: #e8f0ff;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 14px 16px;
-    border-bottom: 2px solid #334155;
+    padding: 10px 14px;
+    border: none;
     white-space: nowrap;
+  }
+
+  .combo-table th .soft-th-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+  }
+
+  .combo-table th .soft-th-inner svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
   }
 
   .combo-table td {
     border-bottom: 1px solid #e5e7eb;
-    border-right: 1px solid #e5e7eb;  /* Add right border to all cells */
+    border-right: 1px solid #e5e7eb;
   }
 
-  /* Remove right border from last column to avoid double border */
   .combo-table td:last-child,
   .combo-table th:last-child {
     border-right: none;
@@ -3920,15 +3956,22 @@ const ProductCombinations = () => {
     position: sticky;
     z-index: 10;
     background: inherit;
-    border-right: 1px solid #d1d5db !important;  /* Stronger border for sticky columns */
+    border-right: 1px solid #d1d5db !important;
   }
 
   .sticky-col-header {
     position: sticky;
     top: 0;
     z-index: 30;
-    background: linear-gradient(to right, #1e293b, #111827);
-    border-right: 1px solid #334155 !important;
+    background: #14264a !important;
+    color: #e8f0ff;
+    border-right: none !important;
+  }
+
+  .overflow-auto::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   /* Ensure all columns have visible borders */
@@ -4008,7 +4051,7 @@ const ProductCombinations = () => {
                       minWidth: COLUMN_WIDTHS.COMBO_NAME,
                     }}
                   >
-                    Combo Name
+                    <span className="soft-th-inner"><Package strokeWidth={2.2} />Combo</span>
                   </th>
 
                   <th
@@ -4018,22 +4061,30 @@ const ProductCombinations = () => {
                       minWidth: COLUMN_WIDTHS.PAID_ITEMS,
                     }}
                   >
-                    Purchase Product
+                    <span className="soft-th-inner"><ShoppingBag strokeWidth={2.2} />Purchase</span>
                   </th>
 
-                  <th style={{ minWidth: 220 }}>Free Product</th>
+                  <th style={{ minWidth: 220 }}>
+                    <span className="soft-th-inner"><Gift strokeWidth={2.2} />Free</span>
+                  </th>
 
-                  <th style={{ minWidth: 220 }}>Gifts product</th>
+                  <th style={{ minWidth: 220 }}>
+                    <span className="soft-th-inner"><Gift strokeWidth={2.2} />Gifts</span>
+                  </th>
 
                   <th style={{ minWidth: GROUP_CONFIG.charges.width }}>
-                    Charges
+                    <span className="soft-th-inner"><IndianRupee strokeWidth={2.2} />Charges</span>
                   </th>
 
                   <th style={{ minWidth: GROUP_CONFIG.costBreakdown.width }}>
-                    Cost Breakdown
+                    <span className="soft-th-inner"><Calculator strokeWidth={2.2} />Cost</span>
                   </th>
 
-                  {isAdmin && <th style={{ minWidth: 80 }}>Actions</th>}
+                  {isAdmin && (
+                    <th style={{ minWidth: 80 }}>
+                      <span className="soft-th-inner"><Settings2 strokeWidth={2.2} />Actions</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
 
@@ -4415,7 +4466,7 @@ const ProductCombinations = () => {
           }}
         >
           <div className="bg-white rounded-xl shadow-2xl w-[100%] max-w-[1900px] my-8 max-h-[100vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[#1a2332] text-white px-6 py-4 flex justify-between items-center z-10">
+            <div className="sticky top-0 soft-thead text-white px-6 py-4 flex justify-between items-center z-10">
               <h2 className="text-xl font-bold">
                 {editingCombination
                   ? "Edit Combination"
@@ -4495,7 +4546,7 @@ const ProductCombinations = () => {
                     {formData.items.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full text-xs">
-                          <thead className="bg-[#1a2332] text-white">
+                          <thead className="soft-thead text-white">
                             <tr>
                               <th className="px-2 py-1.5 text-left">Product</th>
                               <th className="px-2 py-1.5 text-left">Qty</th>
@@ -5210,7 +5261,7 @@ const ProductCombinations = () => {
                     {formData.rewards.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full text-xs">
-                          <thead className="bg-[#1a2332] text-white">
+                          <thead className="soft-thead text-white">
                             <tr>
                               <th className="px-2 py-1.5 text-left">Product</th>
                               <th className="px-2 py-1.5 text-left">Qty</th>
@@ -5872,7 +5923,7 @@ const ProductCombinations = () => {
                     {formData.gifts.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full text-xs">
-                          <thead className="bg-[#1a2332] text-white">
+                          <thead className="soft-thead text-white">
                             <tr>
                               <th className="px-2 py-1.5 text-left">Product</th>
                               <th className="px-2 py-1.5 text-left">Qty</th>
@@ -6509,7 +6560,7 @@ const ProductCombinations = () => {
 
                     <div className="overflow-x-auto">
                       <table className="min-w-full text-xs">
-                        <thead className="bg-[#1a2332] text-white">
+                        <thead className="soft-thead text-white">
                           <tr>
                             <th className="px-2 py-1.5 text-left">Category</th>
                             <th className="px-2 py-1.5 text-left">Qty</th>
@@ -7291,7 +7342,7 @@ const ProductCombinations = () => {
 
                     <div className="overflow-x-auto">
                       <table className="min-w-full text-xs">
-                        <thead className="bg-[#1a2332] text-white">
+                        <thead className="soft-thead text-white">
                           <tr>
                             <th className="px-2 py-1.5 text-left">Packing</th>
                             <th className="px-2 py-1.5 text-left">Extra 1</th>

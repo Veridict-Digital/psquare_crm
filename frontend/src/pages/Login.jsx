@@ -34,21 +34,21 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 absolute inset-0">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 absolute inset-0">
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center mb-4 shadow-lg">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-400 rounded-[18px] flex items-center justify-center mb-4 shadow-soft">
             <LogIn className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+          <h2 className="text-3xl font-bold text-gray-900">
             Welcome Back
           </h2>
-          <p className="mt-2 text-gray-600">Sign in to your Psquare CRM account</p>
+          <p className="mt-2 text-gray-500">Sign in to your Psquare CRM account</p>
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+        <div className="bg-white rounded-2xl shadow-soft border border-gray-200 p-8">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Username Field */}
             <div>
@@ -119,7 +119,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loginMutation.isLoading}
-              className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
+              className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-transparent rounded-xl shadow-soft text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-400 hover:from-blue-600 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {loginMutation.isLoading ? (
                 <>
@@ -146,7 +146,7 @@ const Login = () => {
                 Don't have an account?{' '}
                 <Link
                   to="/register"
-                  className="font-medium text-green-600 hover:text-green-500 transition-colors duration-200"
+                  className="font-medium text-teal-600 hover:text-teal-500 transition-colors duration-200"
                 >
                   Sign up here
                 </Link>

@@ -1,3 +1,423 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Soft Glass + Aurora — global tokens */
+:root {
+  --dash-blue: #3478f6;
+  --dash-blue-light: #64a5ff;
+  --dash-indigo: #625bee;
+  --dash-purple: #9855f7;
+  --dash-purple-light: #c084fc;
+  --dash-green: #20c997;
+  --dash-green-light: #64e3b8;
+  --dash-teal: #08afa8;
+  --dash-teal-light: #50d8d0;
+  --dash-pink: #ff4778;
+  --dash-pink-light: #ff83a4;
+  --dash-orange: #ffa640;
+  --dash-orange-light: #ffc777;
+  --dash-text: #14264a;
+  --dash-text-muted: #7186a8;
+  --dash-bg: #f1f7fe;
+  --dash-card: #ffffff;
+  --dash-border: #e2ecf8;
+  --dash-positive: #079669;
+  --dash-negative: #e54864;
+  --dash-shadow: 0 8px 28px rgba(52, 120, 246, 0.06);
+  --dash-shadow-hover: 0 12px 32px rgba(52, 120, 246, 0.1);
+  color-scheme: light;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background-color: var(--dash-bg);
+    color: var(--dash-text);
+  }
+
+  html,
+  body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  body {
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Softer focus rings app-wide */
+  :focus-visible {
+    outline: 2px solid rgba(52, 120, 246, 0.45);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Main content canvas */
+  .app-main {
+    position: relative;
+    min-height: 100vh;
+    background-color: var(--dash-bg);
+    background-image:
+      radial-gradient(ellipse 55% 40% at 88% 0%, rgba(100, 165, 255, 0.14), transparent 60%),
+      radial-gradient(ellipse 40% 35% at 12% 8%, rgba(192, 132, 252, 0.08), transparent 55%),
+      radial-gradient(ellipse 35% 30% at 60% 0%, rgba(80, 216, 208, 0.07), transparent 50%);
+    background-repeat: no-repeat;
+    color: var(--dash-text);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .app-main::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Soft glass cards when pages use plain white panels */
+  .app-main .bg-white {
+    border-color: var(--dash-border);
+  }
+
+  .app-main .shadow-sm,
+  .app-main .shadow,
+  .app-main .shadow-md,
+  .app-main .shadow-lg,
+  .app-main .shadow-xl {
+    box-shadow: var(--dash-shadow);
+  }
+
+  /* Inputs / selects feel softer */
+  .app-main input:not([type='checkbox']):not([type='radio']),
+  .app-main select,
+  .app-main textarea {
+    border-color: var(--dash-border);
+    color: var(--dash-text);
+  }
+
+  .app-main input:not([type='checkbox']):not([type='radio']):focus,
+  .app-main select:focus,
+  .app-main textarea:focus {
+    border-color: var(--dash-blue-light);
+    box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.15);
+  }
+
+  /* Light sidebar Soft Glass */
+  .app-sidebar {
+    /* Same navy gradient as Dashboard Revenue & Collections */
+    background: linear-gradient(160deg, #14264a 0%, #1a3560 55%, #1e3a6e 100%);
+    border-right: 1px solid rgba(100, 165, 255, 0.18);
+    box-shadow: 4px 0 24px rgba(20, 38, 74, 0.22);
+    color: #e8f0ff;
+  }
+
+  .app-sidebar__brand {
+    background: linear-gradient(110deg, #ffffff 0%, #c8e0ff 35%, #64a5ff 70%, #50d8d0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .app-sidebar__toggle {
+    color: rgba(232, 240, 255, 0.65);
+  }
+
+  .app-sidebar__toggle:hover {
+    background: rgba(100, 165, 255, 0.12);
+    color: #e8f0ff;
+  }
+
+  .app-sidebar__link {
+    color: rgba(232, 240, 255, 0.72);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+  }
+
+  .app-sidebar__link:hover {
+    background: rgba(100, 165, 255, 0.12);
+    color: #e8f0ff;
+  }
+
+  .app-sidebar__link.is-active {
+    background: linear-gradient(135deg, rgba(100, 165, 255, 0.22), rgba(80, 216, 208, 0.14));
+    color: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(100, 165, 255, 0.22);
+    font-weight: 600;
+  }
+
+  .app-sidebar__link.is-active .app-sidebar__icon {
+    color: #64a5ff;
+  }
+
+  .app-sidebar__active-pip {
+    width: 3px;
+    height: 1.35rem;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #64a5ff, #50d8d0);
+    margin-left: auto;
+  }
+
+  .app-sidebar__divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .app-sidebar__logout:hover {
+    background: rgba(229, 72, 100, 0.18);
+    color: #ff8fa3;
+  }
+
+  .app-sidebar__sublink {
+    border-radius: 8px;
+    color: rgba(232, 240, 255, 0.65);
+    transition: all 0.15s ease;
+  }
+
+  .app-sidebar__sublink:hover {
+    background: rgba(100, 165, 255, 0.12);
+    color: #e8f0ff;
+  }
+
+  .app-sidebar__sublink.is-active {
+    background: rgba(100, 165, 255, 0.18);
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .app-sidebar__submenu {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 0.22s ease, opacity 0.18s ease;
+  }
+
+  .app-sidebar__submenu > * {
+    overflow: hidden;
+  }
+
+  .app-sidebar__submenu.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  .app-sidebar__flyout {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 0;
+    min-width: 168px;
+    padding: 0.4rem;
+    border-radius: 12px;
+    background: linear-gradient(160deg, #14264a 0%, #1a3560 55%, #1e3a6e 100%);
+    border: 1px solid rgba(100, 165, 255, 0.22);
+    box-shadow: 0 10px 28px rgba(20, 38, 74, 0.35);
+    z-index: 40;
+  }
+
+  .app-sidebar__flyout-title {
+    padding: 0.35rem 0.6rem 0.45rem;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(232, 240, 255, 0.55);
+  }
+
+  .app-sidebar__flyout-link {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(232, 240, 255, 0.85);
+    transition: background 0.15s ease;
+  }
+
+  .app-sidebar__flyout-link:hover,
+  .app-sidebar__flyout-link.is-active {
+    background: rgba(100, 165, 255, 0.16);
+    color: #ffffff;
+  }
+
+  /* Soft Glass surfaces for list pages (filters + tables) */
+  .soft-page {
+    background-color: var(--dash-bg) !important;
+    background-image:
+      radial-gradient(ellipse 50% 36% at 90% 0%, rgba(100, 165, 255, 0.12), transparent 58%),
+      radial-gradient(ellipse 36% 28% at 8% 6%, rgba(192, 132, 252, 0.07), transparent 55%) !important;
+    color: var(--dash-text);
+  }
+
+  .soft-panel {
+    background: #ffffff !important;
+    border: 1px solid var(--dash-border) !important;
+    border-radius: 14px !important;
+    box-shadow: var(--dash-shadow) !important;
+  }
+
+  .soft-table-wrap {
+    background: #ffffff !important;
+    border: 1px solid var(--dash-border) !important;
+    border-radius: 14px !important;
+    box-shadow: var(--dash-shadow) !important;
+    overflow: hidden;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .soft-table-wrap::-webkit-scrollbar,
+  .soft-table-wrap *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .soft-table-wrap,
+  .soft-table-wrap * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  /* Hide scrollbars on main page table scroll areas */
+  .app-main .overflow-auto,
+  .app-main .overflow-x-auto,
+  .app-main .overflow-y-auto {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .app-main .overflow-auto::-webkit-scrollbar,
+  .app-main .overflow-x-auto::-webkit-scrollbar,
+  .app-main .overflow-y-auto::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .soft-th {
+    white-space: nowrap !important;
+    vertical-align: middle;
+  }
+
+  .soft-th-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  .soft-th-inner svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    opacity: 0.95;
+  }
+
+  /* Table header — same navy as Dashboard Revenue & Collections chart */
+  thead.soft-thead,
+  tr.soft-thead,
+  .soft-thead > tr {
+    background: linear-gradient(160deg, #14264a 0%, #1a3560 55%, #1e3a6e 100%) !important;
+  }
+
+  .soft-thead th,
+  thead.soft-thead th,
+  tr.soft-thead th {
+    background: transparent !important;
+    color: #e8f0ff !important;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Sticky header cells — solid navy so columns stay seamless */
+  th.soft-thead {
+    background: #14264a !important;
+    color: #e8f0ff !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .soft-table-wrap thead th {
+    border-left: none !important;
+    border-right: none !important;
+    box-shadow: none !important;
+  }
+
+  .soft-table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .soft-table tbody tr {
+    border-color: var(--dash-border);
+  }
+
+  .soft-table tbody tr:hover {
+    background: #f8fbff !important;
+  }
+
+  .soft-chip {
+    background: #eef4fc !important;
+    border: 1px solid var(--dash-border) !important;
+    border-radius: 12px !important;
+  }
+
+  .soft-input {
+    border-radius: 12px !important;
+    border-color: var(--dash-border) !important;
+    background: #f8fbff !important;
+  }
+
+  .soft-input:focus {
+    background: #fff !important;
+    border-color: var(--dash-blue-light) !important;
+    box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.14) !important;
+  }
+
+  /* Slightly softer corners on filter controls inside soft panels / table wraps */
+  .soft-panel input:not([type='checkbox']):not([type='radio']),
+  .soft-panel select,
+  .soft-panel textarea,
+  .soft-panel button.rounded-lg,
+  .soft-table-wrap {
+    border-radius: 14px;
+  }
+
+  .soft-panel input:not([type='checkbox']):not([type='radio']),
+  .soft-panel select,
+  .soft-panel textarea {
+    border-radius: 12px !important;
+    border-color: var(--dash-border) !important;
+    background: #f8fbff;
+  }
+
+  .soft-panel .rounded-lg {
+    border-radius: 12px !important;
+  }
+
+  .soft-panel .rounded-xl {
+    border-radius: 14px !important;
+  }
+}

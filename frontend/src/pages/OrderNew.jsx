@@ -27,6 +27,7 @@ import {
   FileText,
   Printer,
 } from "lucide-react";
+import { sortAlphabetically, defaultOptionLabel } from "../utils/alphabetical";
 
 const ComboQuantityInput = ({ combo, initialQty, onUpdateQuantity, onRemove }) => {
   const [localValue, setLocalValue] = useState(String(initialQty));
@@ -1912,12 +1913,15 @@ const OrderNew = () => {
       });
     }
 
-    return filtered;
+    return sortAlphabetically(filtered, (p) => p.title || p.name || "");
   }, [products, productFilters]);
 
-  const allCustomers = customers?.results || customers || [];
+  const allCustomers = sortAlphabetically(
+    customers?.results || customers || [],
+    defaultOptionLabel
+  );
   const filteredCustomers = (customerDropdownOpen && customerSearch.length > 0)
-    ? customerSearchResults
+    ? sortAlphabetically(customerSearchResults || [], defaultOptionLabel)
     : allCustomers;
 
   const relevantCombinations = useMemo(() => {

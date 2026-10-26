@@ -23,7 +23,9 @@ import {
   Clock,
   Pencil,
   Check,
-  X
+  X,
+  Contact,
+  Settings2,
 } from 'lucide-react';
 
 const LeadList = () => {
@@ -94,8 +96,10 @@ const LeadList = () => {
     },
   });
 
-  // Extract unique statuses for filter
-  const statuses = [...new Set(data?.map(lead => lead.status).filter(Boolean))];
+  // Extract unique statuses for filter (A→Z)
+  const statuses = [...new Set(data?.map(lead => lead.status).filter(Boolean))].sort((a, b) =>
+    String(a).localeCompare(String(b), undefined, { sensitivity: 'base', numeric: true })
+  );
 
   // Filter and search leads
   const filteredLeads = data?.filter(lead =>
@@ -180,7 +184,7 @@ const LeadList = () => {
   };
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+    <div className="min-h-screen soft-page flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto"></div>
         <p className="mt-4 text-gray-600 font-medium">Loading leads...</p>
@@ -189,7 +193,7 @@ const LeadList = () => {
   );
 
   if (error) return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+    <div className="min-h-screen soft-page flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-lg p-8 max-w-md">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-gray-800 text-center mb-2">Error Loading Leads</h2>
@@ -205,7 +209,7 @@ const LeadList = () => {
   );
 
   return (
-    <div className="p-6">
+    <div className="soft-page p-6 min-h-screen">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold text-gray-900">Leads Management</h1>
         <button
@@ -219,7 +223,7 @@ const LeadList = () => {
 
       {/* Add Lead Form */}
       {showAddForm && (
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="soft-panel p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Add New Lead</h2>
           <form onSubmit={handleAddLead} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -274,7 +278,7 @@ const LeadList = () => {
       )}
 
       {/* Search and Filter */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <div className="soft-panel p-6 mb-6">
         <div className="flex flex-col md:flex-row gap-4">
           {/* Search */}
           <div className="flex-1 relative">
@@ -376,17 +380,17 @@ const LeadList = () => {
 
       {/* Content Section */}
       {viewMode === 'table' ? (
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="soft-table-wrap">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="soft-thead">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Lead</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointment Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><User strokeWidth={2.2} />Lead</span></th>
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Contact strokeWidth={2.2} />Contact</span></th>
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><CheckCircle strokeWidth={2.2} />Status</span></th>
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Calendar strokeWidth={2.2} />Appt</span></th>
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Clock strokeWidth={2.2} />Created</span></th>
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Settings2 strokeWidth={2.2} />Actions</span></th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">

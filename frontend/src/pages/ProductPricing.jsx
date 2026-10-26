@@ -13,9 +13,17 @@ import {
   AlertCircle,
   Download,
   Percent,
+  Hash,
+  Package,
+  IndianRupee,
+  Tags,
+  Boxes,
+  Calculator,
+  Coins,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "../api/axios";
+import { selectSortedByName } from "../utils/alphabetical";
 const toast = Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {}, info: () => {} });
 
 // Constants
@@ -236,37 +244,43 @@ const ProductPricing = () => {
     filterMaxPackingWeight: "",
   });
 
-  // Add these queries (add with your existing queries)
+  // Dropdown option lists (A→Z)
 
   const { data: flavours } = useQuery({
     queryKey: ["flavours"],
     queryFn: async () => (await axios.get("/api/flavours/")).data,
+    select: selectSortedByName,
   });
 
   const { data: residuals } = useQuery({
     queryKey: ["residuals"],
     queryFn: async () => (await axios.get("/api/residuals/")).data,
+    select: selectSortedByName,
   });
 
   const { data: brandCategories1 } = useQuery({
     queryKey: ["brandCategories1"],
     queryFn: async () => (await axios.get("/api/brand-categories-1/")).data,
+    select: selectSortedByName,
   });
 
   const { data: gstRates } = useQuery({
     queryKey: ["gstRates"],
     queryFn: async () => (await axios.get("/api/gstrates/")).data,
+    select: selectSortedByName,
   });
 
   const { data: units } = useQuery({
     queryKey: ["units"],
     queryFn: async () => (await axios.get("/api/units/")).data,
+    select: selectSortedByName,
   });
 
   // --- DROPDOWN DATA WITH DEPENDENT QUERIES ---
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => (await axios.get("/api/categories/")).data,
+    select: selectSortedByName,
   });
 
   const { data: categories1, refetch: refetchCategories1 } = useQuery({
@@ -279,6 +293,7 @@ const ProductPricing = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: categories2, refetch: refetchCategories2 } = useQuery({
@@ -291,6 +306,7 @@ const ProductPricing = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: categories3, refetch: refetchCategories3 } = useQuery({
@@ -303,6 +319,7 @@ const ProductPricing = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: categories4, refetch: refetchCategories4 } = useQuery({
@@ -315,16 +332,19 @@ const ProductPricing = () => {
       );
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: brands } = useQuery({
     queryKey: ["brands"],
     queryFn: async () => (await axios.get("/api/brands/")).data,
+    select: selectSortedByName,
   });
 
   const { data: brandCategories } = useQuery({
     queryKey: ["brandCategories"],
     queryFn: async () => (await axios.get("/api/brand-categories/")).data,
+    select: selectSortedByName,
   });
 
   const [editingCell, setEditingCell] = useState(null);
@@ -1400,7 +1420,7 @@ const ProductPricing = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen soft-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
           <p className="text-gray-600">Loading Calculator...</p>
@@ -1411,8 +1431,8 @@ const ProductPricing = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
+      <div className="min-h-screen soft-page flex items-center justify-center">
+        <div className="max-w-md soft-panel p-8 text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">
             Error Loading Data
@@ -1420,7 +1440,7 @@ const ProductPricing = () => {
           <p className="text-gray-600 mb-4">{error.message}</p>
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
           >
             Retry
           </button>
@@ -1430,7 +1450,7 @@ const ProductPricing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen soft-page p-4">
       <div className="max-w-full mx-auto">
         <div className="mb-2 flex flex-col gap-2">
           {/* FILTER BAR WITH DEPENDENT CATEGORY DROPDOWNS */}
@@ -1440,7 +1460,7 @@ const ProductPricing = () => {
                 handleApplyFilters();
               }
             }}
-            className="w-full bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+            className="w-full soft-panel p-6"
           >
             {/* Row 1: Basic Product Info */}
             <div className="grid grid-cols-12 gap-2 mb-4">
@@ -2186,11 +2206,11 @@ const ProductPricing = () => {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+        <div className="soft-table-wrap">
           <div
             ref={tableContainerRef}
             className="overflow-x-auto overflow-y-auto"
-            style={{ maxHeight: "calc(100vh - 200px)" }}
+            style={{ maxHeight: "calc(100vh - 200px)", scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             <style>{`
       .pricing-table { 
@@ -2210,16 +2230,45 @@ const ProductPricing = () => {
       }
       .sticky-col-header { 
         position: sticky; 
-        top: 0;  /* This is crucial for freezing the header row */
-        background-color: #1a2332; 
-        color: #ffffff;
+        top: 0;
+        background: #14264a;
+        color: #e8f0ff;
         z-index: 20; 
-        border-right: 2px solid #e5e7eb !important; 
-        border-bottom: 2px solid #d1d5db !important; 
+        border-right: none !important; 
+        border-bottom: none !important;
+        border-left: none !important;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 10px 14px;
+        white-space: nowrap;
       }
-      /* Ensure sticky columns also have correct z-index when header is sticky */
+      .pricing-table thead {
+        background: linear-gradient(160deg, #14264a 0%, #1a3560 55%, #1e3a6e 100%);
+      }
+      .pricing-table thead th {
+        background: transparent;
+        color: #e8f0ff;
+        border-left: none !important;
+        border-right: none !important;
+      }
+      .pricing-table thead th.sticky-col-header {
+        background: #14264a;
+      }
       .sticky-col-header.sticky-col {
         z-index: 25;
+      }
+      .pricing-table th .soft-th-inner {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+      }
+      .pricing-table th .soft-th-inner svg {
+        width: 0.875rem;
+        height: 0.875rem;
+        flex-shrink: 0;
       }
       .sticky-col.bg-white { 
         background-color: white; 
@@ -2236,90 +2285,96 @@ const ProductPricing = () => {
         -moz-appearance: textfield; 
         appearance: textfield; 
       }
+      .overflow-x-auto::-webkit-scrollbar,
+      .overflow-y-auto::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
     `}</style>
 
             <table className="pricing-table">
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: STICKY_POSITIONS.SKU,
                       minWidth: COLUMN_WIDTHS.SKU,
                       zIndex: 25,
                     }}
                   >
-                    SKU
+                    <span className="soft-th-inner"><Hash strokeWidth={2.2} />SKU</span>
                   </th>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: STICKY_POSITIONS.PRODUCT,
                       minWidth: COLUMN_WIDTHS.PRODUCT,
                       zIndex: 25,
                     }}
                   >
-                    Product
+                    <span className="soft-th-inner"><Package strokeWidth={2.2} />Product</span>
                   </th>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: STICKY_POSITIONS.SALE_RATE,
                       minWidth: COLUMN_WIDTHS.SALE_RATE,
                       zIndex: 25,
                     }}
                   >
-                    Sale Rate
+                    <span className="soft-th-inner"><IndianRupee strokeWidth={2.2} />Sale Rate</span>
                   </th>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: GROUP_CONFIG.pricingDetails.position,
                       minWidth: COLUMN_WIDTHS.PRICING_DETAILS,
                       zIndex: 25,
                     }}
                   >
-                    Pricing Details
+                    <span className="soft-th-inner"><Tags strokeWidth={2.2} />Pricing</span>
                   </th>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: GROUP_CONFIG.productDetails.position,
                       minWidth: COLUMN_WIDTHS.PRODUCT_DETAILS,
                       zIndex: 25,
                     }}
                   >
-                    Product Details
+                    <span className="soft-th-inner"><Boxes strokeWidth={2.2} />Details</span>
                   </th>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: GROUP_CONFIG.costComponents1.position,
                       minWidth: COLUMN_WIDTHS.COST_COMPONENTS_1,
                       zIndex: 25,
                     }}
                   >
-                    Cost Components 1
+                    <span className="soft-th-inner"><Calculator strokeWidth={2.2} />Cost 1</span>
                   </th>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: GROUP_CONFIG.costComponents2.position,
                       minWidth: COLUMN_WIDTHS.COST_COMPONENTS_2,
                       zIndex: 25,
                     }}
                   >
-                    Cost Components 2
+                    <span className="soft-th-inner"><Calculator strokeWidth={2.2} />Cost 2</span>
                   </th>
                   <th
-                    className="sticky-col-header px-4 py-3 text-left text-xs font-semibold"
+                    className="sticky-col-header text-left"
                     style={{
                       left: GROUP_CONFIG.additionalCosts.position,
                       minWidth: COLUMN_WIDTHS.ADDITIONAL_COSTS,
                       zIndex: 25,
                     }}
                   >
-                    Additional Costs
+                    <span className="soft-th-inner"><Coins strokeWidth={2.2} />Additional</span>
                   </th>
                 </tr>
               </thead>

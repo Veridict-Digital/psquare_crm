@@ -4,6 +4,7 @@ import axios from "../api/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallPopup } from "../context/CallPopupContext";
 import { useAuth } from "../context/AuthContext";
+import { selectSortedByName, sortAlphabetically, defaultOptionLabel } from "../utils/alphabetical";
 
 import {
   User,
@@ -243,28 +244,32 @@ const CustomerDetail = () => {
     setOldOrderForm({ date: "", notes: "", amount: "" });
   };
 
-  // Fetch employees
+  // Fetch employees (A→Z by name)
   const { data: employees } = useQuery({
     queryKey: ["employees"],
     queryFn: () => axios.get("/api/users/").then((res) => res.data),
+    select: selectSortedByName,
   });
 
-  // Fetch organization types
+  // Fetch organization types (A→Z)
   const { data: organizationTypes } = useQuery({
     queryKey: ["organization-types"],
     queryFn: () => axios.get("/api/organizationtypes/").then((res) => res.data),
+    select: selectSortedByName,
   });
 
-  // Fetch languages
+  // Fetch languages (A→Z)
   const { data: languages, refetch: refetchLanguages } = useQuery({
     queryKey: ["languages"],
     queryFn: () => axios.get("/api/languages/").then((res) => res.data),
+    select: selectSortedByName,
   });
 
-  // Fetch communities
+  // Fetch communities (A→Z)
   const { data: communities, refetch: refetchCommunities } = useQuery({
     queryKey: ["communities"],
     queryFn: () => axios.get("/api/communities/").then((res) => res.data),
+    select: selectSortedByName,
   });
 
   // Mutation for adding new language
@@ -325,7 +330,9 @@ const CustomerDetail = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      fetchCustomerTypes().then(setCustomerTypes); // Refetch customer types
+      fetchCustomerTypes()
+        .then((list) => setCustomerTypes(sortAlphabetically(list || [], defaultOptionLabel)))
+        .catch(() => setCustomerTypes([]));
       updateMutation.mutate({ customer_type: data.id });
       setNewCustomerType("");
       setShowNewCustomerTypeInput(false);
@@ -335,10 +342,10 @@ const CustomerDetail = () => {
     },
   });
 
-  // Fetch customer types
+  // Fetch customer types (A→Z)
   useEffect(() => {
     fetchCustomerTypes()
-      .then(setCustomerTypes)
+      .then((list) => setCustomerTypes(sortAlphabetically(list || [], defaultOptionLabel)))
       .catch(() => setCustomerTypes([]));
   }, []);
 
@@ -1520,11 +1527,6 @@ const CustomerDetail = () => {
                       </button>
                       {employees
   ?.filter((employee) => employee.role === "Telecaller")
-  ?.sort((a, b) => {
-    const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase() || a.username.toLowerCase();
-    const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase() || b.username.toLowerCase();
-    return nameA.localeCompare(nameB);
-  })
   ?.map((employee) => {
     const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
     const displayName = fullName || employee.username;
@@ -2651,9 +2653,11 @@ const CustomerDetail = () => {
                             )}
 
                             <span className="text-gray-400"> | </span>
-                            <span className="text-gray-700 whitespace-pre-wrap">
-                              {call.note || "No notes provided"}
-                            </span>
+                            {call.note ? (
+                              <span className="text-gray-700 whitespace-pre-wrap">{call.note}</span>
+                            ) : (
+                              <span className="text-amber-600 italic font-medium">No note</span>
+                            )}
                           </div>
                         </div>
                       );
@@ -2795,7 +2799,9 @@ const CustomerDetail = () => {
                             })()}
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
-                            {order.payment_status}
+                            {order.payment_status === 'Advance Payment Received'
+                              ? 'Adv pay rec'
+                              : order.payment_status}
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap text-gray-900 font-medium text-sm">
                             ₹{Math.round(parseFloat(order.total_amount || 0)).toLocaleString()}

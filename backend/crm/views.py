@@ -1867,8 +1867,13 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Apply customer-specific filters
         if customer_phone:
+            from django.db.models import Q
             customer_phone_clean = "".join(c for c in customer_phone if c.isdigit())
-            queryset = queryset.filter(customer__phone__icontains=customer_phone_clean)
+            # Match primary phone OR any secondary Phone rows for that customer
+            queryset = queryset.filter(
+                Q(customer__phone__icontains=customer_phone_clean) |
+                Q(customer__phones__phone__icontains=customer_phone_clean)
+            ).distinct()
         if customer_name:
             queryset = queryset.filter(customer__name__icontains=customer_name)
         if customer_surname:

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import axios from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 import ReactApexChart from 'react-apexcharts';
 import {
   TrendingUp,
@@ -9,28 +10,38 @@ import {
   ShoppingCart,
   Phone,
   Package,
-  DollarSign,
   Wallet,
   AlertTriangle,
   Calendar,
   RefreshCw,
   Minus,
   LayoutDashboard,
+  IndianRupee,
+  CheckCircle2,
+  Clock3,
+  XCircle,
+  Users,
+  PhoneCall,
+  ArrowRightLeft,
+  ClipboardList,
+  BadgePercent,
+  BarChart3,
 } from 'lucide-react';
+import './Dashboard.css';
 
-const BRAND = '#0f172a';
-const BRAND_SOFT = '#1e293b';
-const ACCENT = '#2563eb';
+const BRAND = '#14264A';
+const ACCENT = '#3478F6';
+const ACCENT_TEAL = '#08AFA8';
 
 const CHART_PALETTE = [
-  '#0f172a',
-  '#1e3a8a',
-  '#2563eb',
-  '#3b82f6',
-  '#60a5fa',
-  '#93c5fd',
-  '#1d4ed8',
-  '#172554',
+  '#3478F6',
+  '#08AFA8',
+  '#9855F7',
+  '#20C997',
+  '#FF4778',
+  '#FFA640',
+  '#625BEE',
+  '#64A5FF',
 ];
 
 const inr = (n) =>
@@ -45,36 +56,36 @@ const inrShort = (n) => {
 };
 
 const STATUS_COLORS = {
-  ordered: '#64748b',
-  Preparing: '#f59e0b',
-  Placed: '#2563eb',
-  Dispatched: '#1d4ed8',
-  Delivered: '#0f766e',
-  Cancelled: '#e11d48',
-  Paid: '#0f766e',
-  Partial: '#f59e0b',
-  Credit: '#e11d48',
-  'No Status': '#64748b',
-  Advance: '#0284c7',
-  'Advance Payment Received': '#0369a1',
-  COD: '#ea580c',
-  Pending: '#f59e0b',
-  'In Progress': '#2563eb',
-  Completed: '#0f766e',
-  'Follow-up': '#1d4ed8',
-  Customer: '#0f172a',
-  Lead: '#2563eb',
-  New: '#64748b',
-  Contacted: '#2563eb',
-  Qualified: '#1d4ed8',
-  Converted: '#0f766e',
-  Lost: '#e11d48',
+  ordered: '#7186A8',
+  Preparing: '#FFA640',
+  Placed: '#3478F6',
+  Dispatched: '#625BEE',
+  Delivered: '#20C997',
+  Cancelled: '#FF4778',
+  Paid: '#20C997',
+  Partial: '#FFA640',
+  Credit: '#E54864',
+  'No Status': '#7186A8',
+  Advance: '#08AFA8',
+  'Advance Payment Received': '#08AFA8',
+  COD: '#FFA640',
+  Pending: '#FFA640',
+  'In Progress': '#3478F6',
+  Completed: '#20C997',
+  'Follow-up': '#625BEE',
+  Customer: '#14264A',
+  Lead: '#3478F6',
+  New: '#7186A8',
+  Contacted: '#3478F6',
+  Qualified: '#625BEE',
+  Converted: '#20C997',
+  Lost: '#E54864',
 };
 
 const ChangeBadge = ({ value }) => {
   if (value === null || value === undefined) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-slate-400 mt-1">
+      <span className="crm-dash__change crm-dash__change--flat">
         <Minus className="w-3.5 h-3.5" /> vs prior
       </span>
     );
@@ -82,11 +93,7 @@ const ChangeBadge = ({ value }) => {
   const up = value >= 0;
   const Icon = up ? TrendingUp : TrendingDown;
   return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs font-semibold mt-1 px-2 py-0.5 rounded-full ${
-        up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-      }`}
-    >
+    <span className={`crm-dash__change ${up ? 'crm-dash__change--up' : 'crm-dash__change--down'}`}>
       <Icon className="w-3.5 h-3.5" />
       {up ? '+' : ''}
       {value}% vs prior
@@ -94,40 +101,157 @@ const ChangeBadge = ({ value }) => {
   );
 };
 
-const Panel = ({ title, action, children, className = '' }) => (
-  <div
-    className={`bg-white/95 backdrop-blur border border-slate-200/80 rounded-2xl flex flex-col min-h-0 shadow-[0_8px_30px_rgb(15,23,42,0.06)] hover:shadow-[0_12px_36px_rgb(15,23,42,0.1)] transition-shadow duration-300 ${className}`}
-  >
-    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
+const Panel = ({ title, action, children, className = '', dark = false }) => (
+  <div className={`crm-dash__panel ${dark ? 'crm-dash__panel--dark' : ''} ${className}`}>
+    <div className="crm-dash__panel-head">
       <div className="flex items-center gap-2.5">
-        <span className="h-5 w-1 rounded-full bg-gradient-to-b from-slate-900 to-blue-600" />
-        <h3 className="text-sm font-semibold text-slate-800 tracking-tight">{title}</h3>
+        <span className="crm-dash__panel-accent" />
+        <h3 className="crm-dash__panel-title">{title}</h3>
       </div>
       {action}
     </div>
-    <div className="p-4 flex-1 min-h-0">{children}</div>
+    <div className="crm-dash__panel-body">{children}</div>
   </div>
 );
 
-const KpiTile = ({ label, value, change, icon: Icon }) => (
-  <div className="group relative overflow-hidden bg-white border border-slate-200/80 rounded-2xl px-4 py-4 flex items-start gap-3.5 min-w-0 shadow-[0_8px_24px_rgb(15,23,42,0.05)] hover:shadow-[0_14px_32px_rgb(15,23,42,0.1)] hover:-translate-y-0.5 transition-all duration-300">
-    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-900 via-blue-700 to-blue-500 opacity-90" />
-    <div className="p-3 rounded-2xl bg-slate-900 text-white shrink-0 shadow-lg shadow-slate-900/25 group-hover:scale-105 transition-transform duration-300">
-      <Icon className="w-5 h-5" strokeWidth={2.2} />
+const SPARK_COLORS = {
+  blue: '#3478F6',
+  green: '#20C997',
+  purple: '#9855F7',
+  indigo: '#625BEE',
+  teal: '#08AFA8',
+  cyan: '#08AFA8',
+  pink: '#FF4778',
+  orange: '#FFA640',
+  gold: '#F59E0B',
+};
+
+const IconChip = ({ icon: Icon, tone = 'blue', size = 'md' }) => {
+  const iconPx = size === 'lg' ? 'w-5 h-5' : size === 'sm' ? 'w-[18px] h-[18px]' : 'w-[19px] h-[19px]';
+  return (
+    <div className={`crm-icon-tile crm-icon-tile--${size} crm-icon-tile--${tone}`}>
+      <Icon className={iconPx} strokeWidth={2.2} />
     </div>
-    <div className="min-w-0 flex-1 pt-0.5">
-      <p className="text-[11px] uppercase tracking-wider text-slate-500 font-medium truncate">
-        {label}
-      </p>
-      <p className="text-2xl font-bold text-slate-900 leading-tight truncate mt-1">{value}</p>
+  );
+};
+
+const MiniSpark = ({ data = [], color = '#3478F6', height = 42, formatValue }) => {
+  const seriesData = data.length ? data : [0, 0];
+  return (
+    <ReactApexChart
+      type="area"
+      height={height}
+      width="100%"
+      series={[{ name: 'Trend', data: seriesData }]}
+      options={{
+        chart: {
+          sparkline: { enabled: true },
+          toolbar: { show: false },
+          animations: { enabled: true, speed: 400 },
+          background: 'transparent',
+        },
+        stroke: { curve: 'smooth', width: 2 },
+        colors: [color],
+        fill: {
+          type: 'gradient',
+          gradient: {
+            shadeIntensity: 1,
+            opacityFrom: 0.35,
+            opacityTo: 0.02,
+            stops: [0, 90, 100],
+          },
+        },
+        tooltip: {
+          enabled: true,
+          theme: 'light',
+          y: { formatter: (v) => (formatValue ? formatValue(v) : v) },
+        },
+        grid: { show: false, padding: { left: 0, right: 0, top: 2, bottom: 0 } },
+        yaxis: { min: 0, show: false },
+        xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
+      }}
+    />
+  );
+};
+
+const KpiTile = ({ label, value, change, icon: Icon, tone = 'blue', sparkline, formatSpark }) => (
+  <div className="crm-dash__metric crm-dash__metric--lift crm-dash__kpi-spark">
+    <div className="crm-dash__kpi-spark-top">
+      {Icon && <IconChip icon={Icon} tone={tone} size="lg" />}
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="crm-dash__label truncate">{label}</p>
+        <p className="crm-dash__value text-xl leading-tight truncate mt-0.5">{value}</p>
+      </div>
+    </div>
+    <div className="crm-dash__kpi-spark-bottom">
       <ChangeBadge value={change} />
+      <div className="crm-dash__kpi-spark-chart">
+        <MiniSpark
+          data={sparkline}
+          color={SPARK_COLORS[tone] || SPARK_COLORS.blue}
+          formatValue={formatSpark}
+        />
+      </div>
     </div>
   </div>
 );
 
-const Empty = ({ label = 'No data in period' }) => (
-  <div className="h-full min-h-[180px] flex items-center justify-center text-sm text-slate-400">
+const RevenueHeroKpi = ({ value, change, sparkline = [] }) => (
+  <div className="crm-dash__revenue-hero h-full">
+    <div className="crm-dash__revenue-hero-main">
+      <IconChip icon={IndianRupee} tone="gold" size="lg" />
+      <div className="min-w-0 pt-0.5">
+        <p className="crm-dash__label truncate">Total Revenue</p>
+        <p className="crm-dash__value text-2xl leading-tight truncate mt-1">{value}</p>
+        <ChangeBadge value={change} />
+      </div>
+    </div>
+    <div className="crm-dash__revenue-hero-chart">
+      <MiniSpark data={sparkline} color="#D97706" height={72} formatValue={inr} />
+    </div>
+  </div>
+);
+
+const Empty = ({ label = 'No data in period', light = false }) => (
+  <div
+    className={`h-full min-h-[180px] flex items-center justify-center text-sm ${
+      light ? 'text-slate-400/80' : 'text-[color:var(--dash-text-muted)]'
+    }`}
+  >
     {label}
+  </div>
+);
+
+const AuroraBackdrop = () => (
+  <div className="crm-dash__aurora" aria-hidden="true">
+    <div className="crm-dash__aurora-glow" />
+    <svg className="crm-dash__aurora-svg" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMid slice" fill="none">
+      <path
+        d="M-40 340 C180 220 320 420 560 300 C780 190 960 360 1180 250 C1320 180 1420 220 1520 180"
+        stroke="rgba(52,120,246,0.14)"
+        strokeWidth="48"
+        strokeLinecap="round"
+      />
+      <path
+        d="M-60 280 C200 160 380 360 620 240 C860 130 1040 310 1280 200 C1400 150 1500 170 1560 140"
+        stroke="rgba(152,85,247,0.1)"
+        strokeWidth="56"
+        strokeLinecap="round"
+      />
+      <path
+        d="M-20 400 C240 300 420 460 680 340 C920 240 1100 400 1380 300"
+        stroke="rgba(8,175,168,0.1)"
+        strokeWidth="40"
+        strokeLinecap="round"
+      />
+      <path
+        d="M80 120 C280 60 480 180 720 90 C980 0 1180 130 1460 50"
+        stroke="rgba(100,165,255,0.12)"
+        strokeWidth="32"
+        strokeLinecap="round"
+      />
+    </svg>
+    <div className="crm-dash__aurora-fade" />
   </div>
 );
 
@@ -139,10 +263,12 @@ const baseChart = {
     animations: { enabled: true, speed: 500, animateGradually: { enabled: true } },
     background: 'transparent',
     dropShadow: { enabled: false },
+    parentHeightOffset: 0,
+    redrawOnParentResize: true,
   },
   dataLabels: { enabled: false },
   grid: {
-    borderColor: '#e2e8f0',
+    borderColor: '#E2ECF8',
     strokeDashArray: 4,
     padding: { left: 8, right: 8, top: 4, bottom: 0 },
   },
@@ -151,10 +277,10 @@ const baseChart = {
     fontWeight: 500,
     markers: { width: 10, height: 10, radius: 10 },
     itemMargin: { horizontal: 10, vertical: 2 },
-    labels: { colors: '#475569' },
+    labels: { colors: '#7186A8' },
   },
   tooltip: {
-    theme: 'dark',
+    theme: 'light',
     style: { fontSize: '12px' },
   },
 };
@@ -172,7 +298,7 @@ const donutOptions = (labels, colors, valueFormatter) => ({
         size: '72%',
         labels: {
           show: true,
-          name: { show: true, fontSize: '12px', color: '#64748b', offsetY: -4 },
+          name: { show: true, fontSize: '12px', color: '#7186A8', offsetY: -4 },
           value: {
             show: true,
             fontSize: '18px',
@@ -186,7 +312,7 @@ const donutOptions = (labels, colors, valueFormatter) => ({
             label: 'Total',
             fontSize: '12px',
             fontWeight: 600,
-            color: '#64748b',
+            color: '#7186A8',
             formatter: (w) => {
               const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
               return valueFormatter ? valueFormatter(sum) : sum;
@@ -216,8 +342,8 @@ const DonutWithLegend = ({ series, labels, colors, height = 260, valueFormatter,
             style={{ background: palette[i % palette.length] }}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] text-slate-500 truncate leading-tight">{label}</p>
-            <p className="text-sm font-bold text-slate-900 leading-tight">
+            <p className="text-[11px] text-[color:var(--dash-text-muted)] truncate leading-tight">{label}</p>
+            <p className="text-sm font-bold text-[color:var(--dash-text)] leading-tight">
               {valueFormatter ? valueFormatter(series[i]) : series[i]}
             </p>
           </div>
@@ -227,8 +353,8 @@ const DonutWithLegend = ({ series, labels, colors, height = 260, valueFormatter,
   );
 
   return (
-    <div className={`flex items-center gap-2 ${legendSide === 'left' ? 'flex-row-reverse' : ''}`}>
-      <div className="flex-1 min-w-0">
+    <div className={`flex items-center gap-2 overflow-hidden ${legendSide === 'left' ? 'flex-row-reverse' : ''}`}>
+      <div className="flex-1 min-w-0 overflow-hidden">
         <ReactApexChart
           type="donut"
           height={height}
@@ -242,10 +368,30 @@ const DonutWithLegend = ({ series, labels, colors, height = 260, valueFormatter,
 };
 
 const Dashboard = () => {
-  const [range, setRange] = useState('30d');
+  const { user } = useAuth();
+  const [range, setRange] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const useCustom = Boolean(dateFrom && dateTo);
+
+  const displayName = useMemo(() => {
+    const first = (user?.first_name || '').trim();
+    if (first) return first.charAt(0).toUpperCase() + first.slice(1);
+    const uname = (user?.username || '').trim();
+    return uname ? uname.charAt(0).toUpperCase() + uname.slice(1) : 'there';
+  }, [user]);
+
+  const subMessage = useMemo(() => {
+    const h = new Date().getHours();
+    const hello = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    const lines = [
+      `${hello}, ${displayName} — here's what's happening with your business today.`,
+      `${hello}, ${displayName} — track performance, orders and growth in real time.`,
+      `${hello}, ${displayName} — your revenue, pipeline and team pulse at a glance.`,
+    ];
+    const day = Math.floor(Date.now() / 86_400_000);
+    return lines[(day + displayName.length) % lines.length];
+  }, [displayName]);
 
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
     queryKey: ['dashboard', range, dateFrom, dateTo],
@@ -331,10 +477,10 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#e2e8f0_0%,_#f1f5f9_45%,_#eef2ff_100%)] flex items-center justify-center">
+      <div className="crm-dash flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-slate-900 border-t-transparent" />
-          <p className="text-sm text-slate-500 font-medium">Loading intelligence…</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#3478F6] border-t-transparent" />
+          <p className="text-sm font-medium text-[color:var(--dash-text-muted)]">Loading intelligence…</p>
         </div>
       </div>
     );
@@ -342,7 +488,7 @@ const Dashboard = () => {
 
   if (isError) {
     return (
-      <div className="p-6 text-sm text-rose-600">
+      <div className="crm-dash p-6 text-sm text-[color:var(--dash-negative)]">
         Failed to load dashboard: {error?.message || 'Unknown error'}
         <button type="button" onClick={() => refetch()} className="ml-2 underline">
           Retry
@@ -352,152 +498,182 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#e8eef8_0%,_#f1f5f9_40%,_#e2e8f0_100%)] text-slate-800">
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 text-white px-4 py-3.5 flex flex-wrap items-center gap-3 justify-between shadow-xl shadow-slate-900/20">
-        <div className="min-w-0 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center backdrop-blur">
-            <LayoutDashboard className="w-5 h-5 text-blue-300" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight">CRM 360° Intelligence</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {period?.from} → {period?.to}
-              <span className="mx-1.5 text-slate-600">·</span>
-              {period?.days}d window · live database
-              {isFetching && <span className="ml-1.5 text-blue-300">Refreshing…</span>}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex bg-white/5 rounded-2xl p-1 border border-white/10">
-            {ranges.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                onClick={() => {
-                  setRange(r.key);
-                  setDateFrom('');
-                  setDateTo('');
-                }}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 ${
-                  !useCustom && range === r.key
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                    : 'text-slate-300 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 px-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-          />
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 px-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-          />
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+    <div className="crm-dash">
+      <AuroraBackdrop />
 
-      <div className="p-4 space-y-4">
-        {/* Snapshot strip — top */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {[
-            { label: 'Delivered', value: k.delivered_orders },
-            { label: 'In pipeline', value: k.pipeline_orders },
-            { label: 'Cancelled', value: k.cancelled_orders },
-            { label: 'Gross profit', value: inrShort(k.gross_profit) },
-            { label: 'Products', value: k.products },
-            { label: 'Users', value: k.users },
-            { label: 'Calls done', value: k.calls_completed },
-            { label: 'Calls→Order', value: k.calls_converted },
-          ].map((m) => (
-            <div
-              key={m.label}
-              className="bg-gradient-to-br from-slate-950 to-slate-800 text-slate-100 rounded-2xl px-4 py-3.5 text-center shadow-lg shadow-slate-900/15 border border-white/5"
-            >
-              <p className="text-xs uppercase tracking-wide text-slate-400 font-medium">
-                {m.label}
+      <div className="crm-dash__content">
+        {/* Header */}
+        <div className="crm-dash__header">
+          <div className="min-w-0 flex items-center gap-3">
+            <div className="crm-dash__brand-icon">
+              <LayoutDashboard className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="crm-dash__title">
+                Psquare Business Intelligence
+              </h1>
+              <p className="crm-dash__subtitle truncate">
+                {subMessage}
+                {isFetching && <span className="ml-1.5 text-[color:var(--dash-blue)]">Refreshing…</span>}
               </p>
-              <p className="text-lg font-bold mt-1.5 text-white">{m.value ?? 0}</p>
             </div>
-          ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="crm-dash__range">
+              {ranges.map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  onClick={() => {
+                    setRange(r.key);
+                    setDateFrom('');
+                    setDateTo('');
+                  }}
+                  className={`crm-dash__range-btn ${!useCustom && range === r.key ? 'is-active' : ''}`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="crm-dash__control"
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="crm-dash__control"
+            />
+            <button type="button" onClick={() => refetch()} className="crm-dash__icon-btn" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        {/* Today strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Orders today', value: k.orders_today, icon: ShoppingCart, to: '/orders' },
-            { label: 'Calls today', value: k.calls_today, icon: Phone, to: '/calllogs' },
-            { label: 'Appointments today', value: k.appointments_today, icon: Calendar, to: '/customers' },
-            { label: 'Follow-ups (7d)', value: k.followups_due, icon: AlertTriangle, to: '/orders' },
-          ].map((item) => (
-            <Link
-              key={item.label}
-              to={item.to}
-              className="bg-white/90 border border-slate-200/80 rounded-2xl px-4 py-3.5 flex items-center gap-3.5 hover:border-blue-300 hover:shadow-lg hover:shadow-slate-900/5 transition-all duration-300"
-            >
-              <div className="p-2.5 rounded-2xl bg-slate-900 text-white shrink-0 shadow-md shadow-slate-900/20">
-                <item.icon className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-slate-500 truncate">{item.label}</p>
-                <p className="text-xl font-bold leading-tight text-slate-900">{item.value ?? 0}</p>
-              </div>
-            </Link>
-          ))}
+        <div className="p-4 space-y-4 overflow-hidden">
+        {/* Row 1 — revenue hero + remaining financial KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-12 gap-3">
+          <div className="col-span-2 md:col-span-4 xl:col-span-4">
+            <RevenueHeroKpi
+              value={inrShort(k.revenue)}
+              change={ch.revenue}
+              sparkline={monthly.map((m) => m.revenue)}
+            />
+          </div>
+          <div className="xl:col-span-2">
+            <KpiTile
+              label="Collected"
+              value={inrShort(k.collected)}
+              change={ch.collected}
+              icon={Wallet}
+              tone="green"
+              sparkline={monthly.map((m) => m.collected)}
+              formatSpark={inr}
+            />
+          </div>
+          <div className="xl:col-span-2">
+            <KpiTile
+              label="Outstanding"
+              value={inrShort(k.outstanding)}
+              icon={AlertTriangle}
+              tone="purple"
+              sparkline={monthly.map((m) => Math.max(0, (m.revenue || 0) - (m.collected || 0)))}
+              formatSpark={inr}
+            />
+          </div>
+          <div className="xl:col-span-2">
+            <KpiTile
+              label="Orders"
+              value={(k.orders || 0).toLocaleString()}
+              change={ch.orders}
+              icon={ShoppingCart}
+              tone="indigo"
+              sparkline={daily.map((d) => d.orders || 0)}
+            />
+          </div>
+          <div className="xl:col-span-2">
+            <KpiTile
+              label="Avg Order"
+              value={inrShort(k.aov)}
+              icon={TrendingUp}
+              tone="teal"
+              sparkline={daily.map((d) =>
+                d.orders ? Math.round((d.revenue || 0) / d.orders) : 0
+              )}
+              formatSpark={inr}
+            />
+          </div>
         </div>
 
-        {/* Primary KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-          <KpiTile label="Revenue" value={inrShort(k.revenue)} change={ch.revenue} icon={DollarSign} />
-          <KpiTile label="Collected" value={inrShort(k.collected)} change={ch.collected} icon={Wallet} />
-          <KpiTile label="Outstanding" value={inrShort(k.outstanding)} icon={AlertTriangle} />
-          <KpiTile label="Orders" value={(k.orders || 0).toLocaleString()} change={ch.orders} icon={ShoppingCart} />
-          <KpiTile label="Avg Order" value={inrShort(k.aov)} icon={TrendingUp} />
-          <KpiTile label="Gross Margin" value={`${k.gross_margin ?? 0}%`} icon={Package} />
-        </div>
-
-        {/* Secondary KPIs */}
+        {/* Row 2 — snapshot */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {[
-            { label: 'Customers', value: k.customers_total },
-            { label: 'New', value: k.customers_new, change: ch.customers_new },
-            { label: 'Active', value: k.customers_active },
-            { label: 'VIP (≥50k)', value: k.customers_vip },
-            { label: 'Leads', value: k.leads_contacts },
-            { label: 'Calls', value: k.calls, change: ch.calls },
-            { label: 'Call Conv.', value: `${k.call_conversion_rate ?? 0}%` },
-            { label: 'Collection', value: `${k.collection_rate ?? 0}%` },
+            { label: 'Delivered', value: k.delivered_orders, icon: CheckCircle2, tone: 'blue' },
+            { label: 'In pipeline', value: k.pipeline_orders, icon: Clock3, tone: 'purple' },
+            { label: 'Cancelled', value: k.cancelled_orders, icon: XCircle, tone: 'pink' },
+            { label: 'Gross profit', value: inrShort(k.gross_profit), icon: IndianRupee, tone: 'green' },
+            { label: 'Products', value: k.products, icon: Package, tone: 'blue' },
+            { label: 'Users', value: k.users, icon: Users, tone: 'purple' },
+            { label: 'Calls done', value: k.calls_completed, icon: PhoneCall, tone: 'teal' },
+            { label: 'Calls→Order', value: k.calls_converted, icon: ArrowRightLeft, tone: 'orange' },
           ].map((m) => (
-            <div
-              key={m.label}
-              className="bg-white/90 border border-slate-200/80 rounded-2xl px-3 py-3 text-center shadow-sm hover:shadow-md transition-shadow"
-            >
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-medium">{m.label}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{m.value ?? 0}</p>
-              {m.change !== undefined && <ChangeBadge value={m.change} />}
+            <div key={m.label} className="crm-dash__metric px-4 py-3.5 flex items-center gap-3">
+              <IconChip icon={m.icon} tone={m.tone} size="md" />
+              <div className="min-w-0">
+                <p className="crm-dash__label truncate">{m.label}</p>
+                <p className="crm-dash__value text-lg mt-0.5 truncate">{m.value ?? 0}</p>
+              </div>
             </div>
           ))}
+        </div>
+
+        {/* Row 3 — today + customer/call summary (+ Gross Margin) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          {[
+            { label: 'Orders today', value: k.orders_today, icon: ShoppingCart, to: '/orders', tone: 'blue' },
+            { label: 'Calls today', value: k.calls_today, icon: Phone, to: '/calllogs', tone: 'teal' },
+            { label: 'Appointments today', value: k.appointments_today, icon: Calendar, to: '/customers', tone: 'purple' },
+            { label: 'Gross Margin', value: `${k.gross_margin ?? 0}%`, icon: BadgePercent, tone: 'pink', static: true },
+            { label: 'Customers', value: k.customers_total, icon: Users, to: '/customers', tone: 'indigo' },
+            { label: 'New Customers', value: k.customers_new, icon: BarChart3, to: '/customers', change: ch.customers_new, tone: 'green' },
+            { label: 'Leads', value: k.leads_contacts, icon: ClipboardList, to: '/leads', tone: 'blue' },
+            { label: 'Calls', value: k.calls, icon: Phone, to: '/calllogs', change: ch.calls, tone: 'teal' },
+          ].map((item) => {
+            const body = (
+              <>
+                <IconChip icon={item.icon} tone={item.tone} size="sm" />
+                <div className="min-w-0">
+                  <p className="text-[11px] text-[color:var(--dash-text-muted)] truncate">{item.label}</p>
+                  <p className="crm-dash__value text-lg leading-tight">{item.value ?? 0}</p>
+                  {item.change !== undefined && <ChangeBadge value={item.change} />}
+                </div>
+              </>
+            );
+            if (item.static) {
+              return (
+                <div key={item.label} className="crm-dash__metric px-3.5 py-3 flex items-center gap-3">
+                  {body}
+                </div>
+              );
+            }
+            return (
+              <Link
+                key={item.label}
+                to={item.to}
+                className="crm-dash__metric crm-dash__metric--lift px-3.5 py-3 flex items-center gap-3"
+              >
+                {body}
+              </Link>
+            );
+          })}
         </div>
 
         {/* Charts row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <Panel title="Revenue & Collections" className="lg:col-span-5">
+          <Panel title="Revenue & Collections" className="lg:col-span-5" dark>
             {monthly.length ? (
               <ReactApexChart
                 type="area"
@@ -508,27 +684,29 @@ const Dashboard = () => {
                 ]}
                 options={{
                   ...baseChart,
-                  colors: [BRAND, ACCENT],
+                  colors: ['#64A5FF', '#50D8D0'],
                   stroke: { curve: 'smooth', width: 3 },
                   fill: {
                     type: 'gradient',
                     gradient: {
                       shadeIntensity: 1,
-                      opacityFrom: 0.45,
+                      opacityFrom: 0.5,
                       opacityTo: 0.05,
                       stops: [0, 90, 100],
                     },
                   },
-                  markers: { size: 4, strokeWidth: 2, hover: { size: 6 } },
+                  markers: { size: 4, strokeWidth: 2, strokeColors: '#14264A', hover: { size: 6 } },
+                  grid: { ...baseChart.grid, borderColor: 'rgba(226,236,248,0.12)' },
+                  legend: { ...baseChart.legend, labels: { colors: '#A8B8D4' } },
                   xaxis: {
                     categories: monthly.map((m) => m.label),
-                    labels: { style: { fontSize: '11px', colors: '#64748b' } },
+                    labels: { style: { fontSize: '11px', colors: '#A8B8D4' } },
                     axisBorder: { show: false },
                     axisTicks: { show: false },
                   },
                   yaxis: {
                     labels: {
-                      style: { fontSize: '11px', colors: '#64748b' },
+                      style: { fontSize: '11px', colors: '#A8B8D4' },
                       formatter: (v) => inrShort(v),
                     },
                   },
@@ -536,18 +714,19 @@ const Dashboard = () => {
                     enabled: true,
                     enabledOnSeries: [0],
                     formatter: (v) => inrShort(v),
-                    style: { fontSize: '10px', fontWeight: 600, colors: [BRAND] },
+                    style: { fontSize: '10px', fontWeight: 600, colors: ['#E8F0FF'] },
                     background: { enabled: false },
                     offsetY: -6,
                   },
                   tooltip: {
-                    ...baseChart.tooltip,
+                    theme: 'dark',
+                    style: { fontSize: '12px' },
                     y: { formatter: (v) => inr(v) },
                   },
                 }}
               />
             ) : (
-              <Empty />
+              <Empty light />
             )}
           </Panel>
 
@@ -576,7 +755,7 @@ const Dashboard = () => {
                   xaxis: {
                     categories: daily.map((d) => d.label),
                     labels: {
-                      style: { fontSize: '10px', colors: '#64748b' },
+                      style: { fontSize: '10px', colors: '#7186A8' },
                       rotate: -45,
                       hideOverlappingLabels: true,
                     },
@@ -584,7 +763,7 @@ const Dashboard = () => {
                     axisBorder: { show: false },
                     axisTicks: { show: false },
                   },
-                  yaxis: { labels: { style: { fontSize: '11px', colors: '#64748b' } } },
+                  yaxis: { labels: { style: { fontSize: '11px', colors: '#7186A8' } } },
                 }}
               />
             ) : (
@@ -633,9 +812,9 @@ const Dashboard = () => {
                     categories: Object.keys(statusTrend)
                       .sort()
                       .map((m) => statusTrend[m].label || m),
-                    labels: { style: { fontSize: '11px', colors: '#64748b' } },
+                    labels: { style: { fontSize: '11px', colors: '#7186A8' } },
                   },
-                  yaxis: { labels: { style: { fontSize: '11px', colors: '#64748b' } } },
+                  yaxis: { labels: { style: { fontSize: '11px', colors: '#7186A8' } } },
                   legend: { ...baseChart.legend, position: 'top' },
                 }}
               />
@@ -678,15 +857,15 @@ const Dashboard = () => {
           <Panel
             title="Top Products"
             action={
-              <Link to="/products" className="text-xs font-medium text-blue-700 hover:underline">
+              <Link to="/products" className="crm-dash__link">
                 View all
               </Link>
             }
           >
             {(data?.top_products || []).length ? (
-              <div className="overflow-auto max-h-72">
+              <div className="overflow-hidden">
                 <table className="w-full text-xs">
-                  <thead className="text-slate-500 sticky top-0 bg-white">
+                  <thead className="text-[color:var(--dash-text-muted)]">
                     <tr>
                       <th className="text-left font-semibold py-2">Product</th>
                       <th className="text-right font-semibold">Qty</th>
@@ -695,22 +874,20 @@ const Dashboard = () => {
                   </thead>
                   <tbody>
                     {data.top_products.map((p, idx) => (
-                      <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50/80">
+                      <tr key={p.id} className="border-t border-[color:var(--dash-border)] hover:bg-[#F8FBFF]">
                         <td className="py-2.5 pr-2">
                           <div className="flex items-center gap-2">
-                            <span className="h-6 w-6 rounded-lg bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                              {idx + 1}
-                            </span>
+                            <span className="crm-dash__rank">{idx + 1}</span>
                             <div className="min-w-0">
-                              <p className="font-semibold text-slate-800 truncate max-w-[140px]">
+                              <p className="font-semibold text-[color:var(--dash-text)] truncate max-w-[140px]">
                                 {p.title}
                               </p>
-                              <p className="text-slate-400 text-[11px]">{p.sku}</p>
+                              <p className="text-[color:var(--dash-text-muted)] text-[11px]">{p.sku}</p>
                             </div>
                           </div>
                         </td>
                         <td className="text-right tabular-nums font-medium">{p.qty}</td>
-                        <td className="text-right tabular-nums font-bold text-slate-900">
+                        <td className="text-right tabular-nums font-bold text-[color:var(--dash-text)]">
                           {inrShort(p.revenue)}
                         </td>
                       </tr>
@@ -725,9 +902,9 @@ const Dashboard = () => {
 
           <Panel title="Top Agents">
             {(data?.top_agents || []).length ? (
-              <div className="overflow-auto max-h-72">
+              <div className="overflow-hidden">
                 <table className="w-full text-xs">
-                  <thead className="text-slate-500 sticky top-0 bg-white">
+                  <thead className="text-[color:var(--dash-text-muted)]">
                     <tr>
                       <th className="text-left font-semibold py-2">Agent</th>
                       <th className="text-right font-semibold">Ord</th>
@@ -737,18 +914,18 @@ const Dashboard = () => {
                   </thead>
                   <tbody>
                     {data.top_agents.map((a, idx) => (
-                      <tr key={a.id} className="border-t border-slate-100 hover:bg-slate-50/80">
+                      <tr key={a.id} className="border-t border-[color:var(--dash-border)] hover:bg-[#F8FBFF]">
                         <td className="py-2.5">
                           <div className="flex items-center gap-2">
-                            <span className="h-6 w-6 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                              {idx + 1}
+                            <span className="crm-dash__rank crm-dash__rank--round">{idx + 1}</span>
+                            <span className="font-semibold truncate max-w-[100px] text-[color:var(--dash-text)]">
+                              {a.name}
                             </span>
-                            <span className="font-semibold truncate max-w-[100px]">{a.name}</span>
                           </div>
                         </td>
                         <td className="text-right tabular-nums">{a.orders}</td>
                         <td className="text-right tabular-nums">{a.calls}</td>
-                        <td className="text-right tabular-nums font-bold text-slate-900">
+                        <td className="text-right tabular-nums font-bold text-[color:var(--dash-text)]">
                           {inrShort(a.revenue)}
                         </td>
                       </tr>
@@ -774,7 +951,7 @@ const Dashboard = () => {
                 ]}
                 options={{
                   ...baseChart,
-                  colors: [BRAND],
+                  colors: [ACCENT],
                   plotOptions: {
                     bar: { horizontal: true, barHeight: '68%', borderRadius: 6 },
                   },
@@ -787,11 +964,11 @@ const Dashboard = () => {
                   xaxis: {
                     categories: data.top_states.map((s) => s.state),
                     labels: {
-                      style: { fontSize: '11px', colors: '#64748b' },
+                      style: { fontSize: '11px', colors: '#7186A8' },
                       formatter: (v) => inrShort(v),
                     },
                   },
-                  yaxis: { labels: { style: { fontSize: '11px', colors: '#64748b' } } },
+                  yaxis: { labels: { style: { fontSize: '11px', colors: '#7186A8' } } },
                   tooltip: { ...baseChart.tooltip, y: { formatter: (v) => inr(v) } },
                 }}
               />
@@ -803,25 +980,20 @@ const Dashboard = () => {
           <Panel
             title="Low Stock (≤10)"
             action={
-              <Link to="/products" className="text-xs font-medium text-rose-600 hover:underline">
+              <Link to="/products" className="crm-dash__link" style={{ color: 'var(--dash-negative)' }}>
                 Manage
               </Link>
             }
           >
             {(data?.low_stock || []).length ? (
-              <div className="overflow-auto max-h-72 space-y-2">
+              <div className="overflow-hidden space-y-2">
                 {data.low_stock.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-gradient-to-r from-rose-50 to-white border border-rose-100"
-                  >
+                  <div key={p.id} className="crm-dash__stock">
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold truncate text-slate-800">{p.title}</p>
-                      <p className="text-[11px] text-slate-400">{p.sku}</p>
+                      <p className="text-xs font-semibold truncate text-[color:var(--dash-text)]">{p.title}</p>
+                      <p className="text-[11px] text-[color:var(--dash-text-muted)]">{p.sku}</p>
                     </div>
-                    <span className="min-w-[2rem] text-center text-sm font-bold text-white bg-slate-900 rounded-xl px-2 py-1 tabular-nums">
-                      {p.stock_qty}
-                    </span>
+                    <span className="crm-dash__stock-qty">{p.stock_qty}</span>
                   </div>
                 ))}
               </div>
@@ -837,15 +1009,15 @@ const Dashboard = () => {
             title="Recent Orders"
             className="lg:col-span-5"
             action={
-              <Link to="/orders" className="text-xs font-medium text-blue-700 hover:underline">
+              <Link to="/orders" className="crm-dash__link">
                 All orders
               </Link>
             }
           >
             {(data?.recent_orders || []).length ? (
-              <div className="overflow-auto max-h-80">
+              <div className="overflow-hidden">
                 <table className="w-full text-xs">
-                  <thead className="text-slate-500 sticky top-0 bg-white">
+                  <thead className="text-[color:var(--dash-text-muted)]">
                     <tr>
                       <th className="text-left font-semibold py-2">Order</th>
                       <th className="text-left font-semibold">Customer</th>
@@ -855,26 +1027,28 @@ const Dashboard = () => {
                   </thead>
                   <tbody>
                     {data.recent_orders.map((o) => (
-                      <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50/80">
+                      <tr key={o.id} className="border-t border-[color:var(--dash-border)] hover:bg-[#F8FBFF]">
                         <td className="py-2.5">
                           <Link
                             to={`/orders/${o.id}`}
-                            className="font-bold text-slate-900 hover:text-blue-700"
+                            className="font-bold text-[color:var(--dash-text)] hover:text-[color:var(--dash-blue)]"
                           >
                             {o.order_id}
                           </Link>
-                          <p className="text-slate-400 text-[11px]">{o.order_date || '—'}</p>
+                          <p className="text-[color:var(--dash-text-muted)] text-[11px]">{o.order_date || '—'}</p>
                         </td>
-                        <td className="truncate max-w-[140px] font-medium">{o.customer_name || '—'}</td>
-                        <td className="text-right tabular-nums font-bold">
+                        <td className="truncate max-w-[140px] font-medium text-[color:var(--dash-text)]">
+                          {o.customer_name || '—'}
+                        </td>
+                        <td className="text-right tabular-nums font-bold text-[color:var(--dash-text)]">
                           {inrShort(o.total_amount)}
                         </td>
                         <td className="text-right">
                           <span
                             className="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold"
                             style={{
-                              background: `${STATUS_COLORS[o.status] || '#94a3b8'}18`,
-                              color: STATUS_COLORS[o.status] || '#475569',
+                              background: `${STATUS_COLORS[o.status] || '#7186A8'}18`,
+                              color: STATUS_COLORS[o.status] || '#7186A8',
                             }}
                           >
                             {o.status}
@@ -913,9 +1087,9 @@ const Dashboard = () => {
                   },
                   xaxis: {
                     categories: leadSeries.labels,
-                    labels: { style: { fontSize: '11px', colors: '#64748b' } },
+                    labels: { style: { fontSize: '11px', colors: '#7186A8' } },
                   },
-                  yaxis: { labels: { style: { fontSize: '11px', colors: '#64748b' } } },
+                  yaxis: { labels: { style: { fontSize: '11px', colors: '#7186A8' } } },
                   legend: { show: false },
                 }}
               />
@@ -937,7 +1111,7 @@ const Dashboard = () => {
                 ]}
                 options={{
                   ...baseChart,
-                  colors: [BRAND_SOFT],
+                  colors: [ACCENT_TEAL],
                   plotOptions: {
                     bar: { horizontal: true, barHeight: '62%', borderRadius: 8 },
                   },
@@ -947,10 +1121,10 @@ const Dashboard = () => {
                   },
                   xaxis: {
                     categories: data.call_outcomes.map((o) => o.name),
-                    labels: { style: { fontSize: '11px', colors: '#64748b' } },
+                    labels: { style: { fontSize: '11px', colors: '#7186A8' } },
                   },
                   yaxis: {
-                    labels: { style: { fontSize: '11px', colors: '#64748b' }, maxWidth: 140 },
+                    labels: { style: { fontSize: '11px', colors: '#7186A8' }, maxWidth: 140 },
                   },
                 }}
               />
@@ -958,6 +1132,7 @@ const Dashboard = () => {
               <Empty label="No tagged outcomes" />
             )}
           </Panel>
+        </div>
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import CallPopup from '../components/CallPopup';
+import { sortAlphabetically } from '../utils/alphabetical';
 
 const CallPopupContext = createContext();
 
@@ -60,6 +61,19 @@ export const CallPopupProvider = ({ children }) => {
     },
   });
   const queryClient = useQueryClient();
+
+  const sortedAssumptions = useMemo(
+    () => sortAlphabetically(assumptions || [], (a) => a?.name),
+    [assumptions]
+  );
+  const sortedAssumptions2 = useMemo(
+    () => sortAlphabetically(assumptions2 || [], (a) => a?.name),
+    [assumptions2]
+  );
+  const sortedAssumptions3 = useMemo(
+    () => sortAlphabetically(assumptions3 || [], (a) => a?.name),
+    [assumptions3]
+  );
 
   // Reset call state function
   const resetCallState = () => {
@@ -625,7 +639,7 @@ export const CallPopupProvider = ({ children }) => {
       selectedAssumption, setSelectedAssumption, 
       selectedAssumption2, setSelectedAssumption2, 
       selectedAssumption3, setSelectedAssumption3, 
-      assumptions, assumptions2, assumptions3, 
+      assumptions: sortedAssumptions, assumptions2: sortedAssumptions2, assumptions3: sortedAssumptions3, 
       openPopup, hidePopup, startEmbeddedCall, startTimer, stopTimer, 
       endCall, saveInfo, placeOrder, convertToCustomer, 
       showCreateAssumptionModal, setShowCreateAssumptionModal, 

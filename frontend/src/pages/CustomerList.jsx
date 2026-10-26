@@ -31,7 +31,10 @@ import {
   AlertCircle,
   Filter,
   UserCircle,
+  Building2,
+  Clock,
 } from "lucide-react";
+import { sortAlphabetically, selectSortedByName } from "../utils/alphabetical";
 
 // Helper to auto-capitalize the first letter of each word
 const capitalizeWords = (str) => {
@@ -126,8 +129,11 @@ const SearchableDropdown = ({
           optionsArray = Object.values(response.data).find(val => Array.isArray(val)) || [];
         }
 
-        setOptions(optionsArray);
-        if (isTyping && optionsArray.length > 0) {
+        const sorted = sortAlphabetically(optionsArray, (item) =>
+          typeof item === "string" ? item : item?.name ?? item?.label ?? String(item ?? "")
+        );
+        setOptions(sorted);
+        if (isTyping && sorted.length > 0) {
           setShowDropdown(true);
         }
       } catch (err) {
@@ -570,16 +576,19 @@ const CustomerList = () => {
   const { data: organizationTypes } = useQuery({
     queryKey: ["organizationTypes"],
     queryFn: () => axios.get("/api/organizationtypes/").then((res) => res.data),
+    select: selectSortedByName,
   });
 
   const { data: employees } = useQuery({
     queryKey: ["employees"],
     queryFn: () => axios.get("/api/users/employees/").then((res) => res.data),
+    select: selectSortedByName,
   });
 
   const { data: customerTypes } = useQuery({
     queryKey: ["customerTypes"],
     queryFn: () => fetchCustomerTypes(),
+    select: selectSortedByName,
   });
 
   // Phone check query
@@ -1517,7 +1526,7 @@ const CustomerList = () => {
   // Loading state
   if (isLoading)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen soft-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto"></div>
           <p className="mt-4 text-gray-600 font-medium">Loading customers...</p>
@@ -1528,7 +1537,7 @@ const CustomerList = () => {
   // Error state
   if (error)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen soft-page flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-800 text-center mb-2">
@@ -1546,7 +1555,7 @@ const CustomerList = () => {
     );
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden p-4">
+    <div className="h-screen soft-page flex flex-col overflow-hidden p-4">
       {/* Messages */}
       {successMessage && (
         <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center justify-between">
@@ -1573,14 +1582,14 @@ const CustomerList = () => {
       )}
 
       {/* Search and Filter Section */}
-      <div className="flex-none bg-gray-50 pb-2">
+      <div className="flex-none pb-2">
         <div
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               handleApplyFilters();
             }
           }}
-          className="bg-white rounded-xl shadow-sm border border-gray-100 p-5"
+          className="soft-panel p-5"
         >
           {/* Row 1: Quick Search - Phone, Name, Surname, Organization, Org Type, Customer Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3.5">
@@ -2567,15 +2576,15 @@ const CustomerList = () => {
 
       {/* Table View */}
       {viewMode === "table" ? (
-        <div className="flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 soft-table-wrap flex flex-col">
           <div
             className="flex-1 overflow-auto"
           >
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-[#1a2332] sticky top-0 z-10">
+              <thead className="soft-thead sticky top-0 z-10">
                 <tr>
                   {hasPermission('reassign_customers') && (
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider sticky left-0 bg-[#1a2332] z-20">
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 soft-thead z-20">
                       <input
                         type="checkbox"
                         checked={
@@ -2587,33 +2596,35 @@ const CustomerList = () => {
                       />
                     </th>
                   )}
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Contact Name
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><User strokeWidth={2.2} />Contact</span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Org Name
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><Building2 strokeWidth={2.2} />Org</span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Org Type
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><Users strokeWidth={2.2} />Type</span>
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
-                    Phone Number
+                  <th className="soft-th px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><Phone strokeWidth={2.2} />Phone</span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Address
+                  <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><MapPin strokeWidth={2.2} />Address</span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Telecaller
+                  <th className="soft-th px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><UserCheck strokeWidth={2.2} />Telecaller</span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Appointment
+                  <th className="soft-th px-1.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><Calendar strokeWidth={2.2} />Appt</span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Time
+                  <th className="soft-th px-1.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white">
+                    <span className="soft-th-inner"><Clock strokeWidth={2.2} />Time</span>
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
-                    Actions
-                  </th>
+                  {hasPermission('reassign_customers') && (
+                    <th className="soft-th px-1.5 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-white w-8">
+                      <span className="sr-only">Assign</span>
+                    </th>
+                  )}
                 </tr>
                 {selectedCustomers.length > 0 && hasPermission('reassign_customers') && (
                   <tr className="bg-blue-50">
@@ -2669,23 +2680,21 @@ const CustomerList = () => {
                     <td className="px-6 py-3">
                       <div className="flex items-center">
                         <div className="h-8 w-8 flex-shrink-0">
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                            <span className="text-white font-semibold text-xs">
-                              {customer.name?.charAt(0)?.toUpperCase() || "U"}
-                            </span>
+                          <div className="h-8 w-8 rounded-full bg-sky-100 border border-sky-200/80 flex items-center justify-center">
+                            <User className="h-4 w-4 text-sky-600" strokeWidth={2.2} />
                           </div>
                         </div>
-                        <div className="ml-3">
+                        <div className="ml-3 min-w-0">
                           <Link
                             to={`/customers/${customer.id}`}
-                            className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                            className="text-[15px] font-bold text-blue-600 hover:text-blue-700 transition-colors leading-tight"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {customer.name?.charAt(0)?.toUpperCase() +
                               customer.name?.slice(1) || ""}
                           </Link>
                           {customer.surname && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-slate-500 font-medium">
                               {customer.surname}
                             </div>
                           )}
@@ -2751,127 +2760,47 @@ const CustomerList = () => {
                         })()}
                       </div>
                     </td>
-                    <td className="px-6 py-3">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        <User className="h-3 w-3 mr-1" />
-                        {customer.agent_name || "Unassigned"}
+                    <td className="px-2 py-2.5 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-0.5 max-w-[6.5rem] px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                        <UserCheck className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">
+                          {customer.agent_name || "Unassigned"}
+                        </span>
                       </span>
                     </td>
-                    <td
-                      className="px-6 py-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {editingAppointment === customer.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="date"
-                            value={appointmentValue}
-                            onChange={(e) =>
-                              setAppointmentValue(e.target.value)
-                            }
-                            className="text-sm border border-gray-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            autoFocus
-                          />
-                          <button
-                            onClick={handleSaveAppointment}
-                            className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
-                            disabled={updateAppointmentMutation.isLoading}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-sm text-gray-700">
-                          <Calendar className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+                    <td className="px-3 py-2.5 align-middle whitespace-nowrap">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                        <Calendar className="h-3 w-3 shrink-0" />
+                        <span>
                           {customer.appointment_date
                             ? new Date(
-                              customer.appointment_date,
-                            ).toLocaleDateString()
+                                customer.appointment_date,
+                              ).toLocaleDateString()
                             : "—"}
-                        </div>
-                      )}
+                        </span>
+                      </span>
                     </td>
-                    <td
-                      className="px-6 py-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {editingTime === customer.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="time"
-                            value={timeValue}
-                            onChange={(e) => setTimeValue(e.target.value)}
-                            className="text-sm border border-gray-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            autoFocus
-                          />
-                          <button
-                            onClick={handleSaveTime}
-                            className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
-                            disabled={updateTimeMutation.isLoading}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={handleCancelTimeEdit}
-                            className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-700">
-                          {customer.appointment_time || "—"}
-                        </div>
-                      )}
+                    <td className="px-3 py-2.5 align-middle whitespace-nowrap">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span>{customer.appointment_time || "—"}</span>
+                      </span>
                     </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Link
-                          to={`/customers/${customer.id}`}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                          title="View Details"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        <Link
-                          to={`/customers/edit/${customer.id}`}
-                          className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
-                          title="Edit Customer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Link>
+                    {hasPermission('reassign_customers') && (
+                      <td
+                        className="px-1.5 py-2.5 whitespace-nowrap text-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCall(customer);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
-                          title="Call Customer"
+                          type="button"
+                          onClick={() => handleIndividualAssign(customer)}
+                          className="inline-flex items-center justify-center p-1 rounded-md text-teal-600 hover:text-teal-700 hover:bg-teal-50 transition-colors"
+                          title="Assign to telecaller"
                         >
-                          <Phone className="h-4 w-4" />
+                          <UserCheck className="h-4 w-4" />
                         </button>
-                        {hasPermission('reassign_customers') && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleIndividualAssign(customer);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-                            title="Assign to Agent"
-                          >
-                            <UserCheck className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -3074,21 +3003,19 @@ const CustomerList = () => {
             {customers.map((customer) => (
               <div
                 key={customer.id}
-                className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+                className="soft-panel hover:shadow-lg transition-all duration-300 overflow-hidden"
               >
                 <div className="bg-white p-6 border-b border-gray-100">
                   <div className="flex items-center space-x-4">
-                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center border-2 border-gray-200">
-                      <span className="text-white font-bold text-xl">
-                        {customer.name?.charAt(0)?.toUpperCase() || "U"}
-                      </span>
+                    <div className="h-16 w-16 rounded-full bg-sky-100 border-2 border-sky-200 flex items-center justify-center">
+                      <User className="h-7 w-7 text-sky-600" strokeWidth={2.2} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900">
+                      <h3 className="text-lg font-bold text-blue-600">
                         {customer.name?.charAt(0)?.toUpperCase() +
                           customer.name?.slice(1) || "Unknown"}
                         {customer.surname && (
-                          <span className="text-gray-600">
+                          <span className="text-slate-500 font-semibold">
                             {" "}
                             {customer.surname}
                           </span>
@@ -3127,9 +3054,9 @@ const CustomerList = () => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <User className="h-3 w-3 mr-1" />
-                        {customer.agent_name || "Unassigned"}
+                      <span className="inline-flex items-center justify-center gap-1 w-[9rem] px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                        <UserCheck className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{customer.agent_name || "Unassigned"}</span>
                       </span>
                       <span className="text-sm font-semibold text-gray-900">
                         {formatCurrency(customer.total_order_value)}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Shield, Users, Plus, Trash2, Check, X, Settings, LayoutDashboard, Calendar, Package, ShoppingBag, Phone, User, Info } from 'lucide-react';
+import { Shield, Users, Plus, Trash2, Check, X, Settings, LayoutDashboard, Calendar, Package, ShoppingBag, Phone, User, Info, Hash, Mail, Settings2 } from 'lucide-react';
 
 const UserManagement = () => {
   const [activeTab, setActiveTab] = useState('users'); // 'users' or 'roles'
@@ -201,7 +201,7 @@ const UserManagement = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-6 px-4 md:px-8">
+    <div className="min-h-screen soft-page py-6 px-4 md:px-8">
       <div className="max-w-full mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -257,7 +257,7 @@ const UserManagement = () => {
 
         {/* TAB 1: USERS DIRECTORY */}
         {activeTab === 'users' && (
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
+          <div className="soft-panel p-6">
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="flex-1">
@@ -297,16 +297,16 @@ const UserManagement = () => {
                 No users matching search filters found.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-gray-100">
+              <div className="overflow-x-auto soft-table-wrap">
                 <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100 text-left">
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Full Name</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Username</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                  <thead className="soft-thead">
+                    <tr className="text-left">
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Hash strokeWidth={2.2} />ID</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><User strokeWidth={2.2} />Name</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Users strokeWidth={2.2} />Username</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Mail strokeWidth={2.2} />Email</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Shield strokeWidth={2.2} />Role</span></th>
+                      <th className="soft-th px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white text-right"><span className="soft-th-inner"><Settings2 strokeWidth={2.2} />Actions</span></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -379,7 +379,7 @@ const UserManagement = () => {
             {/* Permissions Matrix Detail Panel */}
             <div className="lg:col-span-3">
               {selectedRole ? (
-                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
+                <div className="soft-panel p-6">
                   {/* Selected Role Meta */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-6 mb-6 gap-4">
                     <div>

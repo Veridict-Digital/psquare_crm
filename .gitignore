@@ -6,3 +6,9 @@ media/
 *.log
 *.pyc
 __pycache__/
+
+# Windows reserved device names (cannot be opened by Git on Windows)
+nul
+nul.*
+**/nul
+**/nul.*

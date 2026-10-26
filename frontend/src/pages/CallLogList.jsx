@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, Phone, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, PhoneCall, User, MessageSquare } from 'lucide-react';
+import { Eye, Phone, CheckCircle, Clock, TrendingUp, Users, Calendar, Filter, Search, Grid, List, PhoneCall, User, MessageSquare, Hash, Package, Settings2 } from 'lucide-react';
+import { selectSortedByName } from '../utils/alphabetical';
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -38,10 +39,11 @@ const CallLogList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Fetch employees list
+  // Fetch employees list (A→Z)
   const { data: employees } = useQuery({
     queryKey: ['employees'],
     queryFn: () => axios.get('/api/users/employees/').then((res) => res.data),
+    select: selectSortedByName,
   });
 
   const { data: callLogsData, isLoading, error, refetch, isError } = useQuery({
@@ -220,12 +222,12 @@ const CallLogList = () => {
   const finalFilteredCallLogs = callLogs;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen soft-page">
       <div className="container mx-auto px-4 py-8 max-w-full">
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+          <div className="soft-panel p-6 hover:shadow-soft-lg transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Calls</p>
@@ -237,7 +239,7 @@ const CallLogList = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+          <div className="soft-panel p-6 hover:shadow-soft-lg transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Completed Calls</p>
@@ -249,7 +251,7 @@ const CallLogList = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+          <div className="soft-panel p-6 hover:shadow-soft-lg transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
@@ -261,7 +263,7 @@ const CallLogList = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+          <div className="soft-panel p-6 hover:shadow-soft-lg transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg Duration</p>
@@ -275,7 +277,7 @@ const CallLogList = () => {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="soft-panel p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             <div className="flex flex-wrap gap-4 items-center w-full lg:w-auto">
               {/* Search */}
@@ -416,18 +418,18 @@ const CallLogList = () => {
 
         {/* Content */}
         {viewMode === 'table' ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="soft-table-wrap">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="soft-thead">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Call ID</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Hash strokeWidth={2.2} />Call ID</span></th>
+                    <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><User strokeWidth={2.2} />Customer</span></th>
+                    <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Phone strokeWidth={2.2} />Phone</span></th>
+                    <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Users strokeWidth={2.2} />Employee</span></th>
+                    <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Calendar strokeWidth={2.2} />Date</span></th>
+                    <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Package strokeWidth={2.2} />Order</span></th>
+                    <th className="soft-th px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-white"><span className="soft-th-inner"><Settings2 strokeWidth={2.2} />Actions</span></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -537,7 +539,7 @@ const CallLogList = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {finalFilteredCallLogs?.length > 0 ? (
               finalFilteredCallLogs.map(callLog => (
-                <div key={callLog.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                <div key={callLog.id} className="soft-panel p-6 hover:shadow-soft-lg transition-all duration-300">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="bg-blue-100 p-2 rounded-full">

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../api/axios";
 import { useQuery } from "@tanstack/react-query";
+import { selectSortedByName } from "../utils/alphabetical";
 import {
   ShoppingBag,
   Tag,
@@ -65,6 +66,7 @@ const ProductDetail = () => {
       const response = await axios.get("/api/flavours/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: residuals } = useQuery({
@@ -73,6 +75,7 @@ const ProductDetail = () => {
       const response = await axios.get("/api/residuals/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   const { data: units } = useQuery({
@@ -81,6 +84,7 @@ const ProductDetail = () => {
       const response = await axios.get("/api/units/");
       return response.data;
     },
+    select: selectSortedByName,
   });
 
   // Format currency
