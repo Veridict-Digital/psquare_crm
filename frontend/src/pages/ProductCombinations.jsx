@@ -3889,17 +3889,14 @@ const ProductCombinations = () => {
             <style>{`
   .combo-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     background: white;
   }
 
   .combo-table th,
   .combo-table td {
     vertical-align: top;
-  }
-
-  .combo-table td {
-    border: 1px solid #e5e7eb;
   }
 
   .combo-table thead {
@@ -3909,8 +3906,8 @@ const ProductCombinations = () => {
   .combo-table th {
     position: sticky;
     top: 0;
-    z-index: 20;
-    background: transparent;
+    z-index: 40;
+    background: #14264a;
     color: #e8f0ff;
     font-size: 11px;
     font-weight: 700;
@@ -3918,6 +3915,7 @@ const ProductCombinations = () => {
     letter-spacing: 0.04em;
     padding: 10px 14px;
     border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     white-space: nowrap;
   }
 
@@ -3937,6 +3935,7 @@ const ProductCombinations = () => {
   .combo-table td {
     border-bottom: 1px solid #e5e7eb;
     border-right: 1px solid #e5e7eb;
+    background-clip: padding-box;
   }
 
   .combo-table td:last-child,
@@ -3945,27 +3944,39 @@ const ProductCombinations = () => {
   }
 
   .combo-table tbody tr {
-    transition: all 0.2s ease;
+    transition: background 0.2s ease;
   }
 
-  .combo-table tbody tr:hover {
-    background: #f8fafc;
+  .combo-table tbody tr:hover td {
+    background-color: #f8fafc;
+  }
+
+  .combo-table tbody tr:hover td.sticky-col.bg-white,
+  .combo-table tbody tr:hover td.sticky-col.bg-gray-50 {
+    background-color: #f8fafc !important;
   }
 
   .sticky-col {
     position: sticky;
-    z-index: 10;
-    background: inherit;
+    z-index: 15;
     border-right: 1px solid #d1d5db !important;
+  }
+
+  .sticky-col.bg-white {
+    background-color: #ffffff !important;
+  }
+
+  .sticky-col.bg-gray-50 {
+    background-color: #f9fafb !important;
   }
 
   .sticky-col-header {
     position: sticky;
     top: 0;
-    z-index: 30;
+    z-index: 50 !important;
     background: #14264a !important;
     color: #e8f0ff;
-    border-right: none !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
   .overflow-auto::-webkit-scrollbar {
@@ -3974,7 +3985,6 @@ const ProductCombinations = () => {
     height: 0;
   }
 
-  /* Ensure all columns have visible borders */
   .combo-table td:not(:last-child) {
     border-right: 1px solid #e5e7eb;
   }
