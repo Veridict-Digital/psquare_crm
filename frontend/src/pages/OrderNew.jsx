@@ -840,7 +840,11 @@ const OrderNew = () => {
 
   const { data: products } = useQuery({
     queryKey: ["products"],
-    queryFn: () => axios.get("/api/products/").then((res) => res.data),
+    queryFn: () =>
+      axios.get("/api/products/?page_size=10000").then((res) => {
+        const data = res.data;
+        return Array.isArray(data) ? data : data?.results || [];
+      }),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -3178,22 +3182,38 @@ const OrderNew = () => {
               <div className="mb-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
                   <div className="relative" ref={productDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setProductDropdownOpen(!productDropdownOpen)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 text-left flex items-center justify-between"
-                    >
-                      <span className={selectedProduct ? "text-gray-900" : "text-gray-500"}>
-                        {selectedProduct
-                          ? products?.find((p) => p.id.toString() === selectedProduct.toString())?.title
-                          : "Select Product"}
-                      </span>
-                      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${productDropdownOpen ? "rotate-180" : ""}`} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setProductDropdownOpen(!productDropdownOpen)}
+                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 text-left flex items-center justify-between"
+                      >
+                        <span className={`truncate ${selectedProduct ? "text-gray-900" : "text-gray-500"}`}>
+                          {selectedProduct
+                            ? products?.find((p) => p.id.toString() === selectedProduct.toString())?.title
+                            : "Select Product"}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${productDropdownOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      {selectedProduct && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedProduct("");
+                            setProductSearch("");
+                            setProductDropdownOpen(false);
+                          }}
+                          className="p-2 border border-gray-300 rounded-lg bg-white text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
+                          title="Clear selected product"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
 
                     {productDropdownOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                        <div className="p-2 border-b border-gray-200">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[26rem] overflow-hidden flex flex-col">
+                        <div className="p-2 border-b border-gray-200 shrink-0">
                           <input
                             type="text"
                             placeholder="Search..."
@@ -3202,10 +3222,22 @@ const OrderNew = () => {
                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                           />
                         </div>
-                        <div className="py-1">
+                        <div className="py-1 overflow-auto max-h-[21rem]">
+                          {selectedProduct && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProduct("");
+                                setProductDropdownOpen(false);
+                                setProductSearch("");
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-red-50 text-red-600 text-sm font-medium border-b border-gray-100"
+                            >
+                              Clear selection
+                            </button>
+                          )}
                           {filteredProducts
                             .filter(p => !productSearch || p.title.toLowerCase().includes(productSearch.toLowerCase()))
-                            .slice(0, 10)
                             .map((product) => (
                               <button
                                 key={product.id}
@@ -3215,7 +3247,9 @@ const OrderNew = () => {
                                   setProductDropdownOpen(false);
                                   setProductSearch("");
                                 }}
-                                className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-3"
+                                className={`w-full px-3 py-2.5 text-left hover:bg-gray-100 flex items-center space-x-3 ${
+                                  selectedProduct?.toString() === product.id.toString() ? "bg-blue-50" : ""
+                                }`}
                               >
                                 {product.image ? (
                                   <img src={product.image} alt={product.title} className="w-8 h-8 object-cover rounded" />
@@ -3244,7 +3278,7 @@ const OrderNew = () => {
                           onChange={(e) => setFilterPaid(e.target.checked)}
                           className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         />
-                        <span className="text-gray-700">Purchase Product</span>
+                        <span className="text-gray-700">Purchase</span>
                       </label>
                       <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <input
@@ -3254,7 +3288,7 @@ const OrderNew = () => {
                           onChange={(e) => setFilterFree(e.target.checked)}
                           className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
                         />
-                        <span className="text-gray-700">Free Product</span>
+                        <span className="text-gray-700">Free</span>
                       </label>
                       <label className={`flex items-center space-x-1.5 cursor-pointer text-xs font-semibold ${!selectedProduct ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <input
@@ -3264,7 +3298,7 @@ const OrderNew = () => {
                           onChange={(e) => setFilterGift(e.target.checked)}
                           className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
                         />
-                        <span className="text-gray-700">Gift Product</span>
+                        <span className="text-gray-700">Gift</span>
                       </label>
                       <div className="flex items-center space-x-1.5 ml-auto">
                         <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Sort Qty:</span>
@@ -3285,9 +3319,10 @@ const OrderNew = () => {
                             setFilterFree(false);
                             setFilterGift(false);
                           }}
-                          className="text-[10px] text-red-600 hover:text-red-800 font-semibold underline"
+                          className="p-1.5 border border-gray-300 rounded-lg bg-white text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
+                          title="Clear filters"
                         >
-                          Clear
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
